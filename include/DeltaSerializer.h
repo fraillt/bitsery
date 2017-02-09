@@ -27,7 +27,7 @@ public:
     DeltaSerializer& value(const T& v) {
         if (setChangedState(v)) {
             constexpr size_t ValueSize = SIZE == 0 ? sizeof(T) : SIZE;
-            _writter.template WriteBytes<ValueSize>(v);
+            _writter.template writeBytes<ValueSize>(v);
         }
         return *this;
     }
@@ -42,11 +42,11 @@ public:
 
     template<typename T>
     DeltaSerializer& text(T&& str) {
-        return withContainer(str, [this](auto& v) { value<1>(v);});
+        return container(str, [this](auto& v) { value<1>(v);});
     }
 
     template<typename T, size_t N, typename Fnc>
-    DeltaSerializer & withArray(const std::array<T,N> &arr, Fnc&& fnc) {
+    DeltaSerializer & array(const std::array<T,N> &arr, Fnc&& fnc) {
         if (setChangedState(arr)) {
             if (!_isNewElement) {
                 const auto& old = *_objMemPos.top().getOldObjectField(arr);
@@ -61,7 +61,7 @@ public:
 
 
     template<typename T, size_t N, typename Fnc>
-    DeltaSerializer& withArray(const T (&arr)[N], Fnc&& fnc) {
+    DeltaSerializer& array(const T (&arr)[N], Fnc&& fnc) {
         if (setChangedState(arr)) {
             if (!_isNewElement) {
                 auto old = *_objMemPos.top().getOldObjectField(arr);
@@ -77,9 +77,9 @@ public:
     }
 
     template <typename T, typename Fnc>
-    DeltaSerializer& withContainer(T&& obj, Fnc&& fnc) {
+    DeltaSerializer& container(T&& obj, Fnc&& fnc) {
         if(setChangedState(obj)) {
-            _writter.template WriteBits<32>(obj.size());
+            _writter.template writeBits<32>(obj.size());
             if (!_isNewElement) {
                 auto old = *_objMemPos.top().getOldObjectField(obj);
                 processContainer(std::begin(old), std::end(old), std::begin(obj), std::end(obj), std::forward<Fnc>(fnc));
@@ -159,21 +159,21 @@ private:
     }
 
     void writeChangedState(bool state) {
-        _writter.template WriteBits<1>(state ? 1u : 0u);
+        _writter.template writeBits<1>(state ? 1u : 0u);
     }
 
     void writeIndexOffset(const size_t offset) {
         //special case, if items are updated sequentialy
         if (offset == 0) {
-            _writter.template WriteBits<1>(1u);
+            _writter.template writeBits<1>(1u);
         } else {
-            _writter.template WriteBits<1>(0u);
+            _writter.template writeBits<1>(0u);
             auto smallOffset = offset < 16;
-            _writter.template WriteBits<1>(smallOffset ? 1u : 0u);
+            _writter.template writeBits<1>(smallOffset ? 1u : 0u);
             if (smallOffset)
-                _writter.template WriteBits<4>(offset);
+                _writter.template writeBits<4>(offset);
             else
-                _writter.template WriteBits<32>(offset);
+                _writter.template writeBits<32>(offset);
         }
     }
 

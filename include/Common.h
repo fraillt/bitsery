@@ -55,7 +55,7 @@ template <size_t SIZE>
 struct ProcessAnyType {
     template <typename S, typename T>
     static void serialize(S& s, T&& v) {
-        s.value<SIZE>(std::forward<T>(v));
+        s.template value<SIZE>(v);
     }
 };
 

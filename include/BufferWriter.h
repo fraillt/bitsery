@@ -11,21 +11,21 @@
 struct MeasureSize {
 
     template<size_t SIZE, typename T>
-    void WriteBytes(const T& ) {
+    void writeBytes(const T& ) {
         static_assert(std::is_integral<T>(), "");
         static_assert(sizeof(T) == SIZE, "");
         _bytesCount += SIZE;
     }
 
     template<size_t SIZE, typename T>
-    void WriteBits(const T& )  {
+    void writeBits(const T& )  {
         static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
         static_assert(SIZE > 0 && SIZE <= BITS_SIZE<T>, "");
         _bytesCount += SIZE * 8;
     }
 
     template<size_t SIZE, typename T>
-    void WriteBuffer(const T* , size_t count) {
+    void writeBuffer(const T* , size_t count) {
         static_assert(std::is_integral<T>(), "");
         static_assert(sizeof(T) == SIZE, "");
         _bytesCount += SIZE * count;
@@ -47,26 +47,26 @@ struct BufferWriter {
     }
 
     template<size_t SIZE, typename T>
-    void WriteBytes(const T& v) {
+    void writeBytes(const T& v) {
         static_assert(std::is_integral<T>(), "");
         static_assert(sizeof(T) == SIZE, "");
 
         if (m_scratchBits) {
             using UT = typename std::make_unsigned<T>::type;
-            WriteBits<SIZE * 8>(reinterpret_cast<const UT&>(v));
+            writeBits<SIZE * 8>(reinterpret_cast<const UT&>(v));
         } else {
             directWrite(&v,1);
         }
     }
 
     template<size_t SIZE, typename T>
-    void WriteBuffer(const T* buf, size_t count) {
+    void writeBuffer(const T* buf, size_t count) {
         static_assert(std::is_integral<T>(), "");
         static_assert(sizeof(T) == SIZE, "");
         if (m_scratchBits) {
             //todo implement
 //            using UT = typename std::make_unsigned<T>::type;
-//            WriteBits<SIZE * 8 * count>(reinterpret_cast<const UT&>(v));
+//            writeBits<SIZE * 8 * count>(reinterpret_cast<const UT&>(v));
         } else {
             directWrite(buf, count);
         }
@@ -74,14 +74,14 @@ struct BufferWriter {
     }
 
     template<size_t SIZE, typename T>
-    void WriteBits(const T& v)  {
+    void writeBits(const T& v)  {
         static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
         static_assert(SIZE > 0 && SIZE <= BITS_SIZE<T>, "");
-        WriteBitsInternal(v, SIZE);
+        writeBitsInternal(v, SIZE);
     }
 
     template <typename T>
-    void WriteBitsInternal(const T& v, size_t size) {
+    void writeBitsInternal(const T& v, size_t size) {
         auto value = v;
         auto bitsLeft = size;
         while (bitsLeft > 0) {
@@ -100,7 +100,7 @@ struct BufferWriter {
         }
     }
 
-    void Flush() {
+    void flush() {
         if ( m_scratchBits )
         {
             auto tmp = static_cast<value_type>( m_scratch & bufTypeMask );

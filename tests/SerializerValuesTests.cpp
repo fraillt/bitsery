@@ -19,7 +19,7 @@ bool SerializeDeserializeValue(const T& v) {
     BufferWriter bw{buf};
     Serializer<BufferWriter> ser(bw);
     ser.value(v);
-    bw.Flush();
+    bw.flush();
 
     BufferReader br{buf};
     Deserializer<BufferReader> des(br);
@@ -47,9 +47,27 @@ TEST(SerializerValues, EnumTypes) {
     EXPECT_THAT(SerializeDeserializeValue(E3::C3), Eq(true));
 }
 
-
 TEST(SerializerValues, FloatingPointTypes) {
     EXPECT_THAT(SerializeDeserializeValue(-484.465), Eq(true));
     EXPECT_THAT(SerializeDeserializeValue(0.00000015f), Eq(true));
+}
+
+TEST(SerializerValues, ExplicitTypeSize) {
+    int v{23472};
+    constexpr size_t TSIZE = sizeof(v);
+    std::vector<uint8_t> buf{};
+
+    BufferWriter bw{buf};
+    Serializer<BufferWriter> ser(bw);
+    ser.value<TSIZE>(v);
+    bw.flush();
+
+    BufferReader br{buf};
+    Deserializer<BufferReader> des(br);
+    int res;
+    des.value<TSIZE>(res);
+
+    EXPECT_THAT(res, Eq(v));
+    EXPECT_THAT(TSIZE, Eq(buf.size()));
 }
 

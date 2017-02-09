@@ -39,23 +39,23 @@ TEST(BufferBitsOperations, WriteAndReadBits) {
     std::vector<uint8_t> buf;
     BufferWriter bw{buf};
 
-    bw.WriteBits<aBITS>(data.a);
-    bw.WriteBits<bBITS>(data.b);
-    bw.WriteBits<cBITS>(data.c);
-    bw.WriteBits<dBITS>(data.d);
-    bw.WriteBits<eBITS>(data.e);
-    bw.Flush();
+    bw.writeBits<aBITS>(data.a);
+    bw.writeBits<bBITS>(data.b);
+    bw.writeBits<cBITS>(data.c);
+    bw.writeBits<dBITS>(data.d);
+    bw.writeBits<eBITS>(data.e);
+    bw.flush();
     auto bytesCount = ((aBITS + bBITS + cBITS + dBITS + eBITS) / 8) +1 ;
     EXPECT_THAT(std::distance(buf.begin(), buf.end()), Eq(bytesCount));
     //read from buffer
     BufferReader br{buf};
     IntegralUnsignedTypes res;
 
-    br.ReadBits<aBITS>(res.a);
-    br.ReadBits<bBITS>(res.b);
-    br.ReadBits<cBITS>(res.c);
-    br.ReadBits<dBITS>(res.d);
-    br.ReadBits<eBITS>(res.e);
+    br.readBits<aBITS>(res.a);
+    br.readBits<bBITS>(res.b);
+    br.readBits<cBITS>(res.c);
+    br.readBits<dBITS>(res.d);
+    br.readBits<eBITS>(res.e);
 
     EXPECT_THAT(res.a, Eq(data.a));
     EXPECT_THAT(res.b, Eq(data.b));
@@ -70,9 +70,9 @@ TEST(BufferBitsOperations, WhenFinishedFlushWriter) {
     std::vector<uint8_t> buf;
     BufferWriter bw{buf};
 
-    bw.WriteBits<2>(0xFFu);
+    bw.writeBits<2>(0xFFu);
     EXPECT_THAT(std::distance(buf.begin(), buf.end()), Eq(0));
-    bw.Flush();
+    bw.flush();
     EXPECT_THAT(std::distance(buf.begin(), buf.end()), Eq(1));
 
 }
@@ -84,24 +84,24 @@ TEST(BufferBitsOperations, BufferSizeIsCountedPerByteNotPerBit) {
     std::vector<uint8_t> buf;
     BufferWriter bw{buf};
 
-    bw.WriteBits<2>(0xFFu);
-    bw.Flush();
+    bw.writeBits<2>(0xFFu);
+    bw.flush();
     EXPECT_THAT(std::distance(buf.begin(), buf.end()), Eq(1));
 
     //read from buffer
     BufferReader br{buf};
     unsigned tmp;
-    EXPECT_THAT(br.ReadBits<4>(tmp), Eq(true));
-    EXPECT_THAT(br.ReadBits<2>(tmp), Eq(true));
-    EXPECT_THAT(br.ReadBits<2>(tmp), Eq(true));
-    EXPECT_THAT(br.ReadBits<2>(tmp), Eq(false));
+    EXPECT_THAT(br.readBits<4>(tmp), Eq(true));
+    EXPECT_THAT(br.readBits<2>(tmp), Eq(true));
+    EXPECT_THAT(br.readBits<2>(tmp), Eq(true));
+    EXPECT_THAT(br.readBits<2>(tmp), Eq(false));
 
     //part of next byte
     BufferReader br1{buf};
-    EXPECT_THAT(br1.ReadBits<2>(tmp), Eq(true));
-    EXPECT_THAT(br1.ReadBits<7>(tmp), Eq(false));
+    EXPECT_THAT(br1.readBits<2>(tmp), Eq(true));
+    EXPECT_THAT(br1.readBits<7>(tmp), Eq(false));
 
     //bigger than byte
     BufferReader br2{buf};
-    EXPECT_THAT(br2.ReadBits<9>(tmp), Eq(false));
+    EXPECT_THAT(br2.readBits<9>(tmp), Eq(false));
 }

@@ -57,9 +57,9 @@ SERIALIZE(Y)
 	auto writeInt = [&s](auto& v) { s.template value<4>(v); };
 	s.text(o.s);
 	s.template value<4>(o.y);
-	s.withArray(o.arr, writeInt);
-	s.withArray(o.carr, writeInt);
-	s.withContainer(o.vx, [&s](auto& v) { s.object(v); });
+	s.array(o.arr, writeInt);
+	s.array(o.carr, writeInt);
+	s.container(o.vx, [&s](auto& v) { s.object(v); });
 	return s;
 }
 
@@ -145,7 +145,7 @@ TEST(DeltaSerializer, GeneralConceptTest) {
 	BufferWriter bw{ buf };
 	DeltaSerializer<BufferWriter, Y> ser(bw, y, yNew);
 	serialize(ser, yNew);
-	bw.Flush();
+	bw.flush();
 	
 	BufferReader br{ buf };
 	DeltaDeserializer<BufferReader, Y> des(br, y, yRead);

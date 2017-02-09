@@ -17,24 +17,24 @@ struct BufferReader {
     }
 
     template<size_t SIZE, typename T>
-    bool ReadBytes(T& v) {
+    bool readBytes(T& v) {
         static_assert(std::is_integral<T>(), "");
         static_assert(sizeof(T) == SIZE, "");
         using UT = typename std::make_unsigned<T>::type;
         return m_scratch
-               ? ReadBits<SIZE * 8>(reinterpret_cast<UT&>(v))
+               ? readBits<SIZE * 8>(reinterpret_cast<UT&>(v))
                : directRead(&v, 1);
     }
 
     template<size_t SIZE, typename T>
-    bool ReadBuffer(T* buf, size_t count) {
+    bool readBuffer(T* buf, size_t count) {
         static_assert(std::is_integral<T>(), "");
         static_assert(sizeof(T) == SIZE, "");
 
         if (m_scratchBits) {
             //todo implement
 //            using UT = typename std::make_unsigned<T>::type;
-//            WriteBits<SIZE * 8 * count>(reinterpret_cast<const UT&>(v));
+//            writeBits<SIZE * 8 * count>(reinterpret_cast<const UT&>(v));
         } else {
             return directRead(buf, count);
         }
@@ -43,7 +43,7 @@ struct BufferReader {
 
 
     template<size_t SIZE, typename T>
-    bool ReadBits(T& v) {
+    bool readBits(T& v) {
         static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
         static_assert(SIZE > 0 && SIZE <= BITS_SIZE<T>, "");
 
@@ -52,12 +52,12 @@ struct BufferReader {
                               : 0u;
         if (static_cast<size_t>(std::distance(_pos, std::end(_buf))) < bytesRequired )
             return false;
-        ReadBitsInternal(v, SIZE);
+        readBitsInternal(v, SIZE);
         return true;
     }
 
     template <typename T>
-    void ReadBitsInternal(T& v, size_t size) {
+    void readBitsInternal(T& v, size_t size) {
         auto bitsLeft = size;
         T res{};
         while (bitsLeft > 0) {

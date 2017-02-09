@@ -36,24 +36,24 @@ TEST(BufferBytesOperations, WriteAndReadBytes) {
     std::vector<uint8_t> buf{};
     BufferWriter bw{buf};
 
-    bw.WriteBytes<4>(data.b);
-    bw.WriteBytes<1>(data.f[0]);
-    bw.WriteBytes<2>(data.c);
-    bw.WriteBytes<1>(data.d);
-    bw.WriteBytes<8>(data.a);
-    bw.WriteBytes<1>(data.e);
-    bw.WriteBytes<1>(data.f[1]);
+    bw.writeBytes<4>(data.b);
+    bw.writeBytes<1>(data.f[0]);
+    bw.writeBytes<2>(data.c);
+    bw.writeBytes<1>(data.d);
+    bw.writeBytes<8>(data.a);
+    bw.writeBytes<1>(data.e);
+    bw.writeBytes<1>(data.f[1]);
     EXPECT_THAT(std::distance(buf.begin(), buf.end()), Eq(18));
     //read from buffer
     BufferReader br{buf};
     IntegralTypes res{};
-    EXPECT_THAT(br.ReadBytes<4>(res.b), Eq(true));
-    EXPECT_THAT(br.ReadBytes<1>(res.f[0]), Eq(true));
-    EXPECT_THAT(br.ReadBytes<2>(res.c), Eq(true));
-    EXPECT_THAT(br.ReadBytes<1>(res.d), Eq(true));
-    EXPECT_THAT(br.ReadBytes<8>(res.a), Eq(true));
-    EXPECT_THAT(br.ReadBytes<1>(res.e), Eq(true));
-    EXPECT_THAT(br.ReadBytes<1>(res.f[1]), Eq(true));
+    EXPECT_THAT(br.readBytes<4>(res.b), Eq(true));
+    EXPECT_THAT(br.readBytes<1>(res.f[0]), Eq(true));
+    EXPECT_THAT(br.readBytes<2>(res.c), Eq(true));
+    EXPECT_THAT(br.readBytes<1>(res.d), Eq(true));
+    EXPECT_THAT(br.readBytes<8>(res.a), Eq(true));
+    EXPECT_THAT(br.readBytes<1>(res.e), Eq(true));
+    EXPECT_THAT(br.readBytes<1>(res.f[1]), Eq(true));
     //assert results
 
     EXPECT_THAT(data.a, Eq(res.a));
@@ -73,20 +73,20 @@ TEST(BufferBytesOperations, ReadReturnsFalseIfNotEnoughBufferSize) {
     std::vector<uint8_t> buf{};
     BufferWriter bw{buf};
 
-    bw.WriteBytes<1>(a);
-    bw.WriteBytes<1>(a);
-    bw.WriteBytes<1>(a);
+    bw.writeBytes<1>(a);
+    bw.writeBytes<1>(a);
+    bw.writeBytes<1>(a);
     //read from buffer
     BufferReader br{buf};
     int16_t b;
     int32_t c;
-    EXPECT_THAT(br.ReadBytes<4>(c), Eq(false));
-    EXPECT_THAT(br.ReadBytes<2>(b), Eq(true));
-    EXPECT_THAT(br.ReadBytes<2>(b), Eq(false));
-    EXPECT_THAT(br.ReadBytes<1>(a), Eq(true));
-    EXPECT_THAT(br.ReadBytes<1>(a), Eq(false));
-    EXPECT_THAT(br.ReadBytes<2>(b), Eq(false));
-    EXPECT_THAT(br.ReadBytes<4>(c), Eq(false));
+    EXPECT_THAT(br.readBytes<4>(c), Eq(false));
+    EXPECT_THAT(br.readBytes<2>(b), Eq(true));
+    EXPECT_THAT(br.readBytes<2>(b), Eq(false));
+    EXPECT_THAT(br.readBytes<1>(a), Eq(true));
+    EXPECT_THAT(br.readBytes<1>(a), Eq(false));
+    EXPECT_THAT(br.readBytes<2>(b), Eq(false));
+    EXPECT_THAT(br.readBytes<4>(c), Eq(false));
 
 }
 
@@ -102,27 +102,27 @@ TEST(BufferBytesOperations, ReadIsCompletedWhenAllBytesAreRead) {
     std::vector<uint8_t> buf{};
     BufferWriter bw{buf};
 
-    bw.WriteBytes<4>(data.b);
-    bw.WriteBytes<2>(data.c);
-    bw.WriteBytes<1>(data.d);
+    bw.writeBytes<4>(data.b);
+    bw.writeBytes<2>(data.c);
+    bw.writeBytes<1>(data.d);
     //read from buffer
     BufferReader br{buf};
     IntegralTypes res;
-    EXPECT_THAT(br.ReadBytes<4>(res.b), Eq(true));
-    EXPECT_THAT(br.ReadBytes<2>(res.c), Eq(true));
+    EXPECT_THAT(br.readBytes<4>(res.b), Eq(true));
+    EXPECT_THAT(br.readBytes<2>(res.c), Eq(true));
     EXPECT_THAT(br.isCompleted(), Eq(false));
-    EXPECT_THAT(br.ReadBytes<1>(res.d), Eq(true));
+    EXPECT_THAT(br.readBytes<1>(res.d), Eq(true));
     EXPECT_THAT(br.isCompleted(), Eq(true));
-    EXPECT_THAT(br.ReadBytes<1>(res.d), Eq(false));
+    EXPECT_THAT(br.readBytes<1>(res.d), Eq(false));
     EXPECT_THAT(br.isCompleted(), Eq(true));
 
     BufferReader br1{buf};
-    EXPECT_THAT(br1.ReadBytes<4>(res.b), Eq(true));
-    EXPECT_THAT(br1.ReadBytes<2>(res.c), Eq(true));
+    EXPECT_THAT(br1.readBytes<4>(res.b), Eq(true));
+    EXPECT_THAT(br1.readBytes<2>(res.c), Eq(true));
     EXPECT_THAT(br1.isCompleted(), Eq(false));
-    EXPECT_THAT(br1.ReadBytes<2>(res.c), Eq(false));
+    EXPECT_THAT(br1.readBytes<2>(res.c), Eq(false));
     EXPECT_THAT(br1.isCompleted(), Eq(false));
-    EXPECT_THAT(br1.ReadBytes<1>(res.d), Eq(true));
+    EXPECT_THAT(br1.readBytes<1>(res.d), Eq(true));
     EXPECT_THAT(br1.isCompleted(), Eq(true));
 
 

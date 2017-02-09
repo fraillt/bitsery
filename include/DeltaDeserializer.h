@@ -26,7 +26,7 @@ public:
     DeltaDeserializer& value(T& v) {
         if (getChangedState(v)) {
             constexpr size_t ValueSize = SIZE == 0 ? sizeof(T) : SIZE;
-            _reader.template ReadBytes<ValueSize>(v);
+            _reader.template readBytes<ValueSize>(v);
         }
         return *this;
     }
@@ -40,13 +40,13 @@ public:
 
     template<typename T>
     DeltaDeserializer& text(T&& str) {
-        return withContainer(str, [this](auto& v) { value<1>(v);});
+        return container(str, [this](auto& v) { value<1>(v);});
     }
 
 
 
     template<typename T, size_t N, typename Fnc>
-    DeltaDeserializer & withArray(std::array<T,N> &arr, Fnc&& fnc) {
+    DeltaDeserializer & array(std::array<T,N> &arr, Fnc&& fnc) {
         if (getChangedState(arr)) {
             if (!_isNewElement) {
                 const auto old = *_objMemPos.top().getOldObjectField(arr);
@@ -61,7 +61,7 @@ public:
 
 
     template<typename T, size_t N, typename Fnc>
-    DeltaDeserializer& withArray(T (&arr)[N], Fnc&& fnc) {
+    DeltaDeserializer& array(T (&arr)[N], Fnc&& fnc) {
         if (getChangedState(arr)) {
             if (!_isNewElement) {
                 const auto old = *_objMemPos.top().getOldObjectField(arr);
@@ -77,10 +77,10 @@ public:
     }
 
     template <typename T, typename Fnc>
-    DeltaDeserializer& withContainer(T& obj, Fnc&& fnc) {
+    DeltaDeserializer& container(T& obj, Fnc&& fnc) {
         if(getChangedState(obj)) {
             size_t newSize{};
-            _reader.template ReadBits<32>(newSize);
+            _reader.template readBits<32>(newSize);
             if (!_isNewElement) {
                 auto old = *_objMemPos.top().getOldObjectField(obj);
                 if (old.size() != newSize)
@@ -157,24 +157,24 @@ private:
 
     bool readChangedState() {
         unsigned char res{};
-        _reader.template ReadBits<1>(res);
+        _reader.template readBits<1>(res);
         return res;
     }
 
     size_t readIndexOffset() {
         //special case, if items are updated sequentialy
         unsigned char tmp{};
-        _reader.template ReadBits<1>(tmp);
+        _reader.template readBits<1>(tmp);
         if (tmp) {
             return 0u;
         }
         else {
             size_t res{};
-            _reader.template ReadBits<1>(tmp);
+            _reader.template readBits<1>(tmp);
             if (tmp > 0)
-                _reader.template ReadBits<4>(res);
+                _reader.template readBits<4>(res);
             else
-                _reader.template ReadBits<32>(res);
+                _reader.template readBits<32>(res);
             return res;
         }
 
