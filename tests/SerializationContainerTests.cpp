@@ -2,6 +2,8 @@
 // Created by fraillt on 17.2.7.
 //
 
+
+#include <gmock/gmock.h>
 #include "SerializationTestUtils.h"
 #include <numeric>
 #include <deque>

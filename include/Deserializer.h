@@ -103,9 +103,7 @@ public:
         decltype(obj.size()) size{};
         readLength(size);
         obj.resize(size);
-        using VType = typename T::value_type;
-        constexpr auto VSIZE = std::is_arithmetic<VType>::value || std::is_enum<VType>::value ? sizeof(VType) : 0;
-        procContainer<VSIZE>(obj);
+        procContainer<ARITHMETIC_OR_ENUM_SIZE<typename T::value_type>>(obj);
         return *this;
     }
 
@@ -130,8 +128,7 @@ public:
 
     template<typename T, size_t N>
     Deserializer & array(std::array<T,N> &arr) {
-        constexpr auto VSIZE = std::is_arithmetic<T>::value || std::is_enum<T>::value ? sizeof(T) : 0;
-        procContainer<VSIZE>(arr);
+        procContainer<ARITHMETIC_OR_ENUM_SIZE<T>>(arr);
         return *this;
     }
 
@@ -145,17 +142,37 @@ public:
         return *this;
     }
 
+    template<size_t VSIZE, typename T, size_t N>
+    Deserializer& array(T (&arr)[N]) {
+        procCArray<VSIZE>(arr);
+        return *this;
+    }
+
+    template<typename T, size_t N>
+    Deserializer& array(T (&arr)[N]) {
+        procCArray<ARITHMETIC_OR_ENUM_SIZE<T>>(arr);
+        return *this;
+    }
 
 private:
     Reader& _reader;
     void readLength(size_t& size) {
         size = {};
-		_reader.template readBits<32>(size);
+		_reader.readBits(size, 32);
     }
     template <size_t VSIZE, typename T>
     void procContainer(T&& obj) {
+        //todo could be improved for arithmetic types in contiguous containers (std::vector, std::array) (keep in mind std::vector<bool> specialization)
         for (auto& v: obj)
             ProcessAnyType<VSIZE>::serialize(*this, v);
+    };
+
+    template <size_t VSIZE, typename T, size_t N>
+    void procCArray(T (&arr)[N]) {
+        //todo could be improved for arithmetic types
+        T* end = arr + N;
+        for (T* it = arr; it != end; ++it)
+            ProcessAnyType<VSIZE>::serialize(*this, *it);
     };
 
 };

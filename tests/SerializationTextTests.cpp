@@ -2,6 +2,7 @@
 // Created by fraillt on 17.2.7.
 //
 
+#include <gmock/gmock.h>
 #include "SerializationTestUtils.h"
 using namespace testing;
 
@@ -31,7 +32,7 @@ TEST(SerializerText, WhenSizeOfTypeNotEqualsOneThenSetSizeExplicitly) {
     EXPECT_THAT(res, ContainerEq(t1));
 }
 
-TEST(SerializerText, BasicStringAsBufferIsThreadedAsNullTerminatedString) {
+TEST(SerializerText, BasicStringUseSizeMethodNotNullterminatedLength) {
     SerializationContext ctx;
     std::wstring t1(L"some random text\0xxxxxx", 20);
     std::wstring wres;
@@ -44,21 +45,21 @@ TEST(SerializerText, BasicStringAsBufferIsThreadedAsNullTerminatedString) {
     EXPECT_THAT(wres.size(), Eq(t1.size()));
     EXPECT_THAT(wres.size(), Gt(std::char_traits<std::wstring::value_type>::length(t1.data())));
 
-//    SerializationContext ctx2;
-//    std::string t2("\0no one cares what is there", 10);
-//    std::string res;
-//    ctx2.createSerializer().text(t2);
-//    ctx2.createDeserializer().text(res);
-//
-//    EXPECT_THAT(res, StrNe(t2));
-//    EXPECT_THAT(res.size(), Eq(0));
-//
-//    SerializationContext ctx3;
-//    std::string t3("never ending buffer that doesnt fit in this string", 10);
-//    ctx3.createSerializer().text(t3);
-//    ctx3.createDeserializer().text(res);
-//    EXPECT_THAT(res, StrEq(t3));
-//    EXPECT_THAT(res.size(), Eq(10));
+    SerializationContext ctx2;
+    std::string t2("\0no one cares what is there", 10);
+    std::string res;
+    ctx2.createSerializer().text(t2);
+    ctx2.createDeserializer().text(res);
+
+    EXPECT_THAT(res, StrEq(t2));
+    EXPECT_THAT(res.size(), Eq(t2.size()));
+
+    SerializationContext ctx3;
+    std::string t3("never ending buffer that doesnt fit in this string", 10);
+    ctx3.createSerializer().text(t3);
+    ctx3.createDeserializer().text(res);
+    EXPECT_THAT(res, StrEq(t3));
+    EXPECT_THAT(res.size(), Eq(10));
 }
 
 const int CARR_LENGTH = 10;

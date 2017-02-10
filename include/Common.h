@@ -48,14 +48,14 @@ struct BIGGER_TYPE<char> {
     typedef int16_t type;
 };
 
-template <size_t SIZE, typename T>
-constexpr size_t DEFAULT_OR_SIZE =SIZE == 0 ? sizeof(T) : SIZE;
+template <typename T>
+constexpr size_t ARITHMETIC_OR_ENUM_SIZE = std::is_arithmetic<T>::value || std::is_enum<T>::value ? sizeof(T) : 0;
 
 template <size_t SIZE>
 struct ProcessAnyType {
     template <typename S, typename T>
     static void serialize(S& s, T&& v) {
-        s.template value<SIZE>(v);
+        s.template value<SIZE>(std::forward<T>(v));
     }
 };
 

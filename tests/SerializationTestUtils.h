@@ -5,11 +5,11 @@
 #ifndef BITSERY_SERIALIZERTESTS_H
 #define BITSERY_SERIALIZERTESTS_H
 
-#include <gmock/gmock.h>
 #include <Deserializer.h>
 #include <BufferReader.h>
 #include "BufferWriter.h"
 #include "Serializer.h"
+#include <memory>
 
 struct MyStruct1 {
     MyStruct1(int v1, int v2):i1{v1}, i2{v2} {}
@@ -19,7 +19,7 @@ struct MyStruct1 {
     bool operator == (const MyStruct1& rhs) const {
         return i1 == rhs.i1 && i2 == rhs.i2;
     }
-    static constexpr size_t SIZE = sizeof(i1) + sizeof(i2);
+    static constexpr size_t SIZE = sizeof(MyStruct1::i1) + sizeof(MyStruct1::i2);
 };
 
 SERIALIZE(MyStruct1) {
@@ -41,7 +41,7 @@ struct MyStruct2 {
     bool operator == (const MyStruct2& rhs) const {
         return e1 == rhs.e1 && s1 == rhs.s1;
     }
-    static constexpr size_t SIZE = MyStruct1::SIZE + sizeof(e1);
+    static constexpr size_t SIZE = MyStruct1::SIZE + sizeof(MyStruct2::e1);
 };
 
 SERIALIZE(MyStruct2) {

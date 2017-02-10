@@ -6,7 +6,9 @@
 #define PROJECT_TEMPLATE_BUFFER_WRITER_H
 
 #include "Common.h"
+#include <cassert>
 #include <algorithm>
+#include <iterator>
 
 struct MeasureSize {
 
@@ -14,28 +16,29 @@ struct MeasureSize {
     void writeBytes(const T& ) {
         static_assert(std::is_integral<T>(), "");
         static_assert(sizeof(T) == SIZE, "");
-        _bytesCount += SIZE;
+        _bitsCount += BITS_SIZE<T>;
     }
 
-    template<size_t SIZE, typename T>
-    void writeBits(const T& )  {
+    template<typename T>
+    void writeBits(const T& , size_t bitsCount)  {
         static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
-        static_assert(SIZE > 0 && SIZE <= BITS_SIZE<T>, "");
-        _bytesCount += SIZE * 8;
+        assert(bitsCount <= BITS_SIZE<T>);
+        _bitsCount += bitsCount;
     }
 
     template<size_t SIZE, typename T>
     void writeBuffer(const T* , size_t count) {
         static_assert(std::is_integral<T>(), "");
         static_assert(sizeof(T) == SIZE, "");
-        _bytesCount += SIZE * count;
+        _bitsCount += BITS_SIZE<T> * count;
     }
 
+    //get size in bytes
     size_t getSize() const {
-        return _bytesCount;
+        return _bitsCount / 8;
     }
 private:
-    size_t _bytesCount{};
+    size_t _bitsCount{};
 
 };
 
@@ -43,7 +46,7 @@ private:
 struct BufferWriter {
     using value_type = uint8_t;
     BufferWriter(std::vector<uint8_t>& buffer):_buf{buffer}, _outIt{std::back_inserter(buffer)} {
-
+        static_assert(std::is_unsigned<value_type>::value, "");
     }
 
     template<size_t SIZE, typename T>
@@ -51,11 +54,11 @@ struct BufferWriter {
         static_assert(std::is_integral<T>(), "");
         static_assert(sizeof(T) == SIZE, "");
 
-        if (m_scratchBits) {
-            using UT = typename std::make_unsigned<T>::type;
-            writeBits<SIZE * 8>(reinterpret_cast<const UT&>(v));
-        } else {
+        if (!m_scratchBits) {
             directWrite(&v,1);
+        } else {
+            using UT = typename std::make_unsigned<T>::type;
+            writeBits(reinterpret_cast<const UT&>(v), BITS_SIZE<T>);
         }
     }
 
@@ -63,41 +66,28 @@ struct BufferWriter {
     void writeBuffer(const T* buf, size_t count) {
         static_assert(std::is_integral<T>(), "");
         static_assert(sizeof(T) == SIZE, "");
-        if (m_scratchBits) {
-            //todo implement
-//            using UT = typename std::make_unsigned<T>::type;
-//            writeBits<SIZE * 8 * count>(reinterpret_cast<const UT&>(v));
-        } else {
+        if (!m_scratchBits) {
             directWrite(buf, count);
+        } else {
+            using UT = typename std::make_unsigned<T>::type;
+            //todo improve implementation
+            const auto end = buf + count;
+            for (auto it = buf; it != end; ++it)
+                writeBits(reinterpret_cast<const UT&>(*it), BITS_SIZE<T>);
         }
-
     }
 
-    template<size_t SIZE, typename T>
-    void writeBits(const T& v)  {
+    template<typename T>
+    void writeBits(const T& v, size_t bitsCount)  {
         static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
-        static_assert(SIZE > 0 && SIZE <= BITS_SIZE<T>, "");
-        writeBitsInternal(v, SIZE);
+        assert(bitsCount <= BITS_SIZE<T>);
+        assert( v <= (( 1ULL << bitsCount ) - 1 ) );
+        writeBitsInternal(v, bitsCount);
     }
 
-    template <typename T>
-    void writeBitsInternal(const T& v, size_t size) {
-        auto value = v;
-        auto bitsLeft = size;
-        while (bitsLeft > 0) {
-            auto bits = std::min(bitsLeft, BITS_SIZE<value_type>);
-            m_scratch |= static_cast<SCRATCH_TYPE>( value ) << m_scratchBits;
-            m_scratchBits += bits;
-            if ( m_scratchBits >= BITS_SIZE<value_type> ) {
-                auto tmp = static_cast<value_type>(m_scratch & bufTypeMask);
-                directWrite(&tmp, 1);
-                m_scratch >>= BITS_SIZE<value_type>;
-                m_scratchBits -= BITS_SIZE<value_type>;
-
-                value >>= BITS_SIZE<value_type>;
-            }
-            bitsLeft -= bits;
-        }
+    void align() {
+        if ( m_scratchBits )
+            writeBitsInternal(value_type{}, BITS_SIZE<value_type> - m_scratchBits);
     }
 
     void flush() {
@@ -119,6 +109,26 @@ private:
         const auto pos = _buf.size();
         _buf.resize(pos + bytesSize);
         std::copy_n(reinterpret_cast<const value_type *>(v), bytesSize, _buf.data()+pos);
+    }
+
+    template <typename T>
+    void writeBitsInternal(const T& v, size_t size) {
+        auto value = v;
+        auto bitsLeft = size;
+        while (bitsLeft > 0) {
+            auto bits = std::min(bitsLeft, BITS_SIZE<value_type>);
+            m_scratch |= static_cast<SCRATCH_TYPE>( value ) << m_scratchBits;
+            m_scratchBits += bits;
+            if ( m_scratchBits >= BITS_SIZE<value_type> ) {
+                auto tmp = static_cast<value_type>(m_scratch & bufTypeMask);
+                directWrite(&tmp, 1);
+                m_scratch >>= BITS_SIZE<value_type>;
+                m_scratchBits -= BITS_SIZE<value_type>;
+
+                value >>= BITS_SIZE<value_type>;
+            }
+            bitsLeft -= bits;
+        }
     }
 
     const value_type bufTypeMask = 0xFF;

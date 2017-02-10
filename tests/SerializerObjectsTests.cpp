@@ -137,7 +137,7 @@ TEST(DeltaSerializer, GeneralConceptTest) {
 	yNew.arr[2] = 0xFFFFFFFF;
 	yNew.carr[1] = 0xFFFFFFFF;
 	yNew.s = "labas dienaABC";
-	yNew.vx[0].s = "very nigga";
+	yNew.vx[0].s = "very opapa";
 	yNew.vx[1].s = "bla";
 	yNew.vx.push_back(X{ 3 });
 

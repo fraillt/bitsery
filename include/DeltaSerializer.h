@@ -8,13 +8,14 @@
 #include <array>
 #include <stack>
 #include <algorithm>
-#include "Common.h"
+#include "Serializer.h"
 
 template<typename Writter, typename TObj>
 class DeltaSerializer {
 public:
     DeltaSerializer(Writter& w, const TObj& oldObj, const TObj& newObj)
-            :_writter{w},
+            :_serializer{w},
+             _writter{w},
              _oldObj{oldObj},
              _newObj{newObj},
              _objMemPos(std::deque<ObjectMemoryPosition>(1, ObjectMemoryPosition{oldObj, newObj})),
@@ -42,7 +43,11 @@ public:
 
     template<typename T>
     DeltaSerializer& text(T&& str) {
-        return container(str, [this](auto& v) { value<1>(v);});
+        if(setChangedState(str)) {
+            _serializer.text(str);
+        }
+        return *this;
+
     }
 
     template<typename T, size_t N, typename Fnc>
@@ -79,7 +84,7 @@ public:
     template <typename T, typename Fnc>
     DeltaSerializer& container(T&& obj, Fnc&& fnc) {
         if(setChangedState(obj)) {
-            _writter.template writeBits<32>(obj.size());
+            _writter.writeBits(obj.size(), 32);
             if (!_isNewElement) {
                 auto old = *_objMemPos.top().getOldObjectField(obj);
                 processContainer(std::begin(old), std::end(old), std::begin(obj), std::end(obj), std::forward<Fnc>(fnc));
@@ -92,6 +97,7 @@ public:
     }
 
 private:
+    Serializer<Writter> _serializer;
     Writter& _writter;
     const TObj& _oldObj;
     const TObj& _newObj;
@@ -159,21 +165,21 @@ private:
     }
 
     void writeChangedState(bool state) {
-        _writter.template writeBits<1>(state ? 1u : 0u);
+        _writter.writeBits(state ? 1u : 0u, 1);
     }
 
     void writeIndexOffset(const size_t offset) {
         //special case, if items are updated sequentialy
         if (offset == 0) {
-            _writter.template writeBits<1>(1u);
+            _writter.writeBits(1u, 1);
         } else {
-            _writter.template writeBits<1>(0u);
+            _writter.writeBits(0u, 1);
             auto smallOffset = offset < 16;
-            _writter.template writeBits<1>(smallOffset ? 1u : 0u);
+            _writter.writeBits(smallOffset ? 1u : 0u, 1);
             if (smallOffset)
-                _writter.template writeBits<4>(offset);
+                _writter.writeBits(offset, 4);
             else
-                _writter.template writeBits<32>(offset);
+                _writter.writeBits(offset, 32);
         }
     }
 

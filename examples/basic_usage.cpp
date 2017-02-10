@@ -18,6 +18,7 @@ struct MyStruct {
     std::vector<float> fs;
 };
 
+//define how object should be serialized
 SERIALIZE(MyStruct) {
     return s.
             value(o.i).
@@ -48,17 +49,25 @@ int main() {
     }
 
     //create serializer
+    //1) create buffer to store data
     std::vector<uint8_t> buffer;
+    //2) create buffer writer that is able to write bytes or bits to buffer
     BufferWriter bw{buffer};
+    //3) create serializer
     Serializer<BufferWriter> ser{bw};
+
     //call serialize function
     serialize(ser, data);
-    //this is required if using bit operations
+
+    //flush to buffer
     bw.flush();
 
     MyStruct result{};
+
     //create deserializer
+    //1) create buffer reader
     BufferReader br{buffer};
+    //2) create deserializer
     Deserializer<BufferReader> des{br};
 
     //call same function with different arguments

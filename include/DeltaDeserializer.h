@@ -8,13 +8,14 @@
 #include <array>
 #include <stack>
 #include <algorithm>
-#include "Common.h"
+#include "Deserializer.h"
 
 template<typename Reader, typename TObj>
 class DeltaDeserializer {
 public:
-    DeltaDeserializer(Reader& w, const TObj& oldObj, const TObj& newObj)
-            :_reader{w},
+    DeltaDeserializer(Reader& r, const TObj& oldObj, const TObj& newObj)
+            :_deserializer{r},
+             _reader{r},
              _oldObj{oldObj},
              _newObj{newObj},
              _objMemPos(std::deque<ObjectMemoryPosition>(1, ObjectMemoryPosition{oldObj, newObj})),
@@ -40,7 +41,10 @@ public:
 
     template<typename T>
     DeltaDeserializer& text(T&& str) {
-        return container(str, [this](auto& v) { value<1>(v);});
+        if (getChangedState(str)) {
+            _deserializer.text(str);
+        }
+        return *this;
     }
 
 
@@ -80,7 +84,7 @@ public:
     DeltaDeserializer& container(T& obj, Fnc&& fnc) {
         if(getChangedState(obj)) {
             size_t newSize{};
-            _reader.template readBits<32>(newSize);
+            _reader.readBits(newSize, 32);
             if (!_isNewElement) {
                 auto old = *_objMemPos.top().getOldObjectField(obj);
                 if (old.size() != newSize)
@@ -96,6 +100,7 @@ public:
     }
 
 private:
+    Deserializer<Reader> _deserializer;
     Reader& _reader;
 
     const TObj& _oldObj;
@@ -157,24 +162,26 @@ private:
 
     bool readChangedState() {
         unsigned char res{};
-        _reader.template readBits<1>(res);
+        _reader.readBits(res, 1);
         return res;
     }
+
+
 
     size_t readIndexOffset() {
         //special case, if items are updated sequentialy
         unsigned char tmp{};
-        _reader.template readBits<1>(tmp);
+        _reader.readBits(tmp, 1);
         if (tmp) {
             return 0u;
         }
         else {
             size_t res{};
-            _reader.template readBits<1>(tmp);
+            _reader.readBits(tmp, 1);
             if (tmp > 0)
-                _reader.template readBits<4>(res);
+                _reader.readBits(res, 4);
             else
-                _reader.template readBits<32>(res);
+                _reader.readBits(res, 32);
             return res;
         }
 

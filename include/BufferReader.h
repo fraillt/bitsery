@@ -7,6 +7,7 @@
 
 #include "Common.h"
 
+#include <cassert>
 #include <algorithm>
 
 struct BufferReader {
@@ -21,9 +22,9 @@ struct BufferReader {
         static_assert(std::is_integral<T>(), "");
         static_assert(sizeof(T) == SIZE, "");
         using UT = typename std::make_unsigned<T>::type;
-        return m_scratch
-               ? readBits<SIZE * 8>(reinterpret_cast<UT&>(v))
-               : directRead(&v, 1);
+        return !m_scratch
+               ? directRead(&v, 1)
+               : readBits(reinterpret_cast<UT&>(v), BITS_SIZE<T>);
     }
 
     template<size_t SIZE, typename T>
@@ -31,28 +32,59 @@ struct BufferReader {
         static_assert(std::is_integral<T>(), "");
         static_assert(sizeof(T) == SIZE, "");
 
-        if (m_scratchBits) {
-            //todo implement
-//            using UT = typename std::make_unsigned<T>::type;
-//            writeBits<SIZE * 8 * count>(reinterpret_cast<const UT&>(v));
-        } else {
+        if (!m_scratchBits) {
             return directRead(buf, count);
+        } else {
+            using UT = typename std::make_unsigned<T>::type;
+            //todo improve implementation
+            const auto end = buf + count;
+            for (auto it = buf; it != end; ++it) {
+                if (!readBits(reinterpret_cast<UT&>(*it), BITS_SIZE<T>))
+                    return false;
+            }
         }
         return true;
     }
 
 
-    template<size_t SIZE, typename T>
-    bool readBits(T& v) {
+    template<typename T>
+    bool readBits(T& v, size_t bitsCount) {
         static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
-        static_assert(SIZE > 0 && SIZE <= BITS_SIZE<T>, "");
+        assert(bitsCount <= BITS_SIZE<T>);
 
-        const auto bytesRequired = SIZE > m_scratchBits
-                              ? ((SIZE - 1 - m_scratchBits) >> 3) + 1u
+        const auto bytesRequired = bitsCount > m_scratchBits
+                              ? ((bitsCount - 1 - m_scratchBits) >> 3) + 1u
                               : 0u;
         if (static_cast<size_t>(std::distance(_pos, std::end(_buf))) < bytesRequired )
             return false;
-        readBitsInternal(v, SIZE);
+        readBitsInternal(v, bitsCount);
+        return true;
+    }
+
+    bool align() {
+        if ( m_scratchBits ) {
+            SCRATCH_TYPE tmp{};
+            readBitsInternal(tmp, BITS_SIZE<value_type> - m_scratchBits);
+            return tmp == 0;
+        }
+        return true;
+    }
+
+    bool isCompleted() const {
+        return _pos == std::end(_buf);
+    }
+
+private:
+    const std::vector<value_type>& _buf;
+    decltype(std::begin(_buf)) _pos;
+    template <typename T>
+    bool directRead(T* v, size_t count) {
+		static_assert(!std::is_const<T>::value, "");
+        const auto bytesCount = sizeof(T) * count;
+        if (static_cast<size_t>(std::distance(_pos, std::end(_buf))) < bytesCount)
+            return false;
+        std::copy_n(_pos, bytesCount, reinterpret_cast<value_type *>(v));
+        std::advance(_pos, bytesCount);
         return true;
     }
 
@@ -79,25 +111,6 @@ struct BufferReader {
         }
         v = res;
     }
-
-    bool isCompleted() const {
-        return _pos == std::end(_buf);
-    }
-
-private:
-    const std::vector<value_type>& _buf;
-    decltype(std::begin(_buf)) _pos;
-    template <typename T>
-    bool directRead(T* v, size_t count) {
-		static_assert(!std::is_const<T>::value, "");
-        const auto bytesCount = sizeof(T) * count;
-        if (static_cast<size_t>(std::distance(_pos, std::end(_buf))) < bytesCount)
-            return false;
-        std::copy_n(_pos, bytesCount, reinterpret_cast<value_type *>(v));
-        std::advance(_pos, bytesCount);
-        return true;
-    }
-
 
     using SCRATCH_TYPE = typename BIGGER_TYPE<value_type>::type;
 
