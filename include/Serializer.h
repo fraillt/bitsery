@@ -48,6 +48,17 @@ public:
     }
 
     /*
+     * range
+     */
+
+    template <typename T>
+    Serializer& range(const T& v, RangeSpec<T> r) {
+        assert(r.isValid(v));
+        _writter.template writeBits(r.value(v), r.bitsRequired());
+        return *this;
+    }
+
+    /*
      * text overloads
      */
 

@@ -50,6 +50,16 @@ public:
     }
 
     /*
+     * range
+     */
+
+    template <typename T>
+    Deserializer& range(T& v, RangeSpec<T> r) {
+        _reader.template readBits(r.valueProxy(v), r.bitsRequired());
+        return *this;
+    }
+
+    /*
      * text overloads
      */
 

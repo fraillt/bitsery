@@ -28,9 +28,13 @@ SERIALIZE(MyStruct1) {
             value(o.i2);
 }
 
+enum class MyEnumClass {
+    E1, E2, E3, E4, E5, E6
+};
+
 struct MyStruct2 {
     enum MyEnum {
-        V1, V2, V3
+        V1, V2, V3, V4, V5, V6
     };
 
     MyStruct2(MyEnum e, MyStruct1 s):e1{e}, s1{s} {}

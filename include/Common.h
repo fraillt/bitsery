@@ -72,6 +72,76 @@ struct ProcessAnyType<0> {
 template <typename S, typename T, typename std::enable_if<std::is_same<T, ObjectType>::value || std::is_same<T, const ObjectType>::value>::type* = nullptr> \
 S& serialize(S& s, T& o)
 
+extern int no_symbol;
+
+template <typename T>
+constexpr size_t calcRequiredBits(T min, T max) {
+    (T)min != min ? throw (no_symbol) : 0;
+    assert(min < max);
+    size_t res{};
+    for (auto diff = max - min; diff > 0; diff >>= 1)
+        ++res;
+    return res;
+}
+
+
+template <typename T, class Enable = void>
+class RangeSpec {
+public:
+
+    constexpr RangeSpec(T min, T max)
+            :_min{min},
+             _max{max},
+             _bitsRequired{calcRequiredBits(_min, _max)}
+    {
+
+    }
+
+    constexpr size_t bitsRequired() const {
+        return _bitsRequired;
+    }
+
+    constexpr bool isValid(const T& v) const {
+        return !(_max < v || v < _min);
+    }
+    
+
+private:
+    T _min;
+    T _max;
+    size_t _bitsRequired;
+};
+
+
+template <typename T>
+class RangeSpec<T, typename std::enable_if<std::is_enum<T>::value>::type> {
+public:
+    using value_type = typename std::underlying_type<T>::type;
+    constexpr RangeSpec(T min, T max):
+            _min{static_cast<value_type>(min)},
+            _max{static_cast<value_type>(max)},
+            _bitsRequired{calcRequiredBits(_min, _max)}
+    {
+
+    }
+    constexpr size_t bitsRequired() const {
+        return _bitsRequired;
+    }
+    constexpr bool isValid(const T& v) const {
+        return !(_max < static_cast<value_type>(v) || static_cast<value_type>(v) < _min);
+    }
+
+    T getValue(T v) const {
+        //return v - _min;
+        return v;
+    }
+private:
+    value_type _min;
+    value_type _max;
+    size_t _bitsRequired;
+};
+
+
 
 class ObjectMemoryPosition {
 public:
