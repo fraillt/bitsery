@@ -28,9 +28,7 @@ public:
         static_assert(std::numeric_limits<double>::is_iec559, "");
 
         constexpr size_t ValueSize = VSIZE == 0 ? sizeof(T) : VSIZE;
-        using CT = std::conditional_t<std::is_same<T,float>::value, uint32_t, uint64_t>;
-        static_assert(sizeof(CT) == ValueSize, "");
-        _reader.template readBytes<ValueSize>(reinterpret_cast<CT&>(v));
+        _reader.template readBytes<ValueSize>(reinterpret_cast<UINT_FOR_FLOATING_POINT<T>&>(v));
         return *this;
     }
 
@@ -54,8 +52,9 @@ public:
      */
 
     template <typename T>
-    Deserializer& range(T& v, RangeSpec<T> r) {
-        _reader.template readBits(r.valueProxy(v), r.bitsRequired());
+    Deserializer& range(T& v, const RangeSpec<T>& range) {
+        //ValueWriteProxy<T> proxy{v, range}; 
+        //_reader.template readBits(proxy.value(), r.bitsRequired());
         return *this;
     }
 

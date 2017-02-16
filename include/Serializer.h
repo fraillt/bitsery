@@ -27,9 +27,8 @@ public:
         static_assert(std::numeric_limits<float>::is_iec559, "");
         static_assert(std::numeric_limits<double>::is_iec559, "");
 
-        constexpr size_t ValueSize = VSIZE == 0 ? sizeof(T) : VSIZE;
-        using CT = std::conditional_t<std::is_same<T,float>::value, uint32_t, uint64_t>;
-        _writter.template writeBytes<ValueSize>(reinterpret_cast<const CT&>(v));
+        constexpr size_t ValueSize = VSIZE == 0 ? sizeof(T) : VSIZE;        
+        _writter.template writeBytes<ValueSize>(reinterpret_cast<const UINT_FOR_FLOATING_POINT<T>&>(v));
         return *this;
     }
 
@@ -52,9 +51,9 @@ public:
      */
 
     template <typename T>
-    Serializer& range(const T& v, RangeSpec<T> r) {
-        assert(r.isValid(v));
-        _writter.template writeBits(r.value(v), r.bitsRequired());
+    Serializer& range(const T& v, const RangeSpec<T>& r) {
+        //assert(r.isValid(v));
+        //_writter.template writeBits(r.value(v), r.bitsRequired());
         return *this;
     }
 

@@ -51,6 +51,9 @@ struct BIGGER_TYPE<char> {
 template <typename T>
 constexpr size_t ARITHMETIC_OR_ENUM_SIZE = std::is_arithmetic<T>::value || std::is_enum<T>::value ? sizeof(T) : 0;
 
+template <typename T>
+using UINT_FOR_FLOATING_POINT = std::conditional_t<std::is_same<T,float>::value, uint32_t, uint64_t>; 
+
 template <size_t SIZE>
 struct ProcessAnyType {
     template <typename S, typename T>
@@ -72,12 +75,8 @@ struct ProcessAnyType<0> {
 template <typename S, typename T, typename std::enable_if<std::is_same<T, ObjectType>::value || std::is_same<T, const ObjectType>::value>::type* = nullptr> \
 S& serialize(S& s, T& o)
 
-extern int no_symbol;
-
 template <typename T>
-constexpr size_t calcRequiredBits(T min, T max) {
-    (T)min != min ? throw (no_symbol) : 0;
-    assert(min < max);
+constexpr size_t calcRequiredBits(T min, T max) {    
     size_t res{};
     for (auto diff = max - min; diff > 0; diff >>= 1)
         ++res;
@@ -93,54 +92,71 @@ public:
             :_min{min},
              _max{max},
              _bitsRequired{calcRequiredBits(_min, _max)}
-    {
-
+    {    
     }
 
     constexpr size_t bitsRequired() const {
         return _bitsRequired;
-    }
-
-    constexpr bool isValid(const T& v) const {
-        return !(_max < v || v < _min);
-    }
-    
+    }    
 
 private:
-    T _min;
-    T _max;
-    size_t _bitsRequired;
+    const T _min;
+    const T _max;
+    const size_t _bitsRequired;
 };
 
 
 template <typename T>
 class RangeSpec<T, typename std::enable_if<std::is_enum<T>::value>::type> {
 public:
-    using value_type = typename std::underlying_type<T>::type;
+    
     constexpr RangeSpec(T min, T max):
-            _min{static_cast<value_type>(min)},
-            _max{static_cast<value_type>(max)},
-            _bitsRequired{calcRequiredBits(_min, _max)}
-    {
-
+            _min{min},
+            _max{max},
+            _bitsRequired{calcRequiredBits(
+                static_cast<std::underlying_type_t<T>>(_min), 
+                static_cast<std::underlying_type_t<T>>(_max))}
+    {                
     }
     constexpr size_t bitsRequired() const {
         return _bitsRequired;
     }
-    constexpr bool isValid(const T& v) const {
-        return !(_max < static_cast<value_type>(v) || static_cast<value_type>(v) < _min);
-    }
 
-    T getValue(T v) const {
-        //return v - _min;
-        return v;
-    }
 private:
-    value_type _min;
-    value_type _max;
-    size_t _bitsRequired;
+    const T _min;
+    const T _max;
+    const size_t _bitsRequired;
 };
 
+template <typename T>
+class RangeSpec<T, typename std::enable_if<std::is_floating_point<T>::value>::type> {
+public:
+    
+    //todo bits should be separate size not implicitly convertable from floating point types, so these constructors would be ambiguous
+    constexpr RangeSpec(T min, T max, size_t bits, int tmp):
+            _min{min},
+            _max{max},
+            _bitsRequired{bits}
+    {                
+    }
+
+    constexpr RangeSpec(T min, T max, T precision):
+            _min{min},
+            _max{max},
+            _bitsRequired{calcRequiredBits<UINT_FOR_FLOATING_POINT<T>>({}, ((max - min) / precision))}
+    {            
+        
+    }
+
+    constexpr size_t bitsRequired() const {
+        return _bitsRequired;
+    }
+
+private:
+    const T _min;
+    const T _max;
+    const size_t _bitsRequired;
+};
 
 
 class ObjectMemoryPosition {
