@@ -51,8 +51,25 @@ struct BIGGER_TYPE<char> {
 template <typename T>
 constexpr size_t ARITHMETIC_OR_ENUM_SIZE = std::is_arithmetic<T>::value || std::is_enum<T>::value ? sizeof(T) : 0;
 
+
+template<typename T, typename Enable = void>
+struct SAME_SIZE_UNSIGNED_TYPE {
+    typedef std::make_unsigned_t<T> type;
+};
+
+template<typename T>
+struct SAME_SIZE_UNSIGNED_TYPE<T, typename std::enable_if<std::is_enum<T>::value>::type> {
+    typedef std::make_unsigned_t<std::underlying_type_t<T>> type;
+};
+
+template<typename T>
+struct SAME_SIZE_UNSIGNED_TYPE<T, typename std::enable_if<std::is_floating_point<T>::value>::type> {
+    typedef std::conditional_t<std::is_same<T,float>::value, uint32_t, uint64_t> type;
+};
+
 template <typename T>
-using UINT_FOR_FLOATING_POINT = std::conditional_t<std::is_same<T,float>::value, uint32_t, uint64_t>; 
+using SAME_SIZE_UNSIGNED = typename SAME_SIZE_UNSIGNED_TYPE<T>::type;
+
 
 template <size_t SIZE>
 struct ProcessAnyType {
@@ -84,78 +101,65 @@ constexpr size_t calcRequiredBits(T min, T max) {
 }
 
 
-template <typename T, class Enable = void>
-class RangeSpec {
-public:
+template <typename T, typename Enable = void>
+struct RangeSpec {
 
-    constexpr RangeSpec(T min, T max)
-            :_min{min},
-             _max{max},
-             _bitsRequired{calcRequiredBits(_min, _max)}
-    {    
+    constexpr RangeSpec(T minValue, T maxValue)
+            :min{minValue},
+             max{maxValue},
+             bitsRequired{calcRequiredBits(min, max)}
+    {
     }
 
-    constexpr size_t bitsRequired() const {
-        return _bitsRequired;
-    }    
-
-private:
-    const T _min;
-    const T _max;
-    const size_t _bitsRequired;
+    const T min;
+    const T max;
+    const size_t bitsRequired;
 };
 
 
 template <typename T>
-class RangeSpec<T, typename std::enable_if<std::is_enum<T>::value>::type> {
-public:
-    
-    constexpr RangeSpec(T min, T max):
-            _min{min},
-            _max{max},
-            _bitsRequired{calcRequiredBits(
-                static_cast<std::underlying_type_t<T>>(_min), 
-                static_cast<std::underlying_type_t<T>>(_max))}
+struct RangeSpec<T, typename std::enable_if<std::is_enum<T>::value>::type> {
+
+    constexpr RangeSpec(T minValue, T maxValue):
+            min{minValue},
+            max{maxValue},
+            bitsRequired{calcRequiredBits(
+                static_cast<std::underlying_type_t<T>>(min),
+                static_cast<std::underlying_type_t<T>>(max))}
     {                
     }
-    constexpr size_t bitsRequired() const {
-        return _bitsRequired;
-    }
+    const T min;
+    const T max;
+    const size_t bitsRequired;
+};
 
-private:
-    const T _min;
-    const T _max;
-    const size_t _bitsRequired;
+//this class is used to make default RangeSpec float specialization always prefer constructor with precision
+struct BitsConstraint {
+    explicit constexpr BitsConstraint(size_t bits):value{bits} {}
+    const size_t value;
 };
 
 template <typename T>
-class RangeSpec<T, typename std::enable_if<std::is_floating_point<T>::value>::type> {
-public:
-    
-    //todo bits should be separate size not implicitly convertable from floating point types, so these constructors would be ambiguous
-    constexpr RangeSpec(T min, T max, size_t bits, int tmp):
-            _min{min},
-            _max{max},
-            _bitsRequired{bits}
+struct RangeSpec<T, typename std::enable_if<std::is_floating_point<T>::value>::type> {
+
+    constexpr RangeSpec(T minValue, T maxValue, BitsConstraint bits):
+            min{minValue},
+            max{maxValue},
+            bitsRequired{bits.value}
     {                
     }
 
-    constexpr RangeSpec(T min, T max, T precision):
-            _min{min},
-            _max{max},
-            _bitsRequired{calcRequiredBits<UINT_FOR_FLOATING_POINT<T>>({}, ((max - min) / precision))}
+    constexpr RangeSpec(T minValue, T maxValue, T precision):
+            min{minValue},
+            max{maxValue},
+            bitsRequired{calcRequiredBits<SAME_SIZE_UNSIGNED<T>>({}, ((max - min) / precision))}
     {            
         
     }
 
-    constexpr size_t bitsRequired() const {
-        return _bitsRequired;
-    }
-
-private:
-    const T _min;
-    const T _max;
-    const size_t _bitsRequired;
+    const T min;
+    const T max;
+    const size_t bitsRequired;
 };
 
 

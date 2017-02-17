@@ -74,6 +74,7 @@ public:
     }
 
     Deserializer<BufferReader> createDeserializer() {
+        bw->flush();
         br = std::make_unique<BufferReader>(buf);
         return {*br};
     };

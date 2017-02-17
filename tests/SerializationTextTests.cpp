@@ -6,7 +6,7 @@
 #include "SerializationTestUtils.h"
 using namespace testing;
 
-TEST(SerializerText, BasicString) {
+TEST(SerializeText, BasicString) {
     SerializationContext ctx;
     std::string t1 = "some random text";
     std::string res;
@@ -19,7 +19,7 @@ TEST(SerializerText, BasicString) {
 
 }
 
-TEST(SerializerText, WhenSizeOfTypeNotEqualsOneThenSetSizeExplicitly) {
+TEST(SerializeText, WhenSizeOfTypeNotEqualsOneThenSetSizeExplicitly) {
     SerializationContext ctx;
     constexpr auto VSIZE = sizeof(char32_t);
     std::basic_string<char32_t> t1 = U"some random text";
@@ -32,7 +32,7 @@ TEST(SerializerText, WhenSizeOfTypeNotEqualsOneThenSetSizeExplicitly) {
     EXPECT_THAT(res, ContainerEq(t1));
 }
 
-TEST(SerializerText, BasicStringUseSizeMethodNotNullterminatedLength) {
+TEST(SerializeText, BasicStringUseSizeMethodNotNullterminatedLength) {
     SerializationContext ctx;
     std::wstring t1(L"some random text\0xxxxxx", 20);
     std::wstring wres;
@@ -64,7 +64,7 @@ TEST(SerializerText, BasicStringUseSizeMethodNotNullterminatedLength) {
 
 const int CARR_LENGTH = 10;
 
-TEST(SerializerText, CArraySerializesTextLength) {
+TEST(SerializeText, CArraySerializesTextLength) {
     SerializationContext ctx;
     char t1[CARR_LENGTH]{"some text"};
     char r1[CARR_LENGTH]{};
@@ -89,7 +89,7 @@ TEST(SerializerText, CArraySerializesTextLength) {
     EXPECT_THAT(r1, ContainerEq(t1));
 }
 
-TEST(SerializerText, WhenCArrayWithLargerTypeThenSetSizeExplicitly) {
+TEST(SerializeText, WhenCArrayWithLargerTypeThenSetSizeExplicitly) {
     SerializationContext ctx;
     char32_t t1[10]{U"some text"};
     char32_t r1[10]{};
@@ -103,7 +103,7 @@ TEST(SerializerText, WhenCArrayWithLargerTypeThenSetSizeExplicitly) {
 }
 
 
-TEST(SerializerText, WhenCArrayNotNullterminatedThenMakeItNullterminated) {
+TEST(SerializeText, WhenCArrayNotNullterminatedThenMakeItNullterminated) {
     SerializationContext ctx;
     char t1[CARR_LENGTH]{"some text"};
     //make last character not nullterminated

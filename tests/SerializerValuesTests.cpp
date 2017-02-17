@@ -3,36 +3,25 @@
 //
 
 #include <gmock/gmock.h>
-#include <Deserializer.h>
-#include <BufferReader.h>
-#include "BufferWriter.h"
-#include "Serializer.h"
-
+#include "SerializationTestUtils.h"
 
 using testing::Eq;
 
 template <typename T>
 bool SerializeDeserializeValue(const T& v) {
     T res{};
-    std::vector<uint8_t> buf{};
-
-    BufferWriter bw{buf};
-    Serializer<BufferWriter> ser(bw);
-    ser.value(v);
-    bw.flush();
-
-    BufferReader br{buf};
-    Deserializer<BufferReader> des(br);
-    des.value(res);
+    SerializationContext ctx;
+    ctx.createSerializer().value(v);
+    ctx.createDeserializer().value(res);
     return v == res;
 }
 
-TEST(SerializerValues, IntegerTypes) {
+TEST(SerializeValues, IntegerTypes) {
     EXPECT_THAT(SerializeDeserializeValue(-449874), Eq(true));
     EXPECT_THAT(SerializeDeserializeValue(34u), Eq(true));
 }
 
-TEST(SerializerValues, EnumTypes) {
+TEST(SerializeValues, EnumTypes) {
     enum E1{
         A1,B1,C1,D1
     };
@@ -47,12 +36,12 @@ TEST(SerializerValues, EnumTypes) {
     EXPECT_THAT(SerializeDeserializeValue(E3::C3), Eq(true));
 }
 
-TEST(SerializerValues, FloatingPointTypes) {
+TEST(SerializeValues, FloatingPointTypes) {
     EXPECT_THAT(SerializeDeserializeValue(-484.465), Eq(true));
     EXPECT_THAT(SerializeDeserializeValue(0.00000015f), Eq(true));
 }
 
-TEST(SerializerValues, ExplicitTypeSize) {
+TEST(SerializeValues, ExplicitTypeSize) {
     int v{23472};
     constexpr size_t TSIZE = sizeof(v);
     std::vector<uint8_t> buf{};

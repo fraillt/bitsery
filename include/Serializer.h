@@ -28,7 +28,7 @@ public:
         static_assert(std::numeric_limits<double>::is_iec559, "");
 
         constexpr size_t ValueSize = VSIZE == 0 ? sizeof(T) : VSIZE;        
-        _writter.template writeBytes<ValueSize>(reinterpret_cast<const UINT_FOR_FLOATING_POINT<T>&>(v));
+        _writter.template writeBytes<ValueSize>(reinterpret_cast<const SAME_SIZE_UNSIGNED<T>&>(v));
         return *this;
     }
 
@@ -51,9 +51,9 @@ public:
      */
 
     template <typename T>
-    Serializer& range(const T& v, const RangeSpec<T>& r) {
-        //assert(r.isValid(v));
-        //_writter.template writeBits(r.value(v), r.bitsRequired());
+    Serializer& range(const T& v, const RangeSpec<T>& range) {
+        assert(isRangeValid(v, range));
+        _writter.template writeBits(getRangeValue(v,range), range.bitsRequired);
         return *this;
     }
 
@@ -174,7 +174,41 @@ private:
         if (size)
             _writter.template writeBuffer<VSIZE>(str, size);
     }
+};
 
+/*
+ * functions for range
+ */
+
+template<typename T, typename std::enable_if<std::is_arithmetic<T>::value>::type* = nullptr>
+bool isRangeValid(const T& v, const RangeSpec<T>& r) {
+    return !(r.min > v || v > r.max);
+}
+
+template<typename T, typename std::enable_if<std::is_enum<T>::value>::type* = nullptr>
+bool isRangeValid(const T& v, const RangeSpec<T>& r) {
+    using VT = std::underlying_type_t<T>;
+    return !(static_cast<VT>(r.min) > static_cast<VT>(v)
+             || static_cast<VT>(v) > static_cast<VT>(r.max));
+}
+
+
+template<typename T, typename std::enable_if<std::is_integral<T>::value>::type* = nullptr>
+auto getRangeValue(const T& v, const RangeSpec<T>& r) {
+    return static_cast<SAME_SIZE_UNSIGNED<T>>(v - r.min);
+};
+
+template<typename T, typename std::enable_if<std::is_enum<T>::value>::type* = nullptr>
+auto getRangeValue(const T& v, const RangeSpec<T>& r) {
+    return static_cast<SAME_SIZE_UNSIGNED<T>>(v) - static_cast<SAME_SIZE_UNSIGNED<T>>(r.min);
+};
+
+template<typename T, typename std::enable_if<std::is_floating_point<T>::value>::type* = nullptr>
+auto getRangeValue(const T& v, const RangeSpec<T>& r) {
+    using VT = SAME_SIZE_UNSIGNED<T>;
+    const VT maxUint = (static_cast<VT>(1) << r.bitsRequired) - 1;
+    const auto ratio = (v - r.min) / (r.max - r.min);
+    return static_cast<VT>(ratio * maxUint);
 };
 
 

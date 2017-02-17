@@ -3,16 +3,12 @@
 //
 
 #include <gmock/gmock.h>
-#include <Deserializer.h>
-#include <BufferReader.h>
-#include "BufferWriter.h"
-#include "Serializer.h"
+#include "SerializationTestUtils.h"
 
 #include "DeltaSerializer.h"
 #include "DeltaDeserializer.h"
 
 #include <list>
-#include <array>
 
 using testing::Eq;
 using testing::StrEq;
@@ -64,11 +60,9 @@ SERIALIZE(Y)
 }
 
 
-TEST(Serializer, GeneralConceptTest) {
+TEST(SerializeObject, GeneralConceptTest) {
 	//std::string buf;
-	std::vector<uint8_t> buf{};
-	BufferWriter bw{ buf };
-	Serializer<BufferWriter> ser(bw);
+	SerializationContext ctx;
 	Y y{};
 	y.y = 3423;
 	y.arr[0] = 111;
@@ -87,16 +81,17 @@ TEST(Serializer, GeneralConceptTest) {
 	z.x = X{ 234 };
 	
 
-	serialize(ser, y);
-	serialize(ser, z);
+	auto ser = ctx.createSerializer();
+	ser.object(y);
+	ser.object(z);
 
-	BufferReader br{ buf };
-	Deserializer<BufferReader> des(br);
 
 	Y yres{};
 	Z zres{};
-	serialize(des, yres);
-	serialize(des, zres);
+
+	auto des = ctx.createDeserializer();
+	des.object(yres);
+	des.object(zres);
 
 	EXPECT_THAT(yres.y, Eq(y.y));
 	EXPECT_THAT(yres.vx, ContainerEq(y.vx));

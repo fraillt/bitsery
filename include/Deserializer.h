@@ -28,7 +28,7 @@ public:
         static_assert(std::numeric_limits<double>::is_iec559, "");
 
         constexpr size_t ValueSize = VSIZE == 0 ? sizeof(T) : VSIZE;
-        _reader.template readBytes<ValueSize>(reinterpret_cast<UINT_FOR_FLOATING_POINT<T>&>(v));
+        _reader.template readBytes<ValueSize>(reinterpret_cast<SAME_SIZE_UNSIGNED<T>&>(v));
         return *this;
     }
 
@@ -53,8 +53,8 @@ public:
 
     template <typename T>
     Deserializer& range(T& v, const RangeSpec<T>& range) {
-        //ValueWriteProxy<T> proxy{v, range}; 
-        //_reader.template readBits(proxy.value(), r.bitsRequired());
+        _reader.template readBits(reinterpret_cast<SAME_SIZE_UNSIGNED<T>&>(v), range.bitsRequired);
+        setRangeValue(v, range);
         return *this;
     }
 
@@ -185,6 +185,29 @@ private:
     };
 
 };
+
+/*
+ * functions for range
+ */
+template<typename T, typename std::enable_if<std::is_integral<T>::value>::type* = nullptr>
+void setRangeValue(T& v, const RangeSpec<T>& r) {
+    v += r.min;
+};
+
+template<typename T, typename std::enable_if<std::is_enum<T>::value>::type* = nullptr>
+void setRangeValue(T& v, const RangeSpec<T>& r) {
+    using VT = std::underlying_type_t<T>;
+    reinterpret_cast<VT&>(v) += static_cast<VT>(r.min);
+};
+
+template<typename T, typename std::enable_if<std::is_floating_point<T>::value>::type* = nullptr>
+void setRangeValue(T& v, const RangeSpec<T>& r) {
+    using UIT = SAME_SIZE_UNSIGNED<T>;
+    const auto intRep = reinterpret_cast<UIT&>(v);
+    const UIT maxUint = (static_cast<UIT>(1) << r.bitsRequired) - 1;
+    v = r.min + (static_cast<T>(intRep) / maxUint) * (r.max - r.min);
+};
+
 
 
 #endif //TMP_DESERIALIZER_H
