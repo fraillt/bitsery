@@ -59,7 +59,6 @@ SERIALIZE(Y)
 	return s;
 }
 
-
 TEST(SerializeObject, GeneralConceptTest) {
 	//std::string buf;
 	SerializationContext ctx;

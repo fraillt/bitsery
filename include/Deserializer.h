@@ -59,6 +59,20 @@ public:
     }
 
     /*
+     * default overloads
+     */
+    template<size_t VSIZE = 0, typename T, size_t N>
+    Deserializer& defaultV(T& v, const std::array<T,N>& defValues) {
+        size_t index;
+        _reader.template readBits(index, calcRequiredBits<size_t>({}, N + 1));
+        if (index)
+            v = defValues[index-1];
+        else
+            ProcessAnyType<VSIZE>::serialize(*this, v);
+    };
+
+
+    /*
      * text overloads
      */
 

@@ -58,6 +58,17 @@ public:
     }
 
     /*
+     * default overloads
+     */
+    template<size_t VSIZE = 0, typename T, size_t N>
+    Serializer& defaultV(const T& v, const std::array<T,N>& defValues) {
+        auto index = findDefault(v, defValues);
+        _writter.template writeBits(index, calcRequiredBits<size_t>({}, N + 1));
+        if (!index)
+            ProcessAnyType<VSIZE>::serialize(*this, v);
+    };
+
+    /*
      * text overloads
      */
 
@@ -209,6 +220,21 @@ auto getRangeValue(const T& v, const RangeSpec<T>& r) {
     const VT maxUint = (static_cast<VT>(1) << r.bitsRequired) - 1;
     const auto ratio = (v - r.min) / (r.max - r.min);
     return static_cast<VT>(ratio * maxUint);
+};
+
+/*
+ * functions for default
+ */
+
+template <typename T, size_t N>
+size_t findDefault(const T& v, const std::array<T,N>& defValues) {
+    auto index{1u};
+    for (auto& d:defValues) {
+        if (d == v)
+            return index;
+        ++index;
+    }
+    return 0u;
 };
 
 
