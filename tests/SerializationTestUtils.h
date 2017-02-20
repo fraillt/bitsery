@@ -56,11 +56,11 @@ SERIALIZE(MyStruct2) {
 
 class SerializationContext {
     std::vector<uint8_t> buf{};
-    std::unique_ptr<BufferWriter> bw;
-    std::unique_ptr<BufferReader> br;
+    std::unique_ptr<bitsery::BufferWriter> bw;
+    std::unique_ptr<bitsery::BufferReader> br;
 public:
-    Serializer<BufferWriter> createSerializer() {
-        bw = std::make_unique<BufferWriter>(buf);
+    bitsery::Serializer<bitsery::BufferWriter> createSerializer() {
+        bw = std::make_unique<bitsery::BufferWriter>(buf);
         return {*bw};
     };
 
@@ -73,9 +73,9 @@ public:
         return 4;
     }
 
-    Deserializer<BufferReader> createDeserializer() {
+    bitsery::Deserializer<bitsery::BufferReader> createDeserializer() {
         bw->flush();
-        br = std::make_unique<BufferReader>(buf);
+        br = std::make_unique<bitsery::BufferReader>(buf);
         return {*br};
     };
 };

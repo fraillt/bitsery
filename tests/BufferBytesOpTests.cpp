@@ -4,12 +4,13 @@
 #include <gmock/gmock.h>
 #include "BufferWriter.h"
 #include "BufferReader.h"
+#include <list>
+#include <bitset>
 
 using testing::Eq;
 using testing::ContainerEq;
-
-#include <list>
-#include <bitset>
+using bitsery::BufferWriter;
+using bitsery::BufferReader;
 
 struct IntegralTypes {
     int64_t a;

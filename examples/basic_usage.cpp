@@ -23,7 +23,7 @@ SERIALIZE(MyStruct) {
     return s.
             value(o.i).
             value(o.e).
-            container(o.fs);
+            container(o.fs, 100);
 }
 
 void print(const char* msg, const MyStruct& v) {
@@ -35,6 +35,8 @@ void print(const char* msg, const MyStruct& v) {
         std::cout << '\t' << p;
     std::cout << std::endl << std::endl;
 }
+
+using namespace bitsery;
 
 int main() {
     //set some random data

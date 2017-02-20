@@ -41,8 +41,8 @@ TYPED_TEST_CASE(SerializeContainerArthmeticTypes, SequenceContainersWithArthmeti
 TYPED_TEST(SerializeContainerArthmeticTypes, Values) {
     SerializationContext ctx{};
 
-    ctx.createSerializer().container(this->src);
-    ctx.createDeserializer().container(this->res);
+    ctx.createSerializer().container(this->src, 1000);
+    ctx.createDeserializer().container(this->res, 1000);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(this->getExpectedBufSize(ctx)));
     EXPECT_THAT(this->res, ContainerEq(this->src));
@@ -52,8 +52,8 @@ TYPED_TEST(SerializeContainerArthmeticTypes, ValuesWithExplicitSize) {
     SerializationContext ctx{};
     using TValue = typename TestFixture::TValue;
 
-    ctx.createSerializer().container<sizeof(TValue)>(this->src);
-    ctx.createDeserializer().container<sizeof(TValue)>(this->res);
+    ctx.createSerializer().container<sizeof(TValue)>(this->src, 1000);
+    ctx.createDeserializer().container<sizeof(TValue)>(this->res, 1000);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(this->getExpectedBufSize(ctx)));
     EXPECT_THAT(this->res, ContainerEq(this->src));
@@ -67,13 +67,13 @@ TYPED_TEST(SerializeContainerArthmeticTypes, CustomFunctionIncrements) {
         //increment by 1 before writing
         v++;
         ser.value(v);
-    });
+    }, 1000);
     auto des = ctx.createDeserializer();
     des.container(this->res, [&des](auto&v ) {
         des.value(v);
         //increment by 1 after reading
         v++;
-    });
+    }, 1000);
     //decrement result by 2, before comparing for eq
     for(auto& v:this->res)
         v -= 2;
@@ -128,8 +128,8 @@ TYPED_TEST_CASE(SerializeContainerCompositeTypes, SequenceContainersWithComposit
 TYPED_TEST(SerializeContainerCompositeTypes, DefaultSerializeFunction) {
     SerializationContext ctx{};
 
-    ctx.createSerializer().container(this->src);
-    ctx.createDeserializer().container(this->res);
+    ctx.createSerializer().container(this->src, 1000);
+    ctx.createDeserializer().container(this->res, 1000);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(this->getExpectedBufSize(ctx)));
     EXPECT_THAT(this->res, ContainerEq(this->src));
@@ -140,8 +140,8 @@ TYPED_TEST(SerializeContainerCompositeTypes, CustomFunctionThatDoNothing) {
     SerializationContext ctx{};
 
     auto emptyFnc = [](auto v) {};
-    ctx.createSerializer().container(this->src, emptyFnc);
-    ctx.createDeserializer().container(this->res, emptyFnc);
+    ctx.createSerializer().container(this->src, emptyFnc, 1000);
+    ctx.createDeserializer().container(this->res, emptyFnc, 1000);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(ctx.containerSizeSerializedBytesCount(this->src.size())));
 }

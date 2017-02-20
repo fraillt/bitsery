@@ -11,8 +11,8 @@ TEST(SerializeText, BasicString) {
     std::string t1 = "some random text";
     std::string res;
 
-    ctx.createSerializer().text(t1);
-    ctx.createDeserializer().text(res);
+    ctx.createSerializer().text(t1, 1000);
+    ctx.createDeserializer().text(res, 1000);
 
     EXPECT_THAT(res, StrEq(t1));
     EXPECT_THAT(res, ContainerEq(t1));
@@ -26,8 +26,8 @@ TEST(SerializeText, WhenSizeOfTypeNotEqualsOneThenSetSizeExplicitly) {
     std::basic_string<char32_t> res;
     static_assert(VSIZE > 1, "on this system, all character types has sizeof == 1, cannot run this tests");
 
-    ctx.createSerializer().text<VSIZE>(t1);
-    ctx.createDeserializer().text<VSIZE>(res);
+    ctx.createSerializer().text<VSIZE>(t1, 1000);
+    ctx.createDeserializer().text<VSIZE>(res, 1000);
 
     EXPECT_THAT(res, ContainerEq(t1));
 }
@@ -38,8 +38,8 @@ TEST(SerializeText, BasicStringUseSizeMethodNotNullterminatedLength) {
     std::wstring wres;
     constexpr auto VSIZE = sizeof(std::wstring::value_type);
 
-    ctx.createSerializer().text<VSIZE>(t1);
-    ctx.createDeserializer().text<VSIZE>(wres);
+    ctx.createSerializer().text<VSIZE>(t1, 1000);
+    ctx.createDeserializer().text<VSIZE>(wres, 1000);
 
     EXPECT_THAT(wres, StrEq(t1));
     EXPECT_THAT(wres.size(), Eq(t1.size()));
@@ -48,16 +48,16 @@ TEST(SerializeText, BasicStringUseSizeMethodNotNullterminatedLength) {
     SerializationContext ctx2;
     std::string t2("\0no one cares what is there", 10);
     std::string res;
-    ctx2.createSerializer().text(t2);
-    ctx2.createDeserializer().text(res);
+    ctx2.createSerializer().text(t2, 1000);
+    ctx2.createDeserializer().text(res, 1000);
 
     EXPECT_THAT(res, StrEq(t2));
     EXPECT_THAT(res.size(), Eq(t2.size()));
 
     SerializationContext ctx3;
     std::string t3("never ending buffer that doesnt fit in this string", 10);
-    ctx3.createSerializer().text(t3);
-    ctx3.createDeserializer().text(res);
+    ctx3.createSerializer().text(t3, 1000);
+    ctx3.createDeserializer().text(res, 1000);
     EXPECT_THAT(res, StrEq(t3));
     EXPECT_THAT(res.size(), Eq(10));
 }

@@ -5,6 +5,8 @@
 #include <gmock/gmock.h>
 #include "SerializationTestUtils.h"
 using namespace testing;
+using bitsery::RangeSpec;
+using bitsery::BitsConstraint;
 
 TEST(SerializeRange, RequiredBitsIsConstexpr) {
     constexpr RangeSpec<int> r1{0, 31};
@@ -112,7 +114,7 @@ TEST(SerializeRange, FloatUsingBitsSizeConstraint1) {
     ctx.createDeserializer().range(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
-    EXPECT_THAT(res1, ::testing::FloatNear(t1, (max - min) / (static_cast<SAME_SIZE_UNSIGNED<float>>(1) << bits)));
+    EXPECT_THAT(res1, ::testing::FloatNear(t1, (max - min) / (static_cast<bitsery::SAME_SIZE_UNSIGNED<float>>(1) << bits)));
 }
 
 TEST(SerializeRange, DoubleUsingBitsSizeConstraint2) {
@@ -129,5 +131,5 @@ TEST(SerializeRange, DoubleUsingBitsSizeConstraint2) {
     ctx.createDeserializer().range(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(7));
-    EXPECT_THAT(res1, ::testing::DoubleNear(t1, (max - min) / (static_cast<SAME_SIZE_UNSIGNED<double>>(1) << bits)));
+    EXPECT_THAT(res1, ::testing::DoubleNear(t1, (max - min) / (static_cast<bitsery::SAME_SIZE_UNSIGNED<double>>(1) << bits)));
 }

@@ -43,20 +43,14 @@ TEST(SerializeValues, FloatingPointTypes) {
 
 TEST(SerializeValues, ExplicitTypeSize) {
     int v{23472};
-    constexpr size_t TSIZE = sizeof(v);
-    std::vector<uint8_t> buf{};
-
-    BufferWriter bw{buf};
-    Serializer<BufferWriter> ser(bw);
-    ser.value<TSIZE>(v);
-    bw.flush();
-
-    BufferReader br{buf};
-    Deserializer<BufferReader> des(br);
     int res;
-    des.value<TSIZE>(res);
+    constexpr size_t TSIZE = sizeof(v);
+
+    SerializationContext ctx;
+    ctx.createSerializer().value<TSIZE>(v);
+    ctx.createDeserializer().value<TSIZE>(res);
 
     EXPECT_THAT(res, Eq(v));
-    EXPECT_THAT(TSIZE, Eq(buf.size()));
+    EXPECT_THAT(TSIZE, Eq(ctx.getBufferSize()));
 }
 

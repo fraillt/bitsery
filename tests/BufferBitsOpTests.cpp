@@ -4,13 +4,13 @@
 #include <gmock/gmock.h>
 #include "BufferWriter.h"
 #include "BufferReader.h"
-
-using testing::Eq;
-using testing::ContainerEq;
-
 #include <list>
 #include <bitset>
 
+using testing::Eq;
+using testing::ContainerEq;
+using bitsery::BufferWriter;
+using bitsery::BufferReader;
 
 struct IntegralUnsignedTypes {
     uint32_t a;

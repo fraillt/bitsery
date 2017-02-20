@@ -45,17 +45,17 @@ SERIALIZE(Z)
 SERIALIZE(X)
 {
 	return s.value(o.x)
-		.text(o.s);
+		.text(o.s, 1000);
 }
 
 SERIALIZE(Y)
 {
 	auto writeInt = [&s](auto& v) { s.template value<4>(v); };
-	s.text(o.s);
+	s.text(o.s, 10000);
 	s.template value<4>(o.y);
 	s.array(o.arr, writeInt);
 	s.array(o.carr, writeInt);
-	s.container(o.vx, [&s](auto& v) { s.object(v); });
+	s.container(o.vx, [&s](auto& v) { s.object(v); }, 10000);
 	return s;
 }
 
@@ -136,13 +136,13 @@ TEST(DeltaSerializer, GeneralConceptTest) {
 	yNew.vx.push_back(X{ 3 });
 
 	std::vector<uint8_t> buf;
-	BufferWriter bw{ buf };
-	DeltaSerializer<BufferWriter, Y> ser(bw, y, yNew);
+	bitsery::BufferWriter bw{ buf };
+	bitsery::DeltaSerializer<bitsery::BufferWriter, Y> ser(bw, y, yNew);
 	serialize(ser, yNew);
 	bw.flush();
-	
-	BufferReader br{ buf };
-	DeltaDeserializer<BufferReader, Y> des(br, y, yRead);
+
+	bitsery::BufferReader br{ buf };
+	bitsery::DeltaDeserializer<bitsery::BufferReader, Y> des(br, y, yRead);
 	serialize(des, yRead);
 
 	EXPECT_THAT(yRead.y, Eq(yNew.y));
