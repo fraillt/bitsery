@@ -1,6 +1,25 @@
+//MIT License
 //
-// Created by fraillt on 17.2.8.
+//Copyright (c) 2017 Mindaugas Vinkelis
 //
+//Permission is hereby granted, free of charge, to any person obtaining a copy
+//of this software and associated documentation files (the "Software"), to deal
+//in the Software without restriction, including without limitation the rights
+//to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//copies of the Software, and to permit persons to whom the Software is
+//furnished to do so, subject to the following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all
+//copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//SOFTWARE.
+
 
 #ifndef BITSERY_SERIALIZERTESTS_H
 #define BITSERY_SERIALIZERTESTS_H
@@ -70,6 +89,10 @@ public:
     //since all containers .size() method returns size_t, it cannot be dirrectly serialized, because size_t is platform dependant
     //this function returns number of bytes writen to buffer, when reading/writing size of container
     static size_t containerSizeSerializedBytesCount(size_t elemsCount) {
+        if (elemsCount < 0x80u)
+            return 1;
+        if (elemsCount < 0x4000u)
+            return 2;
         return 4;
     }
 

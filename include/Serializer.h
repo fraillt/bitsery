@@ -1,9 +1,29 @@
+//MIT License
 //
-// Created by Mindaugas Vinkelis on 17.1.3.
+//Copyright (c) 2017 Mindaugas Vinkelis
 //
+//Permission is hereby granted, free of charge, to any person obtaining a copy
+//of this software and associated documentation files (the "Software"), to deal
+//in the Software without restriction, including without limitation the rights
+//to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//copies of the Software, and to permit persons to whom the Software is
+//furnished to do so, subject to the following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all
+//copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//SOFTWARE.
 
-#ifndef TMP_SERIALIZER_H
-#define TMP_SERIALIZER_H
+
+
+#ifndef BITSERY_SERIALIZER_H
+#define BITSERY_SERIALIZER_H
 
 #include "Common.h"
 #include <array>
@@ -13,19 +33,6 @@ namespace bitsery {
 /*
  * functions for range
  */
-
-    template<typename T, typename std::enable_if<std::is_arithmetic<T>::value>::type * = nullptr>
-    bool isRangeValid(const T &v, const RangeSpec<T> &r) {
-        return !(r.min > v || v > r.max);
-    }
-
-    template<typename T, typename std::enable_if<std::is_enum<T>::value>::type * = nullptr>
-    bool isRangeValid(const T &v, const RangeSpec<T> &r) {
-        using VT = std::underlying_type_t<T>;
-        return !(static_cast<VT>(r.min) > static_cast<VT>(v)
-                 || static_cast<VT>(v) > static_cast<VT>(r.max));
-    }
-
 
     template<typename T, typename std::enable_if<std::is_integral<T>::value>::type * = nullptr>
     auto getRangeValue(const T &v, const RangeSpec<T> &r) {
@@ -102,6 +109,20 @@ namespace bitsery {
         }
 
         /*
+         * bool
+         */
+
+        Serializer& boolBit(bool v) {
+            _writter.template writeBits(static_cast<unsigned char>(v ? 1 : 0), 1);
+            return *this;
+        }
+
+        Serializer& boolByte(bool v) {
+            _writter.template writeBytes<1>(static_cast<unsigned char>(v ? 1 : 0));
+            return *this;
+        }
+
+        /*
          * range
          */
 
@@ -166,7 +187,7 @@ namespace bitsery {
         template<typename T, typename Fnc>
         Serializer& container(const T &obj, Fnc &&fnc, size_t maxSize) {
             assert(obj.size() <= maxSize);
-            writeLength(obj.size());
+            writeSize(obj.size());
             for (auto &v: obj)
                 fnc(v);
             return *this;
@@ -175,7 +196,7 @@ namespace bitsery {
         template<size_t VSIZE, typename T>
         Serializer& container(const T &obj, size_t maxSize) {
             assert(obj.size() <= maxSize);
-            writeLength(obj.size());
+            writeSize(obj.size());
             procContainer<VSIZE>(obj);
             return *this;
         }
@@ -183,7 +204,7 @@ namespace bitsery {
         template<typename T>
         Serializer& container(const T &obj, size_t maxSize) {
             assert(obj.size() <= maxSize);
-            writeLength(obj.size());
+            writeSize(obj.size());
             procContainer<ARITHMETIC_OR_ENUM_SIZE<typename T::value_type>>(obj);
             return *this;
         }
@@ -235,12 +256,21 @@ namespace bitsery {
             return *this;
         }
 
-
     private:
         Writter &_writter;
 
-        void writeLength(const size_t size) {
-            _writter.writeBits(size, 32);
+        void writeSize(const size_t size) {
+            if (size < 0x80u) {
+                _writter.writeBits(1u, 1);
+                _writter.writeBits(size, 7);
+            } else if (size < 0x4000u) {
+                _writter.writeBits(2u,2);
+                _writter.writeBits(size, 14);
+            } else {
+                assert(size < 0x40000000u);
+                _writter.writeBits(0u,2);
+                _writter.writeBits(size, 30);
+            }
         }
 
         template<size_t VSIZE, typename T>
@@ -260,11 +290,11 @@ namespace bitsery {
 
         template<size_t VSIZE, typename T>
         void procText(const T *str, size_t size) {
-            writeLength(size);
+            writeSize(size);
             if (size)
                 _writter.template writeBuffer<VSIZE>(str, size);
         }
     };
 
 }
-#endif //TMP_SERIALIZER_H
+#endif //BITSERY_SERIALIZER_H

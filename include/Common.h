@@ -1,9 +1,29 @@
+//MIT License
 //
-// Created by fraillt on 17.1.5.
+//Copyright (c) 2017 Mindaugas Vinkelis
 //
+//Permission is hereby granted, free of charge, to any person obtaining a copy
+//of this software and associated documentation files (the "Software"), to deal
+//in the Software without restriction, including without limitation the rights
+//to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//copies of the Software, and to permit persons to whom the Software is
+//furnished to do so, subject to the following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all
+//copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//SOFTWARE.
 
-#ifndef TMP_COMMON_H
-#define TMP_COMMON_H
+
+
+#ifndef BITSERY_COMMON_H
+#define BITSERY_COMMON_H
 
 #include <stdint.h>
 
@@ -95,6 +115,10 @@ namespace bitsery {
 template <typename S, typename T, typename std::enable_if<std::is_same<T, ObjectType>::value || std::is_same<T, const ObjectType>::value>::type* = nullptr> \
 S& serialize(S& s, T& o)
 
+/*
+ * range functions
+ */
+
     template<typename T>
     constexpr size_t calcRequiredBits(T min, T max) {
         size_t res{};
@@ -163,6 +187,21 @@ S& serialize(S& s, T& o)
         const size_t bitsRequired;
     };
 
+    template<typename T, typename std::enable_if<std::is_arithmetic<T>::value>::type * = nullptr>
+    bool isRangeValid(const T &v, const RangeSpec<T> &r) {
+        return !(r.min > v || v > r.max);
+    }
+
+    template<typename T, typename std::enable_if<std::is_enum<T>::value>::type * = nullptr>
+    bool isRangeValid(const T &v, const RangeSpec<T> &r) {
+        using VT = std::underlying_type_t<T>;
+        return !(static_cast<VT>(r.min) > static_cast<VT>(v)
+                 || static_cast<VT>(v) > static_cast<VT>(r.max));
+    }
+
+/*
+ * delta functions
+ */
 
     class ObjectMemoryPosition {
     public:
@@ -196,4 +235,4 @@ S& serialize(S& s, T& o)
     };
 
 }
-#endif //TMP_COMMON_H
+#endif //BITSERY_COMMON_H

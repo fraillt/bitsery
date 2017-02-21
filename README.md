@@ -7,8 +7,9 @@ All cross-platform requirements are enforced at compile time, so serialized data
 ## Status
 
 **bitsery** is in pre-release state and is looking for your feedback. 
-It has basic features, serialize arithmetic types, enums, containers and text, but is missing any advanced compression functions like delta changes serialization, entropy encoding, floating point compression, geometry compression, etc...
+It has basic features, serialize arithmetic types, enums, containers and text, and few advanced features like value ranges and default values (substitution), but is still missing functions for delta changes and geometry compression.
 > Current version do not handle Big/Little Endianness.
+> Error handling on deserialization is not tested.
 
 ## Example
 ```cpp
@@ -34,7 +35,7 @@ SERIALIZE(MyStruct) {
     return s.
             value(o.i).
             value(o.e).
-            container(o.fs);
+            container(o.fs, 100);
 }
 
 void print(const char* msg, const MyStruct& v) {
@@ -94,5 +95,5 @@ int main() {
 
 This library was tested on
 * Windows: Visual Studio 2015
-* Linux: GCC 5.4, GCC 6.2
+* Linux: GCC 5.4, GCC 6.2, Clang 3.9
 

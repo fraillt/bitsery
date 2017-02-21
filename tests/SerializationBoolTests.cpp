@@ -20,54 +20,37 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
+
 #include <gmock/gmock.h>
 #include "SerializationTestUtils.h"
 
 using testing::Eq;
 
-template <typename T>
-bool SerializeDeserializeValue(const T& v) {
-    T res{};
+
+TEST(SerializeBooleans, BoolAsBit) {
     SerializationContext ctx;
-    ctx.createSerializer().value(v);
-    ctx.createDeserializer().value(res);
-    return v == res;
+    bool t1{true};
+    bool t2{false};
+    bool res1;
+    bool res2;
+    ctx.createSerializer().boolBit(t1).boolBit(t2);
+    ctx.createDeserializer().boolBit(res1).boolBit(res2);
+
+    EXPECT_THAT(res1, Eq(t1));
+    EXPECT_THAT(res2, Eq(t2));
+    EXPECT_THAT(ctx.getBufferSize(), Eq(1));
 }
 
-TEST(SerializeValues, IntegerTypes) {
-    EXPECT_THAT(SerializeDeserializeValue(-449874), Eq(true));
-    EXPECT_THAT(SerializeDeserializeValue(34u), Eq(true));
-}
-
-TEST(SerializeValues, EnumTypes) {
-    enum E1{
-        A1,B1,C1,D1
-    };
-    EXPECT_THAT(SerializeDeserializeValue(E1::C1), Eq(true));
-    enum class E2 {
-        A2,B2,C2,D2
-    };
-    EXPECT_THAT(SerializeDeserializeValue(E2::B2), Eq(true));
-    enum class E3:short {
-        A3, B3, C3=4568, D3
-    };
-    EXPECT_THAT(SerializeDeserializeValue(E3::C3), Eq(true));
-}
-
-TEST(SerializeValues, FloatingPointTypes) {
-    EXPECT_THAT(SerializeDeserializeValue(-484.465), Eq(true));
-    EXPECT_THAT(SerializeDeserializeValue(0.00000015f), Eq(true));
-}
-
-TEST(SerializeValues, ExplicitTypeSize) {
-    int v{23472};
-    int res;
-    constexpr size_t TSIZE = sizeof(v);
-
+TEST(SerializeBooleans, BoolAsByte) {
     SerializationContext ctx;
-    ctx.createSerializer().value<TSIZE>(v);
-    ctx.createDeserializer().value<TSIZE>(res);
+    bool t1{true};
+    bool t2{false};
+    bool res1;
+    bool res2;
+    ctx.createSerializer().boolByte(t1).boolByte(t2);
+    ctx.createDeserializer().boolByte(res1).boolByte(res2);
 
-    EXPECT_THAT(res, Eq(v));
-    EXPECT_THAT(TSIZE, Eq(ctx.getBufferSize()));
+    EXPECT_THAT(res1, Eq(t1));
+    EXPECT_THAT(res2, Eq(t2));
+    EXPECT_THAT(ctx.getBufferSize(), Eq(2));
 }

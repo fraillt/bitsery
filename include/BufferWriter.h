@@ -1,9 +1,29 @@
+//MIT License
 //
-// Created by Mindaugas Vinkelis on 2016-11-11.
+//Copyright (c) 2017 Mindaugas Vinkelis
 //
+//Permission is hereby granted, free of charge, to any person obtaining a copy
+//of this software and associated documentation files (the "Software"), to deal
+//in the Software without restriction, including without limitation the rights
+//to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//copies of the Software, and to permit persons to whom the Software is
+//furnished to do so, subject to the following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all
+//copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//SOFTWARE.
 
-#ifndef PROJECT_TEMPLATE_BUFFER_WRITER_H
-#define PROJECT_TEMPLATE_BUFFER_WRITER_H
+
+
+#ifndef BITSERY_BUFFER_WRITER_H
+#define BITSERY_BUFFER_WRITER_H
 
 #include "Common.h"
 #include <cassert>
@@ -133,6 +153,19 @@ namespace bitsery {
                 bitsLeft -= bits;
             }
         }
+        void writeBitsInternal(const value_type &v, size_t size) {
+            if (size > 0) {
+                m_scratch |= static_cast<SCRATCH_TYPE>( v ) << m_scratchBits;
+                m_scratchBits += size;
+                if (m_scratchBits >= BITS_SIZE<value_type>) {
+                    auto tmp = static_cast<value_type>(m_scratch & bufTypeMask);
+                    directWrite(&tmp, 1);
+                    m_scratch >>= BITS_SIZE<value_type>;
+                    m_scratchBits -= BITS_SIZE<value_type>;
+                }
+            }
+        }
+
 
         const value_type bufTypeMask = 0xFF;
         using SCRATCH_TYPE = typename BIGGER_TYPE<value_type>::type;
@@ -147,4 +180,4 @@ namespace bitsery {
     };
 }
 
-#endif //PROJECT_TEMPLATE_BUFFER_WRITER_H
+#endif //BITSERY_BUFFER_WRITER_H
