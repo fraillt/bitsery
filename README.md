@@ -15,22 +15,17 @@ It has basic features, serialize arithmetic types, enums, containers and text, a
 ```cpp
 #include <iostream>
 #include <vector>
-#include "BufferReader.h"
-#include "BufferWriter.h"
-#include "Serializer.h"
-#include "Deserializer.h"
+#include <Bitsery.h>
 
-enum class MyEnum {
-    V1,V2,V3
-};
 
+enum class MyEnum { V1,V2,V3 };
 struct MyStruct {
     int i;
     MyEnum e;
     std::vector<float> fs;
 };
 
-//define how object should be serialized
+//define how object should be serialized/deserialized
 SERIALIZE(MyStruct) {
     return s.
             value(o.i).
@@ -38,27 +33,12 @@ SERIALIZE(MyStruct) {
             container(o.fs, 100);
 }
 
-void print(const char* msg, const MyStruct& v) {
-    std::cout << msg << std::endl;
-    std::cout << "i:" << v.i << std::endl;
-    std::cout << "e:" << (int)v.e << std::endl;
-    std::cout << "fs:";
-    for (auto p:v.fs)
-        std::cout << '\t' << p;
-    std::cout << std::endl << std::endl;
-}
+using namespace bitsery;
 
 int main() {
     //set some random data
-    MyStruct data{};
-    data.e = MyEnum::V2;
-    data.i = 48465;
-    data.fs.resize(4);
-    float tmp = 4253;
-    for (auto& v: data.fs) {
-        tmp /=2;
-        v = tmp;
-    }
+    MyStruct data{8941, MyEnum::V2, {15.0f, -8.5f, 0.045f}};
+    MyStruct res{};
 
     //create serializer
     //1) create buffer to store data
@@ -68,13 +48,11 @@ int main() {
     //3) create serializer
     Serializer<BufferWriter> ser{bw};
 
-    //call serialize function
-    serialize(ser, data);
+    //serialize object, can also be invoked like this: serialize(ser, data)
+    ser.object(data);
 
-    //flush to buffer
+    //flush to buffer, before creating buffer reader
     bw.flush();
-
-    MyStruct result{};
 
     //create deserializer
     //1) create buffer reader
@@ -82,18 +60,17 @@ int main() {
     //2) create deserializer
     Deserializer<BufferReader> des{br};
 
-    //call same function with different arguments
-    serialize(des, result);
+    //deserialize same object, can also be invoked like this: serialize(des, data)
+    des.object(res);
 
-    //print results
-    print("initial data", data);
-    print("result", result);
+    //check is equal
+    std::cout << "is equal: " << (data.fs == res.fs && data.i == res.i && data.e == res.e) << std::endl;
 }
 ```
 
 ## Platforms
 
 This library was tested on
-* Windows: Visual Studio 2015
+* Windows: Visual Studio 2015, MinGW (gcc 5.2)
 * Linux: GCC 5.4, GCC 6.2, Clang 3.9
 
