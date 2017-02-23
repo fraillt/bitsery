@@ -22,7 +22,7 @@
 
 
 #include <gmock/gmock.h>
-#include "SerializationTestUtils.h"
+#include "serialization_test_utils.h"
 #include <type_traits>
 
 using testing::ContainerEq;

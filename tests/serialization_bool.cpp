@@ -21,26 +21,36 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_BITSERY_H
-#define BITSERY_BITSERY_H
+#include <gmock/gmock.h>
+#include "serialization_test_utils.h"
 
-#define BITSERY_MAJOR_VERSION 1
-#define BITSERY_MINOR_VERSION 1
-#define BITSERY_PATCH_VERSION 0
-
-#define BITSERY_QUOTE_MACRO(name) #name
-#define BITSERY_BUILD_VERSION_STR(major,minor, patch) \
-BITSERY_QUOTE_MACRO(major) "." \
-BITSERY_QUOTE_MACRO(minor) "." \
-BITSERY_QUOTE_MACRO(patch)
-
-#define BITSERY_VERSION \
-BITSERY_BUILD_VERSION_STR(BITSERY_MAJOR_VERSION, BITSERY_MINOR_VERSION, BITSERY_PATCH_VERSION)
+using testing::Eq;
 
 
-#include "BufferWriter.h"
-#include "BufferReader.h"
-#include "Serializer.h"
-#include "Deserializer.h"
+TEST(SerializeBooleans, BoolAsBit) {
+    SerializationContext ctx;
+    bool t1{true};
+    bool t2{false};
+    bool res1;
+    bool res2;
+    ctx.createSerializer().boolBit(t1).boolBit(t2);
+    ctx.createDeserializer().boolBit(res1).boolBit(res2);
 
-#endif //BITSERY_BITSERY_H
+    EXPECT_THAT(res1, Eq(t1));
+    EXPECT_THAT(res2, Eq(t2));
+    EXPECT_THAT(ctx.getBufferSize(), Eq(1));
+}
+
+TEST(SerializeBooleans, BoolAsByte) {
+    SerializationContext ctx;
+    bool t1{true};
+    bool t2{false};
+    bool res1;
+    bool res2;
+    ctx.createSerializer().boolByte(t1).boolByte(t2);
+    ctx.createDeserializer().boolByte(res1).boolByte(res2);
+
+    EXPECT_THAT(res1, Eq(t1));
+    EXPECT_THAT(res2, Eq(t2));
+    EXPECT_THAT(ctx.getBufferSize(), Eq(2));
+}

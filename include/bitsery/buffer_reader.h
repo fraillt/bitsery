@@ -25,7 +25,7 @@
 #ifndef BITSERY_BUFFER_READER_H
 #define BITSERY_BUFFER_READER_H
 
-#include "Common.h"
+#include "common.h"
 
 #include <cassert>
 #include <algorithm>

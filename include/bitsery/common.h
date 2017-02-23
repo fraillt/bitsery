@@ -25,7 +25,7 @@
 #ifndef BITSERY_COMMON_H
 #define BITSERY_COMMON_H
 
-#include <stdint.h>
+#include <cstdint>
 
 namespace bitsery {
 

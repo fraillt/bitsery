@@ -39,33 +39,54 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 file(GLOB TEST_SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 
 FOREACH(TEST_PROJECT_FILE ${TEST_SRC_FILES})
-    get_filename_component(TEST_PROJECT_NAME ${TEST_PROJECT_FILE} NAME_WE)
+    get_filename_component(SEPARATE_TEST_NAME ${TEST_PROJECT_FILE} NAME_WE)
+    set(SEPARATE_TEST_NAME TEST_${SEPARATE_TEST_NAME})
+    add_executable(${SEPARATE_TEST_NAME} ${TEST_PROJECT_FILE})
+    add_dependencies(${SEPARATE_TEST_NAME} googletest)
 
-    add_executable(${TEST_PROJECT_NAME} ${TEST_PROJECT_FILE})
-    add_dependencies(${TEST_PROJECT_NAME} googletest)
-
-    set_property(TARGET ${TEST_PROJECT_NAME} PROPERTY CXX_STANDARD 14)
-    set_property(TARGET ${TEST_PROJECT_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
+    set_property(TARGET ${SEPARATE_TEST_NAME} PROPERTY CXX_STANDARD 14)
+    set_property(TARGET ${SEPARATE_TEST_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
 
 
     if(NOT WIN32 OR MINGW)
         FOREACH(LIBNAME ${GTEST_LINK_LIBNAMES})
-            target_link_libraries(${TEST_PROJECT_NAME} ${GTEST_LIBS_DIR}/lib${LIBNAME}.a )
+            target_link_libraries(${SEPARATE_TEST_NAME} ${GTEST_LIBS_DIR}/lib${LIBNAME}.a )
         ENDFOREACH()
     else()
         FOREACH(LIBNAME ${GTEST_LINK_LIBNAMES})
-            target_link_libraries(${TEST_PROJECT_NAME}
+            target_link_libraries(${SEPARATE_TEST_NAME}
                     debug ${GTEST_LIBS_DIR}/DebugLibs/${CMAKE_FIND_LIBRARY_PREFIXES}${LIBNAME}${CMAKE_FIND_LIBRARY_SUFFIXES}
                     optimized ${GTEST_LIBS_DIR}/ReleaseLibs/${CMAKE_FIND_LIBRARY_PREFIXES}${LIBNAME}${CMAKE_FIND_LIBRARY_SUFFIXES})
         ENDFOREACH()
     endif()
 
-    target_link_libraries(${TEST_PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT})
+    target_link_libraries(${SEPARATE_TEST_NAME} ${CMAKE_THREAD_LIBS_INIT})
 
-    add_test(NAME ${TEST_PROJECT_NAME} COMMAND $<TARGET_FILE:${TEST_PROJECT_NAME}>)
+    add_test(NAME ${SEPARATE_TEST_NAME} COMMAND $<TARGET_FILE:${SEPARATE_TEST_NAME}>)
 
 ENDFOREACH()
 
+#all in one tests for code coverage
+add_executable(${TEST_PROJECT_NAME} ${TEST_SRC_FILES})
+add_dependencies(${TEST_PROJECT_NAME} googletest)
+
+set_property(TARGET ${TEST_PROJECT_NAME} PROPERTY CXX_STANDARD 14)
+set_property(TARGET ${TEST_PROJECT_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
+
+
+if(NOT WIN32 OR MINGW)
+    FOREACH(LIBNAME ${GTEST_LINK_LIBNAMES})
+        target_link_libraries(${TEST_PROJECT_NAME} ${GTEST_LIBS_DIR}/lib${LIBNAME}.a )
+    ENDFOREACH()
+else()
+    FOREACH(LIBNAME ${GTEST_LINK_LIBNAMES})
+        target_link_libraries(${TEST_PROJECT_NAME}
+                debug ${GTEST_LIBS_DIR}/DebugLibs/${CMAKE_FIND_LIBRARY_PREFIXES}${LIBNAME}${CMAKE_FIND_LIBRARY_SUFFIXES}
+                optimized ${GTEST_LIBS_DIR}/ReleaseLibs/${CMAKE_FIND_LIBRARY_PREFIXES}${LIBNAME}${CMAKE_FIND_LIBRARY_SUFFIXES})
+    ENDFOREACH()
+endif()
+
+target_link_libraries(${TEST_PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT})
 
 
 

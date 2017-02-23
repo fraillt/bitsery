@@ -24,10 +24,7 @@
 #ifndef BITSERY_SERIALIZERTESTS_H
 #define BITSERY_SERIALIZERTESTS_H
 
-#include <Deserializer.h>
-#include <BufferReader.h>
-#include "BufferWriter.h"
-#include "Serializer.h"
+#include <bitsery/bitsery.h>
 #include <memory>
 
 struct MyStruct1 {

@@ -15,7 +15,7 @@ It has basic features, serialize arithmetic types, enums, containers and text, a
 ```cpp
 #include <iostream>
 #include <vector>
-#include <Bitsery.h>
+#include <bitsery/bitsery.h>
 
 
 enum class MyEnum { V1,V2,V3 };
@@ -73,4 +73,5 @@ int main() {
 This library was tested on
 * Windows: Visual Studio 2015, MinGW (gcc 5.2)
 * Linux: GCC 5.4, GCC 6.2, Clang 3.9
+* OS X Mavericks: AppleClang 8
 

@@ -22,8 +22,8 @@
 
 
 #include <gmock/gmock.h>
-#include "BufferWriter.h"
-#include "BufferReader.h"
+#include <bitsery/buffer_writer.h>
+#include <bitsery/buffer_reader.h>
 #include <list>
 #include <bitset>
 

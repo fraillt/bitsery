@@ -25,7 +25,7 @@
 #ifndef BITSERY_SERIALIZER_H
 #define BITSERY_SERIALIZER_H
 
-#include "Common.h"
+#include "common.h"
 #include <array>
 
 namespace bitsery {

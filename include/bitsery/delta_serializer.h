@@ -28,7 +28,7 @@
 #include <array>
 #include <stack>
 #include <algorithm>
-#include "Serializer.h"
+#include "serializer.h"
 
 namespace bitsery {
 

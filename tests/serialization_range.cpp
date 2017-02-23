@@ -22,7 +22,7 @@
 
 
 #include <gmock/gmock.h>
-#include "SerializationTestUtils.h"
+#include "serialization_test_utils.h"
 using namespace testing;
 using bitsery::RangeSpec;
 using bitsery::BitsConstraint;

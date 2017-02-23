@@ -22,7 +22,7 @@
 
 #include <iostream>
 #include <vector>
-#include <Bitsery.h>
+#include <bitsery/bitsery.h>
 
 
 enum class MyEnum { V1,V2,V3 };

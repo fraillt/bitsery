@@ -24,7 +24,7 @@
 #ifndef BITSERY_DESERIALIZER_H
 #define BITSERY_DESERIALIZER_H
 
-#include "Common.h"
+#include "common.h"
 #include <array>
 #include <utility>
 

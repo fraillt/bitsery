@@ -22,10 +22,10 @@
 
 
 #include <gmock/gmock.h>
-#include "SerializationTestUtils.h"
+#include "serialization_test_utils.h"
 
-#include "DeltaSerializer.h"
-#include "DeltaDeserializer.h"
+#include <bitsery/delta_serializer.h>
+#include <bitsery/delta_deserializer.h>
 
 #include <list>
 
