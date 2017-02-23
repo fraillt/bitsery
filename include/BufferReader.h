@@ -36,9 +36,24 @@ namespace bitsery {
 
         using value_type = uint8_t;
 
-        BufferReader(const std::vector<uint8_t> &buf) : _buf{buf}, _pos{std::begin(buf)} {
+        BufferReader(const std::vector<uint8_t> &buf)
+                : _pos{buf.data()},
+                  _end{buf.data() + buf.size()} {
 
         }
+
+        BufferReader(const uint8_t* data, size_t size)
+                : _pos{data},
+                  _end{data + size}
+        {
+        }
+        template <size_t N>
+        BufferReader(const uint8_t (&data)[N])
+                : _pos{data},
+                  _end{data + N}
+        {
+        }
+
 
         template<size_t SIZE, typename T>
         bool readBytes(T &v) {
@@ -78,7 +93,7 @@ namespace bitsery {
             const auto bytesRequired = bitsCount > m_scratchBits
                                        ? ((bitsCount - 1 - m_scratchBits) >> 3) + 1u
                                        : 0u;
-            if (static_cast<size_t>(std::distance(_pos, std::end(_buf))) < bytesRequired)
+            if (static_cast<size_t>(std::distance(_pos, _end)) < bytesRequired)
                 return false;
             readBitsInternal(v, bitsCount);
             return true;
@@ -94,18 +109,18 @@ namespace bitsery {
         }
 
         bool isCompleted() const {
-            return _pos == std::end(_buf);
+            return _pos == _end;
         }
 
     private:
-        const std::vector<value_type> &_buf;
-        decltype(std::begin(_buf)) _pos;
+        const value_type* _pos;
+        const value_type* _end;
 
         template<typename T>
         bool directRead(T *v, size_t count) {
             static_assert(!std::is_const<T>::value, "");
             const auto bytesCount = sizeof(T) * count;
-            if (static_cast<size_t>(std::distance(_pos, std::end(_buf))) < bytesCount)
+            if (static_cast<size_t>(std::distance(_pos, _end)) < bytesCount)
                 return false;
             std::copy_n(_pos, bytesCount, reinterpret_cast<value_type *>(v));
             std::advance(_pos, bytesCount);
