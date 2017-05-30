@@ -84,27 +84,22 @@ namespace bitsery {
          * value overloads
          */
 
-        template<size_t VSIZE = 0, typename T, typename std::enable_if<std::is_floating_point<T>::value>::type * = nullptr>
+        template<size_t VSIZE, typename T, typename std::enable_if<std::is_floating_point<T>::value>::type * = nullptr>
         Serializer& value(const T &v) {
-            static_assert(std::numeric_limits<float>::is_iec559, "");
-            static_assert(std::numeric_limits<double>::is_iec559, "");
-
-            constexpr size_t ValueSize = VSIZE == 0 ? sizeof(T) : VSIZE;
-            _writter.template writeBytes<ValueSize>(reinterpret_cast<const SAME_SIZE_UNSIGNED<T> &>(v));
+            static_assert(std::numeric_limits<T>::is_iec559, "");
+            _writter.template writeBytes<VSIZE>(reinterpret_cast<const SAME_SIZE_UNSIGNED<T> &>(v));
             return *this;
         }
 
-        template<size_t VSIZE = 0, typename T, typename std::enable_if<std::is_enum<T>::value>::type * = nullptr>
+        template<size_t VSIZE, typename T, typename std::enable_if<std::is_enum<T>::value>::type * = nullptr>
         Serializer& value(const T &v) {
-            constexpr size_t ValueSize = VSIZE == 0 ? sizeof(T) : VSIZE;
-            _writter.template writeBytes<ValueSize>(reinterpret_cast<const std::underlying_type_t<T> &>(v));
+            _writter.template writeBytes<VSIZE>(reinterpret_cast<const std::underlying_type_t<T> &>(v));
             return *this;
         }
 
-        template<size_t VSIZE = 0, typename T, typename std::enable_if<std::is_integral<T>::value>::type * = nullptr>
+        template<size_t VSIZE, typename T, typename std::enable_if<std::is_integral<T>::value>::type * = nullptr>
         Serializer& value(const T &v) {
-            constexpr size_t ValueSize = VSIZE == 0 ? sizeof(T) : VSIZE;
-            _writter.template writeBytes<ValueSize>(v);
+            _writter.template writeBytes<VSIZE>(v);
             return *this;
         }
 
@@ -150,7 +145,7 @@ namespace bitsery {
             auto index = findSubstitutionIndex(v, expectedValues);
             range(index, {{}, N +1});
             if (!index)
-                ProcessAnyType<VSIZE>::serialize(*this, v);
+                value<VSIZE>(v);
             return *this;
         };
 
@@ -159,7 +154,7 @@ namespace bitsery {
             auto index = findSubstitutionIndex(v, expectedValues);
             range(index, {{}, N +1});
             if (!index)
-                ProcessAnyType<ARITHMETIC_OR_ENUM_SIZE<T>>::serialize(*this, v);
+                object(v);
             return *this;
         };
 
@@ -167,14 +162,14 @@ namespace bitsery {
          * text overloads
          */
 
-        template<size_t VSIZE = 1, typename T>
+        template<size_t VSIZE, typename T>
         Serializer& text(const std::basic_string<T> &str, size_t maxSize) {
             assert(str.size() <= maxSize);
             procText<VSIZE>(str.data(), str.size());
             return *this;
         }
 
-        template<size_t VSIZE = 1, typename T, size_t N>
+        template<size_t VSIZE, typename T, size_t N>
         Serializer& text(const T (&str)[N]) {
             procText<VSIZE>(str, std::min(std::char_traits<T>::length(str), N - 1));
             return *this;
@@ -255,6 +250,46 @@ namespace bitsery {
             procCArray<ARITHMETIC_OR_ENUM_SIZE<T>>(arr);
             return *this;
         }
+
+        Serializer& align() {
+            _writter.align();
+            return *this;
+        }
+
+        //overloads for functions with explicit type size
+        template<typename T> Serializer& value1(T &&v) { return value<1>(std::forward<T>(v)); }
+        template<typename T> Serializer& value2(T &&v) { return value<2>(std::forward<T>(v)); }
+        template<typename T> Serializer& value4(T &&v) { return value<4>(std::forward<T>(v)); }
+        template<typename T> Serializer& value8(T &&v) { return value<8>(std::forward<T>(v)); }
+
+        template<typename T, size_t N> Serializer& substitution1
+                (const T &v, const std::array<T, N> &expectedValues) { return substitution<1>(v, expectedValues); };
+        template<typename T, size_t N> Serializer& substitution2
+                (const T &v, const std::array<T, N> &expectedValues) { return substitution<2>(v, expectedValues); };
+        template<typename T, size_t N> Serializer& substitution4
+                (const T &v, const std::array<T, N> &expectedValues) { return substitution<4>(v, expectedValues); };
+        template<typename T, size_t N> Serializer& substitution8
+                (const T &v, const std::array<T, N> &expectedValues) { return substitution<8>(v, expectedValues); };
+
+        template<typename T> Serializer& text1(const std::basic_string<T> &str, size_t maxSize) {
+            return text<1>(str, maxSize); }
+        template<typename T> Serializer& text2(const std::basic_string<T> &str, size_t maxSize) {
+            return text<2>(str, maxSize); }
+        template<typename T> Serializer& text4(const std::basic_string<T> &str, size_t maxSize) {
+            return text<4>(str, maxSize); }
+
+        template<typename T, size_t N> Serializer& text1(const T (&str)[N]) { return text<1>(str); }
+        template<typename T, size_t N> Serializer& text2(const T (&str)[N]) { return text<2>(str); }
+        template<typename T, size_t N> Serializer& text4(const T (&str)[N]) { return text<4>(str); }
+
+        template<typename T> Serializer& container1(T &&obj, size_t maxSize) {
+            return container<1>(std::forward<T>(obj), maxSize); }
+        template<typename T> Serializer& container2(T &&obj, size_t maxSize) {
+            return container<2>(std::forward<T>(obj), maxSize); }
+        template<typename T> Serializer& container4(T &&obj, size_t maxSize) {
+            return container<4>(std::forward<T>(obj), maxSize); }
+        template<typename T> Serializer& container8(T &&obj, size_t maxSize) {
+            return container<8>(std::forward<T>(obj), maxSize); }
 
     private:
         Writter &_writter;

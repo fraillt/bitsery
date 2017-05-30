@@ -67,32 +67,28 @@ namespace bitsery {
          * value overloads
          */
 
-        template<size_t VSIZE = 0, typename T, typename std::enable_if<std::is_floating_point<T>::value>::type* = nullptr>
+        template<size_t VSIZE, typename T, typename std::enable_if<std::is_floating_point<T>::value>::type* = nullptr>
         Deserializer& value(T& v) {
-            static_assert(std::numeric_limits<float>::is_iec559, "");
-            static_assert(std::numeric_limits<double>::is_iec559, "");
+            static_assert(std::numeric_limits<T>::is_iec559, "");
             if (_isValid) {
-                constexpr size_t ValueSize = VSIZE == 0 ? sizeof(T) : VSIZE;
-                _isValid = _reader.template readBytes<ValueSize>(reinterpret_cast<SAME_SIZE_UNSIGNED<T>&>(v));
+                _isValid = _reader.template readBytes<VSIZE>(reinterpret_cast<SAME_SIZE_UNSIGNED<T>&>(v));
             }
             return *this;
         }
 
-        template<size_t VSIZE = 0, typename T, typename std::enable_if<std::is_enum<T>::value>::type* = nullptr>
+        template<size_t VSIZE, typename T, typename std::enable_if<std::is_enum<T>::value>::type* = nullptr>
         Deserializer& value(T& v) {
-            constexpr size_t ValueSize = VSIZE == 0 ? sizeof(T) : VSIZE;
             using UT = std::underlying_type_t<T>;
             if (_isValid) {
-                _isValid = _reader.template readBytes<ValueSize>(reinterpret_cast<UT&>(v));
+                _isValid = _reader.template readBytes<VSIZE>(reinterpret_cast<UT&>(v));
             }
             return *this;
         }
 
-        template<size_t VSIZE = 0, typename T, typename std::enable_if<std::is_integral<T>::value>::type* = nullptr>
+        template<size_t VSIZE, typename T, typename std::enable_if<std::is_integral<T>::value>::type* = nullptr>
         Deserializer& value(T& v) {
-            constexpr size_t ValueSize = VSIZE == 0 ? sizeof(T) : VSIZE;
             if (_isValid) {
-                _isValid = _reader.template readBytes<ValueSize>(v);
+                _isValid = _reader.template readBytes<VSIZE>(v);
             }
             return *this;
         }
@@ -160,7 +156,7 @@ namespace bitsery {
                 if (index)
                     v = expectedValues[index-1];
                 else
-                    ProcessAnyType<VSIZE>::serialize(*this, v);
+                    value<VSIZE>(v);
             }
             return *this;
         };
@@ -173,7 +169,7 @@ namespace bitsery {
                 if (index)
                     v = expectedValues[index-1];
                 else
-                    ProcessAnyType<ARITHMETIC_OR_ENUM_SIZE<T>>::serialize(*this, v);
+                    object(v);
             }
             return *this;
         };
@@ -182,7 +178,7 @@ namespace bitsery {
          * text overloads
          */
 
-        template <size_t VSIZE = 1, typename T>
+        template <size_t VSIZE, typename T>
         Deserializer& text(std::basic_string<T>& str, size_t maxSize) {
             size_t size;
             readSize(size, maxSize);
@@ -190,18 +186,18 @@ namespace bitsery {
                 str.resize(size);
                 if (size) {
                     //if (std::is_const<decltype(std::declval<std::basic_string<T>>().data())>::value) {
-                        std::vector<T> buf(size);
-                        _isValid = _reader.template readBuffer<VSIZE>(buf.data(), size);
-                        str.assign(buf.data(), size);
+                    std::vector<T> buf(size);
+                    _isValid = _reader.template readBuffer<VSIZE>(buf.data(), size);
+                    str.assign(buf.data(), size);
                     //} else {
-                        //_isValid = _reader.template readBuffer<VSIZE>(str.data(), size);
+                    //_isValid = _reader.template readBuffer<VSIZE>(str.data(), size);
                     //}
                 }
             }
             return *this;
         }
 
-        template<size_t VSIZE=1, typename T, size_t N>
+        template<size_t VSIZE, typename T, size_t N>
         Deserializer& text(T (&str)[N]) {
             size_t size;
             readSize(size, N-1);
@@ -237,7 +233,10 @@ namespace bitsery {
             readSize(size, maxSize);
             if (_isValid) {
                 obj.resize(size);
-                procContainer<VSIZE>(obj);
+                for (auto& v: obj) {
+                    if (_isValid)
+                        value<VSIZE>(v);
+                }
             }
             return *this;
         }
@@ -248,7 +247,10 @@ namespace bitsery {
             readSize(size, maxSize);
             if (_isValid) {
                 obj.resize(size);
-                procContainer<ARITHMETIC_OR_ENUM_SIZE<typename T::value_type>>(obj);
+                for (auto& v: obj) {
+                    if (_isValid)
+                        object(v);
+                }
             }
             return *this;
         }
@@ -269,13 +271,19 @@ namespace bitsery {
 
         template<size_t VSIZE, typename T, size_t N>
         Deserializer&  array(std::array<T,N> &arr) {
-            procContainer<VSIZE>(arr);
+            for (auto& v: arr) {
+                if (_isValid)
+                    value<VSIZE>(v);
+            }
             return *this;
         }
 
         template<typename T, size_t N>
         Deserializer&  array(std::array<T,N> &arr) {
-            procContainer<ARITHMETIC_OR_ENUM_SIZE<T>>(arr);
+            for (auto& v: arr) {
+                if (_isValid)
+                    object(v);
+            }
             return *this;
         }
 
@@ -283,10 +291,11 @@ namespace bitsery {
 
         template<typename T, size_t N, typename Fnc>
         Deserializer& array(T (&arr)[N], Fnc&& fnc) {
-            T* tmp = arr;
-            for (auto i = 0u; i < N; ++i, ++tmp)
+            T* end = arr + N;
+            for (T* it= arr; it != end; ++it) {
                 if (_isValid)
-                    fnc(*tmp);
+                    fnc(*it);
+            }
             return *this;
         }
 
@@ -304,6 +313,46 @@ namespace bitsery {
         bool isValid() const {
             return _isValid;
         }
+
+        Deserializer& align() {
+            _reader.align();
+            return *this;
+        }
+
+        //overloads for functions with explicit type size
+        template<typename T> Deserializer& value1(T &&v) { return value<1>(std::forward<T>(v)); }
+        template<typename T> Deserializer& value2(T &&v) { return value<2>(std::forward<T>(v)); }
+        template<typename T> Deserializer& value4(T &&v) { return value<4>(std::forward<T>(v)); }
+        template<typename T> Deserializer& value8(T &&v) { return value<8>(std::forward<T>(v)); }
+
+        template<typename T, size_t N> Deserializer& substitution1
+                (T &v, const std::array<T, N> &expectedValues) { return substitution<1>(v, expectedValues); };
+        template<typename T, size_t N> Deserializer& substitution2
+                (T &v, const std::array<T, N> &expectedValues) { return substitution<2>(v, expectedValues); };
+        template<typename T, size_t N> Deserializer& substitution4
+                (T &v, const std::array<T, N> &expectedValues) { return substitution<4>(v, expectedValues); };
+        template<typename T, size_t N> Deserializer& substitution8
+                (T &v, const std::array<T, N> &expectedValues) { return substitution<8>(v, expectedValues); };
+
+        template<typename T> Deserializer& text1(std::basic_string<T> &str, size_t maxSize) {
+            return text<1>(str, maxSize); }
+        template<typename T> Deserializer& text2(std::basic_string<T> &str, size_t maxSize) {
+            return text<2>(str, maxSize); }
+        template<typename T> Deserializer& text4(std::basic_string<T> &str, size_t maxSize) {
+            return text<4>(str, maxSize); }
+
+        template<typename T, size_t N> Deserializer& text1(T (&str)[N]) { return text<1>(str); }
+        template<typename T, size_t N> Deserializer& text2(T (&str)[N]) { return text<2>(str); }
+        template<typename T, size_t N> Deserializer& text4(T (&str)[N]) { return text<4>(str); }
+
+        template<typename T> Deserializer& container1(T &&obj, size_t maxSize) {
+            return container<1>(std::forward<T>(obj), maxSize); }
+        template<typename T> Deserializer& container2(T &&obj, size_t maxSize) {
+            return container<2>(std::forward<T>(obj), maxSize); }
+        template<typename T> Deserializer& container4(T &&obj, size_t maxSize) {
+            return container<4>(std::forward<T>(obj), maxSize); }
+        template<typename T> Deserializer& container8(T &&obj, size_t maxSize) {
+            return container<8>(std::forward<T>(obj), maxSize); }
 
     private:
         Reader& _reader;
@@ -332,6 +381,24 @@ namespace bitsery {
                     _isValid = size <= maxSize;
             }
         }
+
+        template< size_t VSIZE, typename TIterator>
+        void procContainerValues(TIterator begin, TIterator end) {
+            for (auto it = begin; it != end; ++it) {
+                if (_isValid)
+                    value<VSIZE>(*it);
+            }
+        };
+
+        template<typename TIterator>
+        void procContainerValues(TIterator begin, TIterator end) {
+            for (auto it = begin; it != end; ++it) {
+                if (_isValid)
+                    object(*it);
+            }
+        };
+
+
         template <size_t VSIZE, typename T>
         void procContainer(T&& obj) {
             //todo could be improved for arithmetic types in contiguous containers (std::vector, std::array) (keep in mind std::vector<bool> specialization)
@@ -347,6 +414,13 @@ namespace bitsery {
             for (T* it = arr; it != end; ++it)
                 if (_isValid)
                     ProcessAnyType<VSIZE>::serialize(*this, *it);
+        };
+
+        template <typename Iterator, typename Fnc>
+        void procCont(Iterator begin, Iterator end, Fnc&& fnc) {
+            for (Iterator it = begin; it != end; ++it)
+                if (_isValid)
+                    fnc(*it);
         };
 
     };

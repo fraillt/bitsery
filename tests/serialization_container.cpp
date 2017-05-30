@@ -59,16 +59,6 @@ TYPED_TEST_CASE(SerializeContainerArthmeticTypes, SequenceContainersWithArthmeti
 
 TYPED_TEST(SerializeContainerArthmeticTypes, Values) {
     SerializationContext ctx{};
-
-    ctx.createSerializer().container(this->src, 1000);
-    ctx.createDeserializer().container(this->res, 1000);
-
-    EXPECT_THAT(ctx.getBufferSize(), Eq(this->getExpectedBufSize(ctx)));
-    EXPECT_THAT(this->res, ContainerEq(this->src));
-}
-
-TYPED_TEST(SerializeContainerArthmeticTypes, ValuesWithExplicitSize) {
-    SerializationContext ctx{};
     using TValue = typename TestFixture::TValue;
 
     ctx.createSerializer().container<sizeof(TValue)>(this->src, 1000);
@@ -85,11 +75,11 @@ TYPED_TEST(SerializeContainerArthmeticTypes, CustomFunctionIncrements) {
     ser.container(this->src, [&ser](auto v ) {
         //increment by 1 before writing
         v++;
-        ser.value(v);
+        ser.value<sizeof(v)>(v);
     }, 1000);
     auto des = ctx.createDeserializer();
     des.container(this->res, [&des](auto&v ) {
-        des.value(v);
+        des.value<sizeof(v)>(v);
         //increment by 1 after reading
         v++;
     }, 1000);
@@ -157,6 +147,7 @@ TYPED_TEST(SerializeContainerCompositeTypes, DefaultSerializeFunction) {
 
 TYPED_TEST(SerializeContainerCompositeTypes, CustomFunctionThatDoNothing) {
     SerializationContext ctx{};
+
 
     auto emptyFnc = [](auto v) {};
     ctx.createSerializer().container(this->src, emptyFnc, 1000);

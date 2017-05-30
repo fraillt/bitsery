@@ -30,8 +30,8 @@ TEST(SerializeText, BasicString) {
     std::string t1 = "some random text";
     std::string res;
 
-    ctx.createSerializer().text(t1, 1000);
-    ctx.createDeserializer().text(res, 1000);
+    ctx.createSerializer().text<sizeof(std::string::value_type)>(t1, 1000);
+    ctx.createDeserializer().text<sizeof(std::string::value_type)>(res, 1000);
 
     EXPECT_THAT(res, StrEq(t1));
     EXPECT_THAT(res, ContainerEq(t1));
@@ -67,29 +67,29 @@ TEST(SerializeText, BasicStringUseSizeMethodNotNullterminatedLength) {
     SerializationContext ctx2;
     std::string t2("\0no one cares what is there", 10);
     std::string res;
-    ctx2.createSerializer().text(t2, 1000);
-    ctx2.createDeserializer().text(res, 1000);
+    ctx2.createSerializer().text<sizeof(std::string::value_type)>(t2, 1000);
+    ctx2.createDeserializer().text<sizeof(std::string::value_type)>(res, 1000);
 
     EXPECT_THAT(res, StrEq(t2));
     EXPECT_THAT(res.size(), Eq(t2.size()));
 
     SerializationContext ctx3;
     std::string t3("never ending buffer that doesnt fit in this string", 10);
-    ctx3.createSerializer().text(t3, 1000);
-    ctx3.createDeserializer().text(res, 1000);
+    ctx3.createSerializer().text<sizeof(std::string::value_type)>(t3, 1000);
+    ctx3.createDeserializer().text<sizeof(std::string::value_type)>(res, 1000);
     EXPECT_THAT(res, StrEq(t3));
     EXPECT_THAT(res.size(), Eq(10));
 }
 
-const int CARR_LENGTH = 10;
+constexpr int CARR_LENGTH = 10;
 
 TEST(SerializeText, CArraySerializesTextLength) {
     SerializationContext ctx;
     char t1[CARR_LENGTH]{"some text"};
     char r1[CARR_LENGTH]{};
 
-    ctx.createSerializer().text(t1);
-    ctx.createDeserializer().text(r1);
+    ctx.createSerializer().text<1>(t1);
+    ctx.createDeserializer().text<1>(r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(ctx.containerSizeSerializedBytesCount(CARR_LENGTH) +
                                                 std::char_traits<char>::length(t1)));
@@ -100,39 +100,25 @@ TEST(SerializeText, CArraySerializesTextLength) {
     //zero length string
     t1[0] = 0;
     SerializationContext ctx2;
-    ctx2.createSerializer().text(t1);
-    ctx2.createDeserializer().text(r1);
+    ctx2.createSerializer().text<1>(t1);
+    ctx2.createDeserializer().text<1>(r1);
 
     EXPECT_THAT(ctx2.getBufferSize(), Eq(ctx2.containerSizeSerializedBytesCount(CARR_LENGTH)));
     EXPECT_THAT(r1, StrEq(t1));
     EXPECT_THAT(r1, ContainerEq(t1));
 }
 
-TEST(SerializeText, WhenCArrayWithLargerTypeThenSetSizeExplicitly) {
-    SerializationContext ctx;
-    char32_t t1[10]{U"some text"};
-    char32_t r1[10]{};
-    constexpr auto SIZE = sizeof(char32_t);
-    ctx.createSerializer().text<SIZE>(t1);
-    ctx.createDeserializer().text<SIZE>(r1);
-
-    EXPECT_THAT(ctx.getBufferSize(), Eq(ctx.containerSizeSerializedBytesCount(CARR_LENGTH) +
-                                                std::char_traits<char32_t>::length(t1) * SIZE));
-    EXPECT_THAT(r1, ContainerEq(t1));
-}
-
-
 TEST(SerializeText, WhenCArrayNotNullterminatedThenMakeItNullterminated) {
     SerializationContext ctx;
-    char t1[CARR_LENGTH]{"some text"};
+    char16_t t1[CARR_LENGTH]{u"some text"};
     //make last character not nullterminated
     t1[CARR_LENGTH-1] = 'x';
-    char r1[CARR_LENGTH]{};
+    char16_t r1[CARR_LENGTH]{};
 
-    ctx.createSerializer().text(t1);
-    ctx.createDeserializer().text(r1);
+    ctx.createSerializer().text<2>(t1);
+    ctx.createDeserializer().text<2>(r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(ctx.containerSizeSerializedBytesCount(CARR_LENGTH) +
-                                                CARR_LENGTH - 1));
+                                                (CARR_LENGTH - 1) * 2));
     EXPECT_THAT(r1[CARR_LENGTH-1], Eq(0));
 }

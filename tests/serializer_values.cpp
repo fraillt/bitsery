@@ -29,8 +29,8 @@ template <typename T>
 bool SerializeDeserializeValue(const T& v) {
     T res{};
     SerializationContext ctx;
-    ctx.createSerializer().value(v);
-    ctx.createDeserializer().value(res);
+    ctx.createSerializer().value<sizeof(T)>(v);
+    ctx.createDeserializer().value<sizeof(T)>(res);
     return v == res;
 }
 
@@ -59,14 +59,53 @@ TEST(SerializeValues, FloatingPointTypes) {
     EXPECT_THAT(SerializeDeserializeValue(0.00000015f), Eq(true));
 }
 
-TEST(SerializeValues, ExplicitTypeSize) {
-    int v{23472};
-    int res;
+TEST(SerializeValues, ValueSizeOverload1Byte) {
+    int8_t v{54};
+    int8_t res;
     constexpr size_t TSIZE = sizeof(v);
 
     SerializationContext ctx;
-    ctx.createSerializer().value<TSIZE>(v);
-    ctx.createDeserializer().value<TSIZE>(res);
+    ctx.createSerializer().value1(v);
+    ctx.createDeserializer().value1(res);
+
+    EXPECT_THAT(res, Eq(v));
+    EXPECT_THAT(TSIZE, Eq(ctx.getBufferSize()));
+}
+
+TEST(SerializeValues, ValueSizeOverload2Byte) {
+    int16_t v{54};
+    int16_t res;
+    constexpr size_t TSIZE = sizeof(v);
+
+    SerializationContext ctx;
+    ctx.createSerializer().value2(v);
+    ctx.createDeserializer().value2(res);
+
+    EXPECT_THAT(res, Eq(v));
+    EXPECT_THAT(TSIZE, Eq(ctx.getBufferSize()));
+}
+
+TEST(SerializeValues, ValueSizeOverload4Byte) {
+    float v{54.498};
+    float res;
+    constexpr size_t TSIZE = sizeof(v);
+
+    SerializationContext ctx;
+    ctx.createSerializer().value4(v);
+    ctx.createDeserializer().value4(res);
+
+    EXPECT_THAT(res, Eq(v));
+    EXPECT_THAT(TSIZE, Eq(ctx.getBufferSize()));
+}
+
+TEST(SerializeValues, ValueSizeOverload8Byte) {
+    int64_t v{54};
+    int64_t res;
+    constexpr size_t TSIZE = sizeof(v);
+
+    SerializationContext ctx;
+    ctx.createSerializer().value8(v);
+    ctx.createDeserializer().value8(res);
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(TSIZE, Eq(ctx.getBufferSize()));

@@ -33,8 +33,8 @@ TEST(SerializeFSArrayStdArray, ArithmeticValues) {
     std::array<int, 4> src{5,9,15,-459};
     std::array<int, 4> res{};
 
-    ctx.createSerializer().array(src);
-    ctx.createDeserializer().array(res);
+    ctx.createSerializer().array<sizeof(int)>(src);
+    ctx.createDeserializer().array<sizeof(int)>(res);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(src.size() * sizeof(int)));
     EXPECT_THAT(res, ContainerEq(src));
@@ -80,12 +80,12 @@ TEST(SerializeFSArrayStdArray, CustomFunctionThatSerializesAnEmptyByteEveryEleme
     auto ser = ctx.createSerializer();
     ser.array(src, [&ser](auto& v) {
         char tmp{};
-        ser.object(v).value(tmp);
+        ser.object(v).value1(tmp);
     });
     auto des = ctx.createDeserializer();
     des.array(res, [&des](auto& v) {
         char tmp{};
-        des.object(v).value(tmp);
+        des.object(v).value1(tmp);
     });
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(src.size() * (MyStruct1::SIZE + sizeof(char))));
@@ -145,12 +145,12 @@ TEST(SerializeFSArrayCArray, CustomFunctionThatSerializesAnEmptyByteEveryElement
     auto ser = ctx.createSerializer();
     ser.array(src, [&ser](auto& v) {
         char tmp{};
-        ser.object(v).value(tmp);
+        ser.object(v).value1(tmp);
     });
     auto des = ctx.createDeserializer();
     des.array(res, [&des](auto& v) {
         char tmp{};
-        des.object(v).value(tmp);
+        des.object(v).value1(tmp);
     });
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(std::extent<decltype(src)>::value * (MyStruct1::SIZE + sizeof(char))));

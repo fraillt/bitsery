@@ -63,15 +63,15 @@ SERIALIZE(Z)
 
 SERIALIZE(X)
 {
-	return s.value(o.x)
-		.text(o.s, 1000);
+	return s.template value<sizeof(o.x)>(o.x)
+		.template text<1>(o.s, 1000);
 }
 
 SERIALIZE(Y)
 {
-	auto writeInt = [&s](auto& v) { s.template value<4>(v); };
-	s.text(o.s, 10000);
-	s.template value<4>(o.y);
+	auto writeInt = [&s](auto& v) { s.template value<sizeof(v)>(v); };
+	s.template text<1>(o.s, 10000);
+	s.template value<sizeof(o.y)>(o.y);
 	s.array(o.arr, writeInt);
 	s.array(o.carr, writeInt);
 	s.container(o.vx, [&s](auto& v) { s.object(v); }, 10000);

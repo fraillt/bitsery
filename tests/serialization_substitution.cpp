@@ -26,34 +26,34 @@
 using namespace testing;
 
 TEST(SerializeSubstitution, WhenSubstitutedThenOnlyWriteIndexUsingMinRequiredBits) {
-    int v = 4849;
-    int res;
+    int32_t v = 4849;
+    int32_t res;
     constexpr size_t N = 3;
-    std::array<int,N> subsitution{485,4849,89};
+    std::array<int32_t,N> subsitution{485,4849,89};
     SerializationContext ctx;
-    ctx.createSerializer().substitution(v, subsitution);
-    ctx.createDeserializer().substitution(res, subsitution);
+    ctx.createSerializer().substitution<4>(v, subsitution);
+    ctx.createDeserializer().substitution<4>(res, subsitution);
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
 
     SerializationContext ctx1;
-    ctx1.createSerializer().substitution(v, subsitution);
+    ctx1.createSerializer().substitution<4>(v, subsitution);
     auto des = ctx1.createDeserializer();
     des.range(res, {0, N + 1});
     EXPECT_THAT(res, Eq(2));
 }
 
 TEST(SerializeSubstitution, WhenNoSubstitutionThenWriteZeroBitsAndValueOrObject) {
-    int v = 8945;
-    int res;
-    std::array<int,3> subsitution{485,4849,89};
+    int16_t v = 8945;
+    int16_t res;
+    std::array<int16_t,3> subsitution{485,4849,89};
     SerializationContext ctx;
-    ctx.createSerializer().substitution(v, subsitution);
-    ctx.createDeserializer().substitution(res, subsitution);
+    ctx.createSerializer().substitution<2>(v, subsitution);
+    ctx.createDeserializer().substitution<2>(res, subsitution);
 
     EXPECT_THAT(res, Eq(v));
-    EXPECT_THAT(ctx.getBufferSize(), Eq(sizeof(int)+1));
+    EXPECT_THAT(ctx.getBufferSize(), Eq(sizeof(int16_t)+1));
 }
 
 TEST(SerializeSubstitution, CustomTypeSubstituted) {
@@ -85,33 +85,6 @@ TEST(SerializeSubstitution, CustomTypeNotSubstituted) {
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(MyStruct1::SIZE + 1));
 }
-
-TEST(SerializeSubstitution, ArithmeticTypeWithExplicitSizeNotSubstituted) {
-    MyEnumClass v = MyEnumClass::E5;
-    MyEnumClass res;
-    constexpr size_t N = 3;
-    std::array<MyEnumClass,N> subsitution{MyEnumClass::E1,MyEnumClass::E2,MyEnumClass::E3};
-    SerializationContext ctx;
-    ctx.createSerializer().substitution<sizeof(MyEnumClass)>(v, subsitution);
-    ctx.createDeserializer().substitution<sizeof(MyEnumClass)>(res, subsitution);
-
-    EXPECT_THAT(res, Eq(v));
-    EXPECT_THAT(ctx.getBufferSize(), Eq(sizeof(MyEnumClass) + 1));
-}
-
-TEST(SerializeSubstitution, ArithmeticTypeWithExplicitSizeSubstituted) {
-    MyEnumClass v = MyEnumClass::E1;
-    MyEnumClass res;
-    constexpr size_t N = 3;
-    std::array<MyEnumClass,N> subsitution{MyEnumClass::E1,MyEnumClass::E2,MyEnumClass::E3};
-    SerializationContext ctx;
-    ctx.createSerializer().substitution<sizeof(MyEnumClass)>(v, subsitution);
-    ctx.createDeserializer().substitution<sizeof(MyEnumClass)>(res, subsitution);
-
-    EXPECT_THAT(res, Eq(v));
-    EXPECT_THAT(ctx.getBufferSize(), Eq(1));
-}
-
 
 TEST(SerializeSubstitution, CustomFunctionNotSubstituted) {
     MyStruct1 v = {8945,4456};

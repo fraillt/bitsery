@@ -40,8 +40,8 @@ struct MyStruct1 {
 
 SERIALIZE(MyStruct1) {
     return s.
-            value(o.i1).
-            value(o.i2);
+            template value<sizeof(o.i1)>(o.i1).
+            template value<sizeof(o.i2)>(o.i2);
 }
 
 enum class MyEnumClass {
@@ -66,7 +66,7 @@ struct MyStruct2 {
 
 SERIALIZE(MyStruct2) {
     return s.
-            value(o.e1).
+            template value<sizeof(o.e1)>(o.e1).
             object(o.s1);
 }
 

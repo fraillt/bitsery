@@ -12,8 +12,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/ext)
 if(CMAKE_COMPILER_IS_GNUCXX)
-    include(CodeCoverage)
-    setup_target_for_coverage(${PROJECT_NAME}_coverage ${TEST_PROJECT_NAME} coverage)
+    #include(CodeCoverage)
+    #setup_target_for_coverage(${PROJECT_NAME}_coverage ${TEST_PROJECT_NAME} coverage)
 endif()
 
 add_subdirectory(examples)
