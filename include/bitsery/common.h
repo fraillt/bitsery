@@ -71,9 +71,6 @@ namespace bitsery {
         typedef int16_t type;
     };
 
-    template<typename T>
-    constexpr size_t ARITHMETIC_OR_ENUM_SIZE = std::is_arithmetic<T>::value || std::is_enum<T>::value ? sizeof(T) : 0;
-
 
     template<typename T, typename Enable = void>
     struct SAME_SIZE_UNSIGNED_TYPE {

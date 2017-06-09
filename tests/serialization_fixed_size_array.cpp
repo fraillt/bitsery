@@ -41,19 +41,6 @@ TEST(SerializeFSArrayStdArray, ArithmeticValues) {
 
 }
 
-TEST(SerializeFSArrayStdArray, ArithmeticValuesSettingValueSizeExplicitly) {
-    SerializationContext ctx;
-    std::array<int, 4> src{5,9,15,-459};
-    std::array<int, 4> res{};
-
-    ctx.createSerializer().array<sizeof(int)>(src);
-    ctx.createDeserializer().array<sizeof(int)>(res);
-
-    EXPECT_THAT(ctx.getBufferSize(), Eq(src.size() * sizeof(int)));
-    EXPECT_THAT(res, ContainerEq(src));
-
-}
-
 TEST(SerializeFSArrayStdArray, CompositeTypes) {
     SerializationContext ctx;
     std::array<MyStruct1, 7> src{
@@ -78,32 +65,18 @@ TEST(SerializeFSArrayStdArray, CustomFunctionThatSerializesAnEmptyByteEveryEleme
 
 
     auto ser = ctx.createSerializer();
-    ser.array(src, [&ser](auto& v) {
+    ser.array(src, [](auto &s, auto& v) {
         char tmp{};
-        ser.object(v).value1(tmp);
+        s.object(v).value1(tmp);
     });
     auto des = ctx.createDeserializer();
-    des.array(res, [&des](auto& v) {
+    des.array(res, [](auto &s, auto& v) {
         char tmp{};
-        des.object(v).value1(tmp);
+        s.object(v).value1(tmp);
     });
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(src.size() * (MyStruct1::SIZE + sizeof(char))));
     EXPECT_THAT(res, ContainerEq(src));
-}
-
-
-TEST(SerializeFSArrayCArray, ArithmeticValues) {
-    SerializationContext ctx;
-    int src[4]{5,9,15,-459};
-    int res[4]{};
-
-    ctx.createSerializer().array(src);
-    ctx.createDeserializer().array(res);
-
-    EXPECT_THAT(ctx.getBufferSize(), Eq(std::extent<decltype(src)>::value * sizeof(int)));
-    EXPECT_THAT(res, ContainerEq(src));
-
 }
 
 TEST(SerializeFSArrayCArray, ArithmeticValuesSettingValueSizeExplicitly) {
@@ -143,14 +116,14 @@ TEST(SerializeFSArrayCArray, CustomFunctionThatSerializesAnEmptyByteEveryElement
 
 
     auto ser = ctx.createSerializer();
-    ser.array(src, [&ser](auto& v) {
+    ser.array(src, [](auto& s, auto& v) {
         char tmp{};
-        ser.object(v).value1(tmp);
+        s.object(v).value1(tmp);
     });
     auto des = ctx.createDeserializer();
-    des.array(res, [&des](auto& v) {
+    des.array(res, [](auto& s, auto& v) {
         char tmp{};
-        des.object(v).value1(tmp);
+        s.object(v).value1(tmp);
     });
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(std::extent<decltype(src)>::value * (MyStruct1::SIZE + sizeof(char))));

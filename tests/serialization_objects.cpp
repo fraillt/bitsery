@@ -29,6 +29,8 @@
 
 #include <list>
 
+
+
 using testing::Eq;
 using testing::StrEq;
 using testing::ContainerEq;
@@ -69,14 +71,15 @@ SERIALIZE(X)
 
 SERIALIZE(Y)
 {
-	auto writeInt = [&s](auto& v) { s.template value<sizeof(v)>(v); };
+	auto writeInt = [](auto& s, auto& v) { s.template value<sizeof(v)>(v); };
 	s.template text<1>(o.s, 10000);
 	s.template value<sizeof(o.y)>(o.y);
 	s.array(o.arr, writeInt);
 	s.array(o.carr, writeInt);
-	s.container(o.vx, [&s](auto& v) { s.object(v); }, 10000);
+	s.container(o.vx, 10000, [](auto& s, auto& v) { s.object(v); });
 	return s;
 }
+
 
 TEST(SerializeObject, GeneralConceptTest) {
 	//std::string buf;

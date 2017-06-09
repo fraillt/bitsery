@@ -35,9 +35,9 @@ struct MyStruct {
 //define how object should be serialized/deserialized
 SERIALIZE(MyStruct) {
     return s.
-            value(o.i).
-            value(o.e).
-            container(o.fs, 100);
+            value4(o.i).
+            value4(o.e).
+            container4(o.fs, 100);
 }
 
 using namespace bitsery;

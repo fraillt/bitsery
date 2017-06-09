@@ -88,7 +88,7 @@ namespace bitsery {
                     processContainer(std::begin(old), std::end(old), std::begin(arr), std::end(arr), fnc);
                 } else {
                     for (auto &v:arr)
-                        fnc(v);
+                        fnc(*this, v);
                 }
             }
             return *this;
@@ -105,14 +105,14 @@ namespace bitsery {
                 } else {
                     const T *tmp = arr;
                     for (auto i = 0u; i < N; ++i, ++tmp)
-                        fnc(*tmp);
+                        fnc(*this, *tmp);
                 }
             }
             return *this;
         }
 
         template<typename T, typename Fnc>
-        DeltaSerializer &container(T &&obj, Fnc &&fnc, size_t maxSize) {
+        DeltaSerializer &container(T &&obj, size_t maxSize, Fnc &&fnc) {
             if (setChangedState(obj)) {
                 _writter.writeBits(obj.size(), 32);
                 if (!_isNewElement) {
@@ -121,7 +121,7 @@ namespace bitsery {
                                      std::forward<Fnc>(fnc));
                 } else {
                     for (auto &v:obj)
-                        fnc(v);
+                        fnc(*this, v);
                 }
             }
             return *this;
@@ -171,7 +171,7 @@ namespace bitsery {
             while (misMatch.first != oldEnd && misMatch.second != end) {
                 writeIndexOffset(std::distance(lastChanged, misMatch.second));
                 _objMemPos.emplace(ObjectMemoryPosition{*misMatch.first, *misMatch.second});
-                fnc(*misMatch.second);
+                fnc(*this, *misMatch.second);
                 _objMemPos.pop();
                 ++misMatch.first;
                 ++misMatch.second;
@@ -184,14 +184,14 @@ namespace bitsery {
             //write old elements
             for (auto pOld = misMatch.first; p != end && pOld != oldEnd; ++p, ++pOld) {
                 _objMemPos.emplace(ObjectMemoryPosition{*pOld, *p});
-                fnc(*p);
+                fnc(*this, *p);
                 _objMemPos.pop();
             }
 
             //write new elements
             _isNewElement = true;
             for (; p != end; ++p)
-                fnc(*p);
+                fnc(*this, *p);
             _isNewElement = false;
         }
 

@@ -80,6 +80,14 @@ namespace bitsery {
             return serialize(*this, obj);
         }
 
+        template <template <typename> class Extension, typename TValue, typename Fnc>
+        Serializer& ext(const TValue& v, Fnc&& fnc ) {
+            Extension<const TValue> ext{v};
+            ext.serialize(*this, std::forward<Fnc>(fnc));
+            return *this;
+        };
+
+
         /*
          * value overloads
          */
@@ -136,7 +144,7 @@ namespace bitsery {
             auto index = findSubstitutionIndex(v, expectedValues);
             range(index, {{}, N +1});
             if (!index)
-                fnc(v);
+                fnc(*this, v);
             return *this;
         };
 
@@ -180,16 +188,17 @@ namespace bitsery {
          */
 
         template<typename T, typename Fnc>
-        Serializer& container(const T &obj, Fnc &&fnc, size_t maxSize) {
+        Serializer& container(const T &obj, size_t maxSize, Fnc &&fnc) {
             assert(obj.size() <= maxSize);
             writeSize(obj.size());
             for (auto &v: obj)
-                fnc(v);
+                fnc(*this, v);
             return *this;
         }
 
         template<size_t VSIZE, typename T>
         Serializer& container(const T &obj, size_t maxSize) {
+            static_assert(VSIZE > 0, "");
             assert(obj.size() <= maxSize);
             writeSize(obj.size());
             procContainer<VSIZE>(obj);
@@ -200,7 +209,7 @@ namespace bitsery {
         Serializer& container(const T &obj, size_t maxSize) {
             assert(obj.size() <= maxSize);
             writeSize(obj.size());
-            procContainer<ARITHMETIC_OR_ENUM_SIZE<typename T::value_type>>(obj);
+            procContainer<0>(obj);
             return *this;
         }
 
@@ -213,19 +222,20 @@ namespace bitsery {
         template<typename T, size_t N, typename Fnc>
         Serializer& array(const std::array<T, N> &arr, Fnc &&fnc) {
             for (auto &v: arr)
-                fnc(v);
+                fnc(*this, v);
             return *this;
         }
 
         template<size_t VSIZE, typename T, size_t N>
         Serializer& array(const std::array<T, N> &arr) {
+            static_assert(VSIZE > 0, "");
             procContainer<VSIZE>(arr);
             return *this;
         }
 
         template<typename T, size_t N>
         Serializer& array(const std::array<T, N> &arr) {
-            procContainer<ARITHMETIC_OR_ENUM_SIZE<T>>(arr);
+            procContainer<0>(arr);
             return *this;
         }
 
@@ -235,19 +245,20 @@ namespace bitsery {
         Serializer& array(const T (&arr)[N], Fnc &&fnc) {
             const T *end = arr + N;
             for (const T *tmp = arr; tmp != end; ++tmp)
-                fnc(*tmp);
+                fnc(*this, *tmp);
             return *this;
         }
 
         template<size_t VSIZE, typename T, size_t N>
         Serializer& array(const T (&arr)[N]) {
+            static_assert(VSIZE > 0, "");
             procCArray<VSIZE>(arr);
             return *this;
         }
 
         template<typename T, size_t N>
         Serializer& array(const T (&arr)[N]) {
-            procCArray<ARITHMETIC_OR_ENUM_SIZE<T>>(arr);
+            procCArray<0>(arr);
             return *this;
         }
 
@@ -290,6 +301,16 @@ namespace bitsery {
             return container<4>(std::forward<T>(obj), maxSize); }
         template<typename T> Serializer& container8(T &&obj, size_t maxSize) {
             return container<8>(std::forward<T>(obj), maxSize); }
+
+        template<typename T, size_t N> Serializer& array1(const std::array<T, N> &arr) { return array<1>(arr); }
+        template<typename T, size_t N> Serializer& array2(const std::array<T, N> &arr) { return array<2>(arr); }
+        template<typename T, size_t N> Serializer& array4(const std::array<T, N> &arr) { return array<4>(arr); }
+        template<typename T, size_t N> Serializer& array8(const std::array<T, N> &arr) { return array<8>(arr); }
+
+        template<typename T, size_t N> Serializer& array1(const T (&arr)[N]) { return array<1>(arr); }
+        template<typename T, size_t N> Serializer& array2(const T (&arr)[N]) { return array<2>(arr); }
+        template<typename T, size_t N> Serializer& array4(const T (&arr)[N]) { return array<4>(arr); }
+        template<typename T, size_t N> Serializer& array8(const T (&arr)[N]) { return array<8>(arr); }
 
     private:
         Writter &_writter;

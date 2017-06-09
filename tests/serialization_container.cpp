@@ -72,17 +72,17 @@ TYPED_TEST(SerializeContainerArthmeticTypes, CustomFunctionIncrements) {
     SerializationContext ctx{};
 
     auto ser = ctx.createSerializer();
-    ser.container(this->src, [&ser](auto v ) {
+    ser.container(this->src, 1000, [](auto &s, auto v) {
         //increment by 1 before writing
         v++;
-        ser.value<sizeof(v)>(v);
-    }, 1000);
+        s.template value<sizeof(v)>(v);
+    });
     auto des = ctx.createDeserializer();
-    des.container(this->res, [&des](auto&v ) {
-        des.value<sizeof(v)>(v);
+    des.container(this->res, 1000, [](auto &s, auto&v ) {
+        s.template value<sizeof(v)>(v);
         //increment by 1 after reading
         v++;
-    }, 1000);
+    });
     //decrement result by 2, before comparing for eq
     for(auto& v:this->res)
         v -= 2;
@@ -149,9 +149,9 @@ TYPED_TEST(SerializeContainerCompositeTypes, CustomFunctionThatDoNothing) {
     SerializationContext ctx{};
 
 
-    auto emptyFnc = [](auto v) {};
-    ctx.createSerializer().container(this->src, emptyFnc, 1000);
-    ctx.createDeserializer().container(this->res, emptyFnc, 1000);
+    auto emptyFnc = [](auto& s, auto& v) {};
+    ctx.createSerializer().container(this->src, 1000, emptyFnc);
+    ctx.createDeserializer().container(this->res, 1000, emptyFnc);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(ctx.containerSizeSerializedBytesCount(this->src.size())));
 }

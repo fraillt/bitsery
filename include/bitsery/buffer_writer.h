@@ -69,9 +69,15 @@ namespace bitsery {
     struct BufferWriter {
         using value_type = uint8_t;
 
-        BufferWriter(std::vector<uint8_t> &buffer) : _buf{buffer}, _outIt{std::back_inserter(buffer)} {
+        explicit BufferWriter(std::vector<uint8_t> &buffer) : _buf{buffer}, _outIt{std::back_inserter(buffer)} {
             static_assert(std::is_unsigned<value_type>::value, "");
         }
+
+        BufferWriter(const BufferWriter&) = delete;
+        BufferWriter& operator=(const BufferWriter& ) = delete;
+        BufferWriter(BufferWriter&&) noexcept = default;
+        BufferWriter& operator=(BufferWriter&&) noexcept = default;
+        ~BufferWriter() noexcept = default;
 
         template<size_t SIZE, typename T>
         void writeBytes(const T &v) {

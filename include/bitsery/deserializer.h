@@ -63,6 +63,14 @@ namespace bitsery {
             return serialize(*this, std::forward<T>(obj));
         }
 
+        template <template <typename> class Extension, typename TValue, typename Fnc>
+        Deserializer& ext(TValue& v, Fnc&& fnc) {
+            static_assert(!std::is_const<TValue>(), "");
+            Extension<TValue> ext{v};
+            ext.deserialize(*this, std::forward<Fnc>(fnc));
+            return *this;
+        };
+
         /*
          * value overloads
          */
@@ -143,7 +151,7 @@ namespace bitsery {
                 if (index)
                     v = expectedValues[index-1];
                 else
-                    fnc(v);
+                    fnc(*this, v);
             }
             return *this;
         };
@@ -213,14 +221,14 @@ namespace bitsery {
          */
 
         template <typename T, typename Fnc>
-        Deserializer& container(T&& obj, Fnc&& fnc, size_t maxSize) {
+        Deserializer& container(T&& obj, size_t maxSize, Fnc&& fnc) {
             decltype(obj.size()) size{};
             readSize(size, maxSize);
             if (_isValid) {
                 obj.resize(size);
                 for (auto& v:obj) {
                     if (_isValid)
-                        fnc(v);
+                        fnc(*this, v);
                 }
 
             }
@@ -265,7 +273,7 @@ namespace bitsery {
         Deserializer&  array(std::array<T,N> &arr, Fnc && fnc) {
             for (auto& v: arr)
                 if (_isValid)
-                    fnc(v);
+                    fnc(*this, v);
             return *this;
         }
 
@@ -294,7 +302,7 @@ namespace bitsery {
             T* end = arr + N;
             for (T* it= arr; it != end; ++it) {
                 if (_isValid)
-                    fnc(*it);
+                    fnc(*this, *it);
             }
             return *this;
         }
@@ -307,7 +315,7 @@ namespace bitsery {
 
         template<typename T, size_t N>
         Deserializer& array(T (&arr)[N]) {
-            procCArray<ARITHMETIC_OR_ENUM_SIZE<T>>(arr);
+            procCArray<0>(arr);
             return *this;
         }
         bool isValid() const {

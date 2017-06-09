@@ -85,7 +85,7 @@ namespace bitsery {
                     processContainer(std::begin(old), std::end(old), std::begin(arr), std::end(arr), fnc);
                 } else {
                     for (auto &v:arr)
-                        fnc(v);
+                        fnc(*this, v);
                 }
             }
             return *this;
@@ -102,14 +102,14 @@ namespace bitsery {
                 } else {
                     T *tmp = arr;
                     for (auto i = 0u; i < N; ++i, ++tmp)
-                        fnc(*tmp);
+                        fnc(*this, *tmp);
                 }
             }
             return *this;
         }
 
         template<typename T, typename Fnc>
-        DeltaDeserializer &container(T &obj, Fnc &&fnc, size_t maxSize) {
+        DeltaDeserializer &container(T &obj, size_t maxSize, Fnc &&fnc) {
             if (getChangedState(obj)) {
                 size_t newSize{};
                 _reader.readBits(newSize, 32);
@@ -122,7 +122,7 @@ namespace bitsery {
                 } else {
                     obj.resize(newSize);
                     for (auto &v:obj)
-                        fnc(v);
+                        fnc(*this, v);
                 }
             }
             return *this;
@@ -174,7 +174,7 @@ namespace bitsery {
                     --offset;
                 } else {
                     _objMemPos.emplace(ObjectMemoryPosition{*pOld, *p});
-                    fnc(*p);
+                    fnc(*this, *p);
                     _objMemPos.pop();
                     offset = readIndexOffset();
                 }
@@ -183,7 +183,7 @@ namespace bitsery {
                 return false;
             _isNewElement = true;
             for (; p != end; ++p, --offset)
-                fnc(*p);
+                fnc(*this, *p);
             _isNewElement = false;
             return offset == 0;
 

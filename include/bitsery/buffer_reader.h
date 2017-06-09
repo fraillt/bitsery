@@ -36,23 +36,23 @@ namespace bitsery {
 
         using value_type = uint8_t;
 
-        BufferReader(const std::vector<uint8_t> &buf)
-                : _pos{buf.data()},
-                  _end{buf.data() + buf.size()} {
+        BufferReader(const std::vector<uint8_t> &buf) : _pos{buf.data()}, _end{buf.data() + buf.size()} {
 
         }
 
-        BufferReader(const uint8_t* data, size_t size)
-                : _pos{data},
-                  _end{data + size}
+        BufferReader(const uint8_t* data, size_t size) : _pos{data}, _end{data + size}
         {
         }
         template <size_t N>
-        BufferReader(const uint8_t (&data)[N])
-                : _pos{data},
-                  _end{data + N}
+        BufferReader(const uint8_t (&data)[N]): _pos{data}, _end{data + N}
         {
         }
+
+        BufferReader(const BufferReader&) = delete;
+        BufferReader& operator=(const BufferReader& ) = delete;
+        BufferReader(BufferReader&&) noexcept = default;
+        BufferReader& operator=(BufferReader&&) noexcept = default;
+        ~BufferReader() noexcept = default;
 
 
         template<size_t SIZE, typename T>

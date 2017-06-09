@@ -101,16 +101,16 @@ TEST(SerializeSubstitution, CustomFunctionNotSubstituted) {
     auto ser = ctx.createSerializer();
 
     //lambdas differ only in capture clauses, it would make sense to use std::bind, but debugger crashes when it sees std::bind...
-    auto serLambda = [&ser, rangeForValue](const MyStruct1& v) {
-        ser.range(v.i1, rangeForValue);
-        ser.range(v.i2, rangeForValue);
+    auto serLambda = [rangeForValue](auto& s, const MyStruct1& v) {
+        s.range(v.i1, rangeForValue);
+        s.range(v.i2, rangeForValue);
     };
     ser.substitution(v, subsitution, serLambda);
 
     auto des = ctx.createDeserializer();
-    auto desLambda = [&des, rangeForValue](MyStruct1& v) {
-        des.range(v.i1, rangeForValue);
-        des.range(v.i2, rangeForValue);
+    auto desLambda = [rangeForValue](auto& s, MyStruct1& v) {
+        s.range(v.i1, rangeForValue);
+        s.range(v.i2, rangeForValue);
     };
     des.substitution(res, subsitution, desLambda);
 
@@ -127,8 +127,8 @@ TEST(SerializeSubstitution, WhenSubstitutedThenCustomFunctionNotInvoked) {
             MyStruct1{4849,89}, MyStruct1{0,1}};
 
     SerializationContext ctx;
-    ctx.createSerializer().substitution(v, subsitution, [](const MyStruct1& ) {});
-    ctx.createDeserializer().substitution(res, subsitution, [](MyStruct1& ) {});
+    ctx.createSerializer().substitution(v, subsitution, [](bitsery::Serializer<bitsery::BufferWriter>& ,const MyStruct1& ) {});
+    ctx.createDeserializer().substitution(res, subsitution, [](bitsery::Deserializer<bitsery::BufferReader>&, MyStruct1& ) {});
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));

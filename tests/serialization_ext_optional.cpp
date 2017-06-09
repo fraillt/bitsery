@@ -20,43 +20,66 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
 
+#include <experimental/optional>
+
+namespace std {
+    template <typename T>
+    using optional = experimental::optional<T>;
+};
+
+#include <bitsery/ext/optional.h>
+
+
+template <typename T>
+using extoptional = bitsery::ext::optional<T>;
+
 using testing::Eq;
 
-bool SerializeDeserializeContainerSize(SerializationContext& ctx, const size_t size) {
-    std::vector<char> t1(size);
-    ctx.createSerializer().container(t1, size+1, [](auto , auto ){});
-    t1.clear();
-    ctx.createDeserializer().container(t1, size+1, [](auto , auto ){});
-    return t1.size() == size;
+
+template <typename T>
+void test(SerializationContext& ctx, const T& v, T& r) {
+    auto fnc = [](auto ser, auto& v) {
+        ser.template value<sizeof(v)>(v);
+    };
+    ctx.createSerializer().ext<extoptional>(v, fnc);
+    ctx.createDeserializer().ext<extoptional>(r, fnc);
 }
 
-TEST(SerializeSize, WhenLengthLessThan128Then1Byte) {
+TEST(SerializeExtensionOptional, EmptyOptional) {
+    std::optional<int> t1{};
+    std::optional<int> r1{};
+
     SerializationContext ctx1;
-    EXPECT_TRUE(SerializeDeserializeContainerSize(ctx1, 127));
+    test(ctx1,t1, r1);
     EXPECT_THAT(ctx1.getBufferSize(), Eq(1));
+    EXPECT_THAT(t1, Eq(r1));
+
+
+    r1 = 3;
     SerializationContext ctx2;
-    EXPECT_TRUE(SerializeDeserializeContainerSize(ctx2, 128));
-    EXPECT_THAT(ctx2.getBufferSize(), testing::Gt(1));
+    test(ctx2,t1, r1);
+    EXPECT_THAT(ctx2.getBufferSize(), Eq(1));
+    EXPECT_THAT(t1, Eq(r1));
 }
 
-TEST(SerializeSize, WhenLengthLessThan16384Then2Bytes) {
+TEST(SerializeExtensionOptional, OptionalHasValue) {
+    std::optional<int> t1{43};
+    std::optional<int> r1{52};
+
     SerializationContext ctx1;
-    EXPECT_TRUE(SerializeDeserializeContainerSize(ctx1, 16383));
-    EXPECT_THAT(ctx1.getBufferSize(), Eq(2));
+    test(ctx1,t1, r1);
+    EXPECT_THAT(ctx1.getBufferSize(), Eq(1 + sizeof(int)));
+    EXPECT_THAT(t1.value(), Eq(r1.value()));
+
+    r1 = std::optional<int>{};
     SerializationContext ctx2;
-    EXPECT_TRUE(SerializeDeserializeContainerSize(ctx2, 16384));
-    EXPECT_THAT(ctx2.getBufferSize(), testing::Gt(2));
+    test(ctx2,t1, r1);
+    EXPECT_THAT(ctx2.getBufferSize(), Eq(1 + sizeof(int)));
+    EXPECT_THAT(t1.value(), Eq(r1.value()));
+
 }
 
-TEST(SerializeSize, WhenGreaterThan16383Then4Bytes) {
-    SerializationContext ctx1;
-    EXPECT_TRUE(SerializeDeserializeContainerSize(ctx1, 16384));
-    EXPECT_THAT(ctx1.getBufferSize(), Eq(4));
-    SerializationContext ctx2;
-    EXPECT_TRUE(SerializeDeserializeContainerSize(ctx2, 66384));
-    EXPECT_THAT(ctx2.getBufferSize(), Eq(4));
-}
+
