@@ -27,6 +27,11 @@
 #include <bitsery/bitsery.h>
 #include <memory>
 
+
+/*
+ * define some types for testing
+ */
+
 struct MyStruct1 {
     MyStruct1(int v1, int v2):i1{v1}, i2{v2} {}
     MyStruct1():MyStruct1{0,0} {}
@@ -70,8 +75,9 @@ SERIALIZE(MyStruct2) {
             object(o.s1);
 }
 
+
 class SerializationContext {
-    std::vector<uint8_t> buf{};
+    std::vector<bitsery::DefaultConfig::BufferValueType> buf{};
     std::unique_ptr<bitsery::BufferWriter> bw;
     std::unique_ptr<bitsery::BufferReader> br;
 public:
@@ -83,7 +89,7 @@ public:
     size_t getBufferSize() const {
         return buf.size();
     }
-    //since all containers .size() method returns size_t, it cannot be dirrectly serialized, because size_t is platform dependant
+    //since all containers .size() method returns size_t, it cannot be directly serialized, because size_t is platform dependant
     //this function returns number of bytes writen to buffer, when reading/writing size of container
     static size_t containerSizeSerializedBytesCount(size_t elemsCount) {
         if (elemsCount < 0x80u)

@@ -23,12 +23,15 @@
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
 
-#include <experimental/optional>
-
-namespace std {
-    template <typename T>
-    using optional = experimental::optional<T>;
-};
+#if __cplusplus > 201402L
+#  include<optional>
+#else
+#  include <experimental/optional>
+    namespace std {
+        template <typename T>
+        using optional = experimental::optional<T>;
+    }
+#endif
 
 #include <bitsery/ext/optional.h>
 
@@ -81,5 +84,3 @@ TEST(SerializeExtensionOptional, OptionalHasValue) {
     EXPECT_THAT(t1.value(), Eq(r1.value()));
 
 }
-
-

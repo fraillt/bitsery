@@ -86,7 +86,7 @@ TEST(SerializeValues, ValueSizeOverload2Byte) {
 }
 
 TEST(SerializeValues, ValueSizeOverload4Byte) {
-    float v{54.498};
+    float v{54.498f};
     float res;
     constexpr size_t TSIZE = sizeof(v);
 

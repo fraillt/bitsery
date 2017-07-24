@@ -25,32 +25,10 @@
 #define BITSERY_DESERIALIZER_H
 
 #include "common.h"
-#include <array>
+#include "details/serialization_common.h"
 #include <utility>
 
 namespace bitsery {
-
-    /*
-     * functions for range
-     */
-    template<typename T, typename std::enable_if<std::is_integral<T>::value>::type* = nullptr>
-    void setRangeValue(T& v, const RangeSpec<T>& r) {
-        v += r.min;
-    };
-
-    template<typename T, typename std::enable_if<std::is_enum<T>::value>::type* = nullptr>
-    void setRangeValue(T& v, const RangeSpec<T>& r) {
-        using VT = std::underlying_type_t<T>;
-        reinterpret_cast<VT&>(v) += static_cast<VT>(r.min);
-    };
-
-    template<typename T, typename std::enable_if<std::is_floating_point<T>::value>::type* = nullptr>
-    void setRangeValue(T& v, const RangeSpec<T>& r) {
-        using UIT = SAME_SIZE_UNSIGNED<T>;
-        const auto intRep = reinterpret_cast<UIT&>(v);
-        const UIT maxUint = (static_cast<UIT>(1) << r.bitsRequired) - 1;
-        v = r.min + (static_cast<T>(intRep) / maxUint) * (r.max - r.min);
-    };
 
 
     template<typename Reader>
@@ -63,6 +41,7 @@ namespace bitsery {
             return serialize(*this, std::forward<T>(obj));
         }
 
+        //in c++17 change "class" to typename
         template <template <typename> class Extension, typename TValue, typename Fnc>
         Deserializer& ext(TValue& v, Fnc&& fnc) {
             static_assert(!std::is_const<TValue>(), "");
@@ -79,7 +58,7 @@ namespace bitsery {
         Deserializer& value(T& v) {
             static_assert(std::numeric_limits<T>::is_iec559, "");
             if (_isValid) {
-                _isValid = _reader.template readBytes<VSIZE>(reinterpret_cast<SAME_SIZE_UNSIGNED<T>&>(v));
+                _isValid = _reader.template readBytes<VSIZE>(reinterpret_cast<details::SAME_SIZE_UNSIGNED<T>&>(v));
             }
             return *this;
         }
@@ -132,10 +111,10 @@ namespace bitsery {
         template <typename T>
         Deserializer& range(T& v, const RangeSpec<T>& range) {
             if (_isValid) {
-                _isValid = _reader.template readBits(reinterpret_cast<SAME_SIZE_UNSIGNED<T>&>(v), range.bitsRequired);
-                setRangeValue(v, range);
+                _isValid = _reader.readBits(reinterpret_cast<details::SAME_SIZE_UNSIGNED<T>&>(v), range.bitsRequired);
+                details::setRangeValue(v, range);
                 if (_isValid)
-                    _isValid = isRangeValid(v, range);
+                    _isValid = details::isRangeValid(v, range);
             }
             return *this;
         }
@@ -192,15 +171,7 @@ namespace bitsery {
             readSize(size, maxSize);
             if (_isValid) {
                 str.resize(size);
-                if (size) {
-                    //if (std::is_const<decltype(std::declval<std::basic_string<T>>().data())>::value) {
-                    std::vector<T> buf(size);
-                    _isValid = _reader.template readBuffer<VSIZE>(buf.data(), size);
-                    str.assign(buf.data(), size);
-                    //} else {
-                    //_isValid = _reader.template readBuffer<VSIZE>(str.data(), size);
-                    //}
-                }
+                procContainer<VSIZE>(std::begin(str), std::end(str), std::true_type{});
             }
             return *this;
         }
@@ -210,7 +181,9 @@ namespace bitsery {
             size_t size;
             readSize(size, N-1);
             if (_isValid) {
-                _isValid = _reader.template readBuffer<VSIZE>(str, size);
+                auto first = std::begin(str);
+                procContainer<VSIZE>(first, std::next(first, size), std::true_type{});
+                //null-terminated string
                 str[size] = {};
             }
             return *this;
@@ -226,11 +199,7 @@ namespace bitsery {
             readSize(size, maxSize);
             if (_isValid) {
                 obj.resize(size);
-                for (auto& v:obj) {
-                    if (_isValid)
-                        fnc(*this, v);
-                }
-
+                procContainer(std::begin(obj), std::end(obj), std::forward<Fnc>(fnc));
             }
             return *this;
         }
@@ -241,10 +210,7 @@ namespace bitsery {
             readSize(size, maxSize);
             if (_isValid) {
                 obj.resize(size);
-                for (auto& v: obj) {
-                    if (_isValid)
-                        value<VSIZE>(v);
-                }
+                procContainer<VSIZE>(std::begin(obj), std::end(obj), std::false_type{});
             }
             return *this;
         }
@@ -255,10 +221,7 @@ namespace bitsery {
             readSize(size, maxSize);
             if (_isValid) {
                 obj.resize(size);
-                for (auto& v: obj) {
-                    if (_isValid)
-                        object(v);
-                }
+                procContainer(std::begin(obj), std::end(obj));
             }
             return *this;
         }
@@ -271,27 +234,19 @@ namespace bitsery {
 
         template<typename T, size_t N, typename Fnc>
         Deserializer&  array(std::array<T,N> &arr, Fnc && fnc) {
-            for (auto& v: arr)
-                if (_isValid)
-                    fnc(*this, v);
+            procContainer(std::begin(arr), std::end(arr), std::forward<Fnc>(fnc));
             return *this;
         }
 
         template<size_t VSIZE, typename T, size_t N>
         Deserializer&  array(std::array<T,N> &arr) {
-            for (auto& v: arr) {
-                if (_isValid)
-                    value<VSIZE>(v);
-            }
+            procContainer<VSIZE>(std::begin(arr), std::end(arr), std::true_type{});
             return *this;
         }
 
         template<typename T, size_t N>
         Deserializer&  array(std::array<T,N> &arr) {
-            for (auto& v: arr) {
-                if (_isValid)
-                    object(v);
-            }
+            procContainer(std::begin(arr), std::end(arr));
             return *this;
         }
 
@@ -299,23 +254,19 @@ namespace bitsery {
 
         template<typename T, size_t N, typename Fnc>
         Deserializer& array(T (&arr)[N], Fnc&& fnc) {
-            T* end = arr + N;
-            for (T* it= arr; it != end; ++it) {
-                if (_isValid)
-                    fnc(*this, *it);
-            }
+            procContainer(std::begin(arr), std::end(arr), std::forward<Fnc>(fnc));
             return *this;
         }
 
         template<size_t VSIZE, typename T, size_t N>
         Deserializer& array(T (&arr)[N]) {
-            procCArray<VSIZE>(arr);
+            procContainer<VSIZE>(std::begin(arr), std::end(arr), std::true_type{});
             return *this;
         }
 
         template<typename T, size_t N>
         Deserializer& array(T (&arr)[N]) {
-            procCArray<0>(arr);
+            procContainer(std::begin(arr), std::end(arr));
             return *this;
         }
         bool isValid() const {
@@ -390,45 +341,34 @@ namespace bitsery {
             }
         }
 
-        template< size_t VSIZE, typename TIterator>
-        void procContainerValues(TIterator begin, TIterator end) {
-            for (auto it = begin; it != end; ++it) {
-                if (_isValid)
-                    value<VSIZE>(*it);
-            }
+        //process value types
+        //false_type means that we must process all elements individually
+        template<size_t VSIZE, typename It>
+        void procContainer(It first, It last, std::false_type) {
+            for (;_isValid && first != last; ++first)
+                value<VSIZE>(*first);
         };
 
-        template<typename TIterator>
-        void procContainerValues(TIterator begin, TIterator end) {
-            for (auto it = begin; it != end; ++it) {
-                if (_isValid)
-                    object(*it);
-            }
+        //process value types
+        //true_type means, that we can copy whole buffer
+        template<size_t VSIZE, typename It>
+        void procContainer(It first, It last, std::true_type) {
+            if (_isValid && first != last)
+                _isValid = _reader.template readBuffer<VSIZE>(&(*first), std::distance(first, last));
         };
 
-
-        template <size_t VSIZE, typename T>
-        void procContainer(T&& obj) {
-            //todo could be improved for arithmetic types in contiguous containers (std::vector, std::array) (keep in mind std::vector<bool> specialization)
-            for (auto& v: obj)
-                if (_isValid)
-                    ProcessAnyType<VSIZE>::serialize(*this, v);
+        //process by calling functions
+        template<typename It, typename Fnc>
+        void procContainer(It first, It last, Fnc fnc) {
+            for (;_isValid && first != last; ++first)
+                fnc(*this, *first);
         };
 
-        template <size_t VSIZE, typename T, size_t N>
-        void procCArray(T (&arr)[N]) {
-            //todo could be improved for arithmetic types
-            T* end = arr + N;
-            for (T* it = arr; it != end; ++it)
-                if (_isValid)
-                    ProcessAnyType<VSIZE>::serialize(*this, *it);
-        };
-
-        template <typename Iterator, typename Fnc>
-        void procCont(Iterator begin, Iterator end, Fnc&& fnc) {
-            for (Iterator it = begin; it != end; ++it)
-                if (_isValid)
-                    fnc(*it);
+        //process object types
+        template<typename It>
+        void procContainer(It first, It last) {
+            for (;_isValid && first != last; ++first)
+                object(*first);
         };
 
     };
