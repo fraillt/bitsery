@@ -40,7 +40,7 @@ namespace bitsery {
                   _writter{w},
                   _oldObj{oldObj},
                   _newObj{newObj},
-                  _objMemPos(std::deque<ObjectMemoryPosition>(1, ObjectMemoryPosition{oldObj, newObj})),
+                  _objMemPos(std::deque<details::ObjectMemoryPosition>(1, details::ObjectMemoryPosition{oldObj, newObj})),
                   _isNewElement{false} {
 
         };
@@ -132,7 +132,7 @@ namespace bitsery {
         Writter &_writter;
         const TObj &_oldObj;
         const TObj &_newObj;
-        std::stack<ObjectMemoryPosition> _objMemPos;
+        std::stack<details::ObjectMemoryPosition> _objMemPos;
         bool _isNewElement;
 
         template<typename T>
@@ -170,7 +170,7 @@ namespace bitsery {
             auto lastChanged = begin;
             while (misMatch.first != oldEnd && misMatch.second != end) {
                 writeIndexOffset(std::distance(lastChanged, misMatch.second));
-                _objMemPos.emplace(ObjectMemoryPosition{*misMatch.first, *misMatch.second});
+                _objMemPos.emplace(details::ObjectMemoryPosition{*misMatch.first, *misMatch.second});
                 fnc(*this, *misMatch.second);
                 _objMemPos.pop();
                 ++misMatch.first;
@@ -183,7 +183,7 @@ namespace bitsery {
             writeIndexOffset(std::distance(lastChanged, end));
             //write old elements
             for (auto pOld = misMatch.first; p != end && pOld != oldEnd; ++p, ++pOld) {
-                _objMemPos.emplace(ObjectMemoryPosition{*pOld, *p});
+                _objMemPos.emplace(details::ObjectMemoryPosition{*pOld, *p});
                 fnc(*this, *p);
                 _objMemPos.pop();
             }

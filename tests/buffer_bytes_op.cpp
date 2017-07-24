@@ -31,6 +31,7 @@ using testing::Eq;
 using testing::ContainerEq;
 using bitsery::BufferWriter;
 using bitsery::BufferReader;
+using Buffer = std::vector<bitsery::DefaultConfig::BufferValueType>;
 
 struct IntegralTypes {
     int64_t a;
@@ -68,7 +69,7 @@ TEST(BufferBytesOperations, WriteAndReadBytes) {
     //setup data
     auto data =getInitializedIntegralTypes();
     //create and write to buffer
-    std::vector<uint8_t> buf{};
+    Buffer buf{};
     BufferWriter bw{buf};
     writeIntegralTypesToBuffer(bw, data);
 
@@ -98,7 +99,7 @@ TEST(BufferBytesOperations, BufferReaderUsingDataPlusSizeCtor) {
     //setup data
     auto data =getInitializedIntegralTypes();
     //create and write to buffer
-    std::vector<uint8_t> buf{};
+    Buffer buf{};
     BufferWriter bw{buf};
     writeIntegralTypesToBuffer(bw, data);
 
@@ -127,7 +128,7 @@ TEST(BufferBytesOperations, BufferReaderUsingCArrayCtor) {
     //setup data
     auto data =getInitializedIntegralTypes();
     //create and write to buffer
-    std::vector<uint8_t> buf{};
+    Buffer buf{};
     BufferWriter bw{buf};
     writeIntegralTypesToBuffer(bw, data);
 
@@ -161,7 +162,7 @@ TEST(BufferBytesOperations, ReadReturnsFalseIfNotEnoughBufferSize) {
     uint8_t a = 111;
 
     //create and write to buffer
-    std::vector<uint8_t> buf{};
+    Buffer buf{};
     BufferWriter bw{buf};
 
     bw.writeBytes<1>(a);
@@ -190,7 +191,7 @@ TEST(BufferBytesOperations, ReadIsCompletedWhenAllBytesAreRead) {
     data.d = 200;
 
     //create and write to buffer
-    std::vector<uint8_t> buf{};
+    Buffer buf{};
     BufferWriter bw{buf};
 
     bw.writeBytes<4>(data.b);
@@ -217,3 +218,57 @@ TEST(BufferBytesOperations, ReadIsCompletedWhenAllBytesAreRead) {
     EXPECT_THAT(br1.isCompleted(), Eq(true));
 
 }
+
+TEST(BufferBytesOperations, ReadWriteBufferFncCanAcceptSignedData) {
+    //setup data
+    constexpr size_t DATA_SIZE = 3;
+    int16_t src[DATA_SIZE] {54,-4877,30067};
+    //create and write to buffer
+    Buffer buf{};
+    BufferWriter bw{buf};
+    bw.writeBuffer<2>(src, DATA_SIZE);
+    bw.flush();
+    //read from buffer
+    BufferReader br1{buf};
+    int16_t dst[DATA_SIZE]{};
+    EXPECT_THAT(br1.readBuffer<2>(dst, DATA_SIZE), Eq(true));
+    EXPECT_THAT(dst, ContainerEq(src));
+
+    //read more than available
+    BufferReader br2{buf};
+    int16_t dstMore[DATA_SIZE+1]{};
+    EXPECT_THAT(br2.readBuffer<2>(dstMore, DATA_SIZE+1), Eq(false));
+}
+
+TEST(BufferBytesOperations, ReadWriteBufferCanWorkOnUnalignedData) {
+    //setup data
+    constexpr size_t DATA_SIZE = 3;
+    int16_t src[DATA_SIZE] {54,-4877,30067};
+    //create and write to buffer
+    Buffer buf{};
+    BufferWriter bw{buf};
+    bw.writeBits(15u, 4);
+    bw.writeBuffer<2>(src, DATA_SIZE);
+    bw.writeBits(12u, 4);
+    bw.flush();
+    EXPECT_THAT(buf.size(), Eq(sizeof(src) + 1));
+
+    //read from buffer
+    BufferReader br1{buf};
+    int16_t dst[DATA_SIZE]{};
+    uint8_t tmp{};
+    br1.readBits(tmp, 4);
+    EXPECT_THAT(tmp, Eq(15));
+    EXPECT_THAT(br1.readBuffer<2>(dst, DATA_SIZE), Eq(true));
+    EXPECT_THAT(dst, ContainerEq(src));
+    br1.readBits(tmp, 4);
+    EXPECT_THAT(tmp, Eq(12));
+
+    //read more than available
+    BufferReader br2{buf};
+    br2.readBits(tmp, 4);
+    int16_t dstMore[DATA_SIZE+1]{};
+    EXPECT_THAT(tmp, Eq(15));
+    EXPECT_THAT(br2.readBuffer<2>(dstMore, DATA_SIZE+1), Eq(false));
+}
+

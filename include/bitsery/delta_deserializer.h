@@ -40,7 +40,7 @@ namespace bitsery {
                   _reader{r},
                   _oldObj{oldObj},
                   _newObj{newObj},
-                  _objMemPos(std::deque<ObjectMemoryPosition>(1, ObjectMemoryPosition{oldObj, newObj})),
+                  _objMemPos(std::deque<details::ObjectMemoryPosition>(1, details::ObjectMemoryPosition{oldObj, newObj})),
                   _isNewElement{false} {
         };
 
@@ -134,7 +134,7 @@ namespace bitsery {
 
         const TObj &_oldObj;
         const TObj &_newObj;
-        std::stack<ObjectMemoryPosition> _objMemPos;
+        std::stack<details::ObjectMemoryPosition> _objMemPos;
         bool _isNewElement;
 
         template<typename T>
@@ -173,7 +173,7 @@ namespace bitsery {
                     *p = *pOld;
                     --offset;
                 } else {
-                    _objMemPos.emplace(ObjectMemoryPosition{*pOld, *p});
+                    _objMemPos.emplace(details::ObjectMemoryPosition{*pOld, *p});
                     fnc(*this, *p);
                     _objMemPos.pop();
                     offset = readIndexOffset();

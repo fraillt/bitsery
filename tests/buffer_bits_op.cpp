@@ -24,13 +24,13 @@
 #include <gmock/gmock.h>
 #include <bitsery/buffer_writer.h>
 #include <bitsery/buffer_reader.h>
-#include <list>
-#include <bitset>
+#include <bitsery/details/serialization_common.h>
 
 using testing::Eq;
 using testing::ContainerEq;
 using bitsery::BufferWriter;
 using bitsery::BufferReader;
+using Buffer = std::vector<bitsery::DefaultConfig::BufferValueType>;
 
 struct IntegralUnsignedTypes {
     uint32_t a;
@@ -40,23 +40,29 @@ struct IntegralUnsignedTypes {
     uint64_t e;
 };
 
+template <typename T>
+constexpr size_t getBits(T v) {
+    return bitsery::details::calcRequiredBits<T>({}, v);
+};
+
 TEST(BufferBitsOperations, WriteAndReadBits) {
     //setup data
-    IntegralUnsignedTypes data;
-    data.a = 485454;//bits 19
-    data.b = 45978;//bits 16
-    data.c = 0;//bits 1
-    data.d = 36;//bits 6
-    data.e = 479845648946;//bits 39
+    constexpr IntegralUnsignedTypes data{
+        485454,//bits 19
+        45978,//bits 16
+        0,//bits 1
+        36,//bits 6
+        479845648946//bits 39
+    };
 
-    constexpr size_t aBITS = 21;
-    constexpr size_t bBITS = 16;
-    constexpr size_t cBITS = 5;
-    constexpr size_t dBITS = 7;
-    constexpr size_t eBITS = 40;
+    constexpr size_t aBITS = getBits(data.a) + 2;
+    constexpr size_t bBITS = getBits(data.b) + 0;
+    constexpr size_t cBITS = getBits(data.c) + 2;
+    constexpr size_t dBITS = getBits(data.d) + 1;
+    constexpr size_t eBITS = getBits(data.e) + 8;
 
     //create and write to buffer
-    std::vector<uint8_t> buf;
+    Buffer buf;
     BufferWriter bw{buf};
 
     bw.writeBits(data.a, aBITS);
@@ -87,7 +93,7 @@ TEST(BufferBitsOperations, WriteAndReadBits) {
 
 TEST(BufferBitsOperations, WhenFinishedFlushWriter) {
 
-    std::vector<uint8_t> buf;
+    Buffer buf;
     BufferWriter bw{buf};
 
     bw.writeBits(3u, 2);
@@ -101,7 +107,7 @@ TEST(BufferBitsOperations, BufferSizeIsCountedPerByteNotPerBit) {
     //setup data
 
     //create and write to buffer
-    std::vector<uint8_t> buf;
+    Buffer buf;
     BufferWriter bw{buf};
 
     bw.writeBits(7u,3);
@@ -110,7 +116,7 @@ TEST(BufferBitsOperations, BufferSizeIsCountedPerByteNotPerBit) {
 
     //read from buffer
     BufferReader br{buf};
-    unsigned tmp;
+    uint16_t tmp;
     EXPECT_THAT(br.readBits(tmp,4), Eq(true));
     EXPECT_THAT(br.readBits(tmp,2), Eq(true));
     EXPECT_THAT(br.readBits(tmp,2), Eq(true));
@@ -126,11 +132,44 @@ TEST(BufferBitsOperations, BufferSizeIsCountedPerByteNotPerBit) {
     EXPECT_THAT(br2.readBits(tmp,9), Eq(false));
 }
 
+TEST(BufferBitsOperations, ConsecutiveCallsToAlignHasNoEffect) {
+    Buffer buf;
+    BufferWriter bw{buf};
+
+    bw.writeBits(3u, 2);
+    //3 calls to align after 1st data
+    bw.align();
+    bw.align();
+    bw.align();
+    bw.writeBits(7u, 3);
+    //1 call to align after 2nd data
+    bw.align();
+    bw.writeBits(15u, 4);
+    bw.flush();
+
+    unsigned char tmp;
+    BufferReader br{buf};
+    EXPECT_THAT(br.readBits(tmp,2), Eq(true));
+    EXPECT_THAT(tmp, Eq(3u));
+    EXPECT_THAT(br.align(), Eq(true));
+
+    EXPECT_THAT(br.readBits(tmp,3), Eq(true));
+    EXPECT_THAT(tmp, Eq(7u));
+    EXPECT_THAT(br.align(), Eq(true));
+    EXPECT_THAT(br.align(), Eq(true));
+    EXPECT_THAT(br.align(), Eq(true));
+
+    EXPECT_THAT(br.readBits(tmp,4), Eq(true));
+    EXPECT_THAT(tmp, Eq(15u));
+}
+
+
+
 TEST(BufferBitsOperations, WhenAlignedFlushHasNoEffect) {
     //setup data
 
     //create and write to buffer
-    std::vector<uint8_t> buf;
+    Buffer buf;
     BufferWriter bw{buf};
 
     bw.writeBits(3u, 2);
@@ -140,11 +179,12 @@ TEST(BufferBitsOperations, WhenAlignedFlushHasNoEffect) {
     EXPECT_THAT(std::distance(buf.begin(), buf.end()), Eq(1));
 }
 
+
 TEST(BufferBitsOperations, AlignMustWriteZerosBits) {
     //setup data
 
     //create and write to buffer
-    std::vector<uint8_t> buf;
+    Buffer buf;
     BufferWriter bw{buf};
 
     //write 2 bits and align

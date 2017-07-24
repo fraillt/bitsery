@@ -27,32 +27,37 @@
 
 #include "common.h"
 
-#include <cassert>
 #include <algorithm>
+#include <vector>
 
 namespace bitsery {
 
-    struct BufferReader {
+    template <typename Config>
+    struct BasicBufferReader {
+        using ValueType = typename Config::BufferValueType;
+        using ScratchType = typename Config::BufferScrathType;
 
-        using value_type = uint8_t;
-
-        BufferReader(const std::vector<uint8_t> &buf) : _pos{buf.data()}, _end{buf.data() + buf.size()} {
-
-        }
-
-        BufferReader(const uint8_t* data, size_t size) : _pos{data}, _end{data + size}
+        BasicBufferReader(const ValueType* data, size_t size) : _pos{data}, _end{data + size}
         {
+            static_assert(std::is_unsigned<ValueType>(), "Config::BufferValueType must be unsigned");
+            static_assert(std::is_unsigned<ScratchType>(), "Config::BufferScrathType must be unsigned");
+            static_assert(sizeof(ValueType)*2 == sizeof(ScratchType), "ScratchType must be 2x bigger than value type");
+            static_assert(sizeof(ValueType) == 1, "currently only supported BufferValueType is 1 byte");
         }
+
+        explicit BasicBufferReader(const std::vector<ValueType> &buf) : BasicBufferReader(buf.data(), buf.size()) {
+        }
+
         template <size_t N>
-        BufferReader(const uint8_t (&data)[N]): _pos{data}, _end{data + N}
+        explicit BasicBufferReader(const ValueType (&data)[N]): BasicBufferReader(data, N)
         {
         }
 
-        BufferReader(const BufferReader&) = delete;
-        BufferReader& operator=(const BufferReader& ) = delete;
-        BufferReader(BufferReader&&) noexcept = default;
-        BufferReader& operator=(BufferReader&&) noexcept = default;
-        ~BufferReader() noexcept = default;
+        BasicBufferReader(const BasicBufferReader&) = delete;
+        BasicBufferReader& operator=(const BasicBufferReader& ) = delete;
+        BasicBufferReader(BasicBufferReader&&) noexcept = default;
+        BasicBufferReader& operator=(BasicBufferReader&&) noexcept = default;
+        ~BasicBufferReader() noexcept = default;
 
 
         template<size_t SIZE, typename T>
@@ -62,7 +67,7 @@ namespace bitsery {
             using UT = typename std::make_unsigned<T>::type;
             return !m_scratch
                    ? directRead(&v, 1)
-                   : readBits(reinterpret_cast<UT &>(v), BITS_SIZE<T>);
+                   : readBits(reinterpret_cast<UT &>(v), details::BITS_SIZE<T>);
         }
 
         template<size_t SIZE, typename T>
@@ -70,16 +75,15 @@ namespace bitsery {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
 
-            if (!m_scratchBits) {
+            if (!m_scratchBits)
                 return directRead(buf, count);
-            } else {
-                using UT = typename std::make_unsigned<T>::type;
-                //todo improve implementation
-                const auto end = buf + count;
-                for (auto it = buf; it != end; ++it) {
-                    if (!readBits(reinterpret_cast<UT &>(*it), BITS_SIZE<T>))
-                        return false;
-                }
+
+            using UT = typename std::make_unsigned<T>::type;
+            //todo improve implementation
+            const auto end = buf + count;
+            for (auto it = buf; it != end; ++it) {
+                if (!readBits(reinterpret_cast<UT &>(*it), details::BITS_SIZE<T>))
+                    return false;
             }
             return true;
         }
@@ -88,7 +92,6 @@ namespace bitsery {
         template<typename T>
         bool readBits(T &v, size_t bitsCount) {
             static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
-            assert(bitsCount <= BITS_SIZE<T>);
 
             const auto bytesRequired = bitsCount > m_scratchBits
                                        ? ((bitsCount - 1 - m_scratchBits) >> 3) + 1u
@@ -101,8 +104,8 @@ namespace bitsery {
 
         bool align() {
             if (m_scratchBits) {
-                SCRATCH_TYPE tmp{};
-                readBitsInternal(tmp, BITS_SIZE<value_type> - m_scratchBits);
+                ScratchType tmp{};
+                readBitsInternal(tmp, m_scratchBits);
                 return tmp == 0;
             }
             return true;
@@ -113,8 +116,8 @@ namespace bitsery {
         }
 
     private:
-        const value_type* _pos;
-        const value_type* _end;
+        const ValueType* _pos;
+        const ValueType* _end;
 
         template<typename T>
         bool directRead(T *v, size_t count) {
@@ -122,9 +125,23 @@ namespace bitsery {
             const auto bytesCount = sizeof(T) * count;
             if (static_cast<size_t>(std::distance(_pos, _end)) < bytesCount)
                 return false;
-            std::copy_n(_pos, bytesCount, reinterpret_cast<value_type *>(v));
+            //read from buffer, to data ptr,
+            std::copy_n(_pos, bytesCount, reinterpret_cast<ValueType *>(v));
             std::advance(_pos, bytesCount);
+            //swap each byte if nessesarry
+            _swapDataBits(v, count, std::integral_constant<bool,
+                    Config::NetworkEndianness != details::getSystemEndianness()>{});
             return true;
+        }
+
+        template<typename T>
+        void _swapDataBits(T *v, size_t count, std::true_type) {
+            std::for_each(v, std::next(v, count), [this](T& v) { v = details::swap(v); });
+        }
+
+        template<typename T>
+        void _swapDataBits(T *v, size_t count, std::false_type) {
+            //empty function because no swap is required
         }
 
         template<typename T>
@@ -132,18 +149,15 @@ namespace bitsery {
             auto bitsLeft = size;
             T res{};
             while (bitsLeft > 0) {
-                auto bits = std::min(bitsLeft, BITS_SIZE<value_type>);
+                auto bits = std::min(bitsLeft, details::BITS_SIZE<ValueType>);
                 if (m_scratchBits < bits) {
-                    value_type tmp;
-
-                    std::copy_n(_pos, 1, reinterpret_cast<value_type *>(&tmp));
-                    std::advance(_pos, 1);
-
-                    m_scratch |= static_cast<SCRATCH_TYPE>(tmp) << m_scratchBits;
-                    m_scratchBits += BITS_SIZE<value_type>;
+                    ValueType tmp;
+                    directRead(&tmp, 1);
+                    m_scratch |= static_cast<ScratchType>(tmp) << m_scratchBits;
+                    m_scratchBits += details::BITS_SIZE<ValueType>;
                 }
                 auto shiftedRes =
-                        static_cast<T>(m_scratch & ((static_cast<SCRATCH_TYPE>(1) << bits) - 1)) << (size - bitsLeft);
+                        static_cast<T>(m_scratch & ((static_cast<ScratchType>(1) << bits) - 1)) << (size - bitsLeft);
                 res |= shiftedRes;
                 m_scratch >>= bits;
                 m_scratchBits -= bits;
@@ -152,13 +166,12 @@ namespace bitsery {
             v = res;
         }
 
-        using SCRATCH_TYPE = typename BIGGER_TYPE<value_type>::type;
-
-        SCRATCH_TYPE m_scratch{};
+        ScratchType m_scratch{};
         size_t m_scratchBits{};                                    ///< Number of bits currently in the scratch buffer. If the user wants to read more bits than this, we have to go fetch another dword from memory.
 
     };
-
+    //helper type
+    using BufferReader = BasicBufferReader<DefaultConfig>;
 }
 
 #endif //BITSERY_BUFFER_READER_H

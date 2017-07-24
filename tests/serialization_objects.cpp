@@ -157,7 +157,7 @@ TEST(DeltaSerializer, GeneralConceptTest) {
 	yNew.vx[1].s = "bla";
 	yNew.vx.push_back(X{ 3 });
 
-	std::vector<uint8_t> buf;
+	std::vector<bitsery::DefaultConfig::BufferValueType> buf;
 	bitsery::BufferWriter bw{ buf };
 	bitsery::DeltaSerializer<bitsery::BufferWriter, Y> ser(bw, y, yNew);
 	serialize(ser, yNew);

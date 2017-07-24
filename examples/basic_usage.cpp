@@ -20,14 +20,11 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-#include <iostream>
-#include <vector>
 #include <bitsery/bitsery.h>
 
-
-enum class MyEnum { V1,V2,V3 };
+enum class MyEnum:uint16_t { V1,V2,V3 };
 struct MyStruct {
-    int i;
+    uint32_t i;
     MyEnum e;
     std::vector<float> fs;
 };
@@ -36,9 +33,9 @@ struct MyStruct {
 SERIALIZE(MyStruct) {
     return s.
             value4(o.i).
-            value4(o.e).
-            container4(o.fs, 100);
-}
+            value2(o.e).
+            container4(o.fs, 10);
+};
 
 using namespace bitsery;
 
@@ -69,7 +66,5 @@ int main() {
 
     //deserialize same object, can also be invoked like this: serialize(des, data)
     des.object(res);
-
-    //check is equal
-    std::cout << "is equal: " << (data.fs == res.fs && data.i == res.i && data.e == res.e) << std::endl;
+    assert(data.fs == res.fs && data.i == res.i && data.e == res.e);
 }

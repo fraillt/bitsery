@@ -4,23 +4,22 @@ Header only C++ binary serialization library.
 It is designed around the networking requirements for multiplayer real-time fast paced games as first person shooters.
 All cross-platform requirements are enforced at compile time, so serialized data do not store any run-time type information and is as small as possible.
 
-## Status
+## Features
 
-**bitsery** is in pre-release state and is looking for your feedback. 
-It has basic features, serialize arithmetic types, enums, containers and text, and few advanced features like value ranges and default values (substitution), but is still missing functions for delta changes and geometry compression.
-> Current version do not handle Big/Little Endianness.
-> Error handling on deserialization is not tested.
+**bitsery** is looking for your feedback.
+* Has configurable endianess support.
+* Can serialize all common types: arithmetic types, enums, containers and text.
+* Has advanced features like value ranges and default values.
+* Is extensible, for types that requires different serialization and deserialization logic (e.g. pointers)
+* Has error checking on deserialization, and asserts on serialization runtime errors.
 
 ## Example
 ```cpp
-#include <iostream>
-#include <vector>
 #include <bitsery/bitsery.h>
 
-
-enum class MyEnum { V1,V2,V3 };
+enum class MyEnum:uint16_t { V1,V2,V3 };
 struct MyStruct {
-    int i;
+    uint32_t i;
     MyEnum e;
     std::vector<float> fs;
 };
@@ -28,10 +27,10 @@ struct MyStruct {
 //define how object should be serialized/deserialized
 SERIALIZE(MyStruct) {
     return s.
-            value(o.i).
-            value(o.e).
-            container(o.fs, 100);
-}
+            value4(o.i).
+            value2(o.e).
+            container4(o.fs, 10);
+};
 
 using namespace bitsery;
 
@@ -62,11 +61,15 @@ int main() {
 
     //deserialize same object, can also be invoked like this: serialize(des, data)
     des.object(res);
-
-    //check is equal
-    std::cout << "is equal: " << (data.fs == res.fs && data.i == res.i && data.e == res.e) << std::endl;
+    assert(data.fs == res.fs && data.i == res.i && data.e == res.e);
 }
 ```
+
+## Todo list
+
+> Support wider range for underlying buffer value type for BufferWriter and BufferReader (currently must be unsigned 1byte, e.g. uint8_t).
+
+> Delta serialization and deserialization is in progress.
 
 ## Platforms
 

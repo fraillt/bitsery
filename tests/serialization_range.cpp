@@ -29,17 +29,17 @@ using bitsery::BitsConstraint;
 
 TEST(SerializeRange, RequiredBitsIsConstexpr) {
     constexpr RangeSpec<int> r1{0, 31};
-    static_assert(r1.bitsRequired == 5);
+    static_assert(r1.bitsRequired == 5, "r1.bitsRequired == 5");
 
     constexpr RangeSpec<MyEnumClass> r2{MyEnumClass::E1, MyEnumClass::E4};
-    static_assert(r2.bitsRequired == 2);
+    static_assert(r2.bitsRequired == 2, "r2.bitsRequired == 2");
 
     constexpr RangeSpec<double> r3{-1.0,1.0, BitsConstraint{5u}};
     //EXPECT_THAT(r1.bitsRequired, Eq(5));
-    static_assert(r3.bitsRequired == 5);
+    static_assert(r3.bitsRequired == 5, "r3.bitsRequired == 5");
 
     constexpr RangeSpec<float> r4{-1.0f,1.0f, 0.01f};
-    static_assert(r4.bitsRequired == 8);
+    static_assert(r4.bitsRequired == 8, "r4.bitsRequired == 8");
 
 }
 
@@ -133,7 +133,7 @@ TEST(SerializeRange, FloatUsingBitsSizeConstraint1) {
     ctx.createDeserializer().range(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
-    EXPECT_THAT(res1, ::testing::FloatNear(t1, (max - min) / (static_cast<bitsery::SAME_SIZE_UNSIGNED<float>>(1) << bits)));
+    EXPECT_THAT(res1, ::testing::FloatNear(t1, (max - min) / (static_cast<bitsery::details::SAME_SIZE_UNSIGNED<float>>(1) << bits)));
 }
 
 TEST(SerializeRange, DoubleUsingBitsSizeConstraint2) {
@@ -150,5 +150,5 @@ TEST(SerializeRange, DoubleUsingBitsSizeConstraint2) {
     ctx.createDeserializer().range(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(7));
-    EXPECT_THAT(res1, ::testing::DoubleNear(t1, (max - min) / (static_cast<bitsery::SAME_SIZE_UNSIGNED<double>>(1) << bits)));
+    EXPECT_THAT(res1, ::testing::DoubleNear(t1, (max - min) / (static_cast<bitsery::details::SAME_SIZE_UNSIGNED<double>>(1) << bits)));
 }

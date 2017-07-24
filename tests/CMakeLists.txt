@@ -21,77 +21,54 @@
 #SOFTWARE.
 
 cmake_minimum_required(VERSION 3.2)
-project(${TEST_PROJECT_NAME} C CXX)
+set(TestProjectName bitsery_tests)
+project(${TestProjectName} C CXX)
+
 
 find_package(Threads REQUIRED)
 
 #add googletest external project
 #USE_GMOCK enable gmock
 #exports variables GTEST_INCLUDE_DIRS, GTEST_LIBS_DIR, GTEST_LIBNAME, GTEST_MAIN_LIBNAME
-set(EXT_PROJECTS_DIR ${CMAKE_SOURCE_DIR}/ext)
-set(USE_GMOCK ON)
-add_subdirectory(${EXT_PROJECTS_DIR}/gtest ${CMAKE_BINARY_DIR}/gtest)
+set(ExtCMakeFilesDir ${CMAKE_SOURCE_DIR}/ext)
+set(UseGMock ON)
+add_subdirectory(${ExtCMakeFilesDir}/gtest ${CMAKE_BINARY_DIR}/gtest)
 
+#this helps idea to know which files are actually used
+file(GLOB_RECURSE IncludeHeaders ${CMAKE_SOURCE_DIR}/include/bitsery/*.h)
 # set common include folder for module
-include_directories(SYSTEM ${GTEST_INCLUDE_DIRS})
+include_directories(SYSTEM ${GTestIncludeDirs})
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
-file(GLOB TEST_SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+file(GLOB TestSourceFiles ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 
-FOREACH(TEST_PROJECT_FILE ${TEST_SRC_FILES})
-    get_filename_component(SEPARATE_TEST_NAME ${TEST_PROJECT_FILE} NAME_WE)
-    set(SEPARATE_TEST_NAME TEST_${SEPARATE_TEST_NAME})
-    add_executable(${SEPARATE_TEST_NAME} ${TEST_PROJECT_FILE})
-    add_dependencies(${SEPARATE_TEST_NAME} googletest)
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+    message(WARNING "extension tests for optional is disable for VS, because VS currenty doesn't have <optional>")
+    list(REMOVE_ITEM TestSourceFiles ${CMAKE_CURRENT_SOURCE_DIR}/serialization_ext_optional.cpp)
+endif()
 
-    set_property(TARGET ${SEPARATE_TEST_NAME} PROPERTY CXX_STANDARD 14)
-    set_property(TARGET ${SEPARATE_TEST_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
+include(${ExtCMakeFilesDir}/LinkTestLib.cmake)
 
+FOREACH(TestFile ${TestSourceFiles})
+    get_filename_component(TestName ${TestFile} NAME_WE)
+    set(TestName TEST_${TestName})
+    add_executable(${TestName} ${TestFile} ${IncludeHeaders})
+    LinkTestLib(${TestName})
 
-    if(NOT WIN32 OR MINGW)
-        FOREACH(LIBNAME ${GTEST_LINK_LIBNAMES})
-            target_link_libraries(${SEPARATE_TEST_NAME} ${GTEST_LIBS_DIR}/lib${LIBNAME}.a )
-        ENDFOREACH()
-    else()
-        FOREACH(LIBNAME ${GTEST_LINK_LIBNAMES})
-            target_link_libraries(${SEPARATE_TEST_NAME}
-                    debug ${GTEST_LIBS_DIR}/DebugLibs/${CMAKE_FIND_LIBRARY_PREFIXES}${LIBNAME}${CMAKE_FIND_LIBRARY_SUFFIXES}
-                    optimized ${GTEST_LIBS_DIR}/ReleaseLibs/${CMAKE_FIND_LIBRARY_PREFIXES}${LIBNAME}${CMAKE_FIND_LIBRARY_SUFFIXES})
-        ENDFOREACH()
-    endif()
-
-    target_link_libraries(${SEPARATE_TEST_NAME} ${CMAKE_THREAD_LIBS_INIT})
-
-    add_test(NAME ${SEPARATE_TEST_NAME} COMMAND $<TARGET_FILE:${SEPARATE_TEST_NAME}>)
+    add_test(NAME ${TestName} COMMAND $<TARGET_FILE:${TestName}>)
 
 ENDFOREACH()
 
 #all in one tests for code coverage
-add_executable(${TEST_PROJECT_NAME} ${TEST_SRC_FILES})
-add_dependencies(${TEST_PROJECT_NAME} googletest)
+add_executable(${TestProjectName} ${TestSourceFiles})
 
-set_property(TARGET ${TEST_PROJECT_NAME} PROPERTY CXX_STANDARD 14)
-set_property(TARGET ${TEST_PROJECT_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
-
-
-if(NOT WIN32 OR MINGW)
-    FOREACH(LIBNAME ${GTEST_LINK_LIBNAMES})
-        target_link_libraries(${TEST_PROJECT_NAME} ${GTEST_LIBS_DIR}/lib${LIBNAME}.a )
-    ENDFOREACH()
-else()
-    FOREACH(LIBNAME ${GTEST_LINK_LIBNAMES})
-        target_link_libraries(${TEST_PROJECT_NAME}
-                debug ${GTEST_LIBS_DIR}/DebugLibs/${CMAKE_FIND_LIBRARY_PREFIXES}${LIBNAME}${CMAKE_FIND_LIBRARY_SUFFIXES}
-                optimized ${GTEST_LIBS_DIR}/ReleaseLibs/${CMAKE_FIND_LIBRARY_PREFIXES}${LIBNAME}${CMAKE_FIND_LIBRARY_SUFFIXES})
-    ENDFOREACH()
+if(CMAKE_COMPILER_IS_GNUCXX)
+    include(${ExtCMakeFilesDir}/CodeCoverage.cmake)
+    target_compile_options(${TestProjectName} PUBLIC -O0 -fprofile-arcs -ftest-coverage)
+    target_link_libraries(${TestProjectName} -O0 -fprofile-arcs -ftest-coverage)
+    setup_target_for_coverage(tests_coverage ${TestProjectName} coverage)
 endif()
 
-target_link_libraries(${TEST_PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT})
-
-
-
-
-
-
+LinkTestLib(${TestProjectName})
 
 

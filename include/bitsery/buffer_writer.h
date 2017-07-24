@@ -29,6 +29,8 @@
 #include <cassert>
 #include <algorithm>
 #include <iterator>
+#include <utility>
+#include <vector>
 
 namespace bitsery {
 
@@ -38,13 +40,13 @@ namespace bitsery {
         void writeBytes(const T &) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
-            _bitsCount += BITS_SIZE<T>;
+            _bitsCount += details::BITS_SIZE<T>;
         }
 
         template<typename T>
         void writeBits(const T &, size_t bitsCount) {
             static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
-            assert(bitsCount <= BITS_SIZE<T>);
+            assert(bitsCount <= details::BITS_SIZE<T>);
             _bitsCount += bitsCount;
         }
 
@@ -52,7 +54,7 @@ namespace bitsery {
         void writeBuffer(const T *, size_t count) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
-            _bitsCount += BITS_SIZE<T> * count;
+            _bitsCount += details::BITS_SIZE<T> * count;
         }
 
         //get size in bytes
@@ -65,30 +67,34 @@ namespace bitsery {
 
     };
 
+    template <typename Config>
+    struct BasicBufferWriter {
+        using ValueType = typename Config::BufferValueType;
+        using ScratchType = typename Config::BufferScrathType;
 
-    struct BufferWriter {
-        using value_type = uint8_t;
-
-        explicit BufferWriter(std::vector<uint8_t> &buffer) : _buf{buffer}, _outIt{std::back_inserter(buffer)} {
-            static_assert(std::is_unsigned<value_type>::value, "");
+        explicit BasicBufferWriter(std::vector<ValueType> &buffer) : _outIt{std::back_inserter(buffer)} {
+            static_assert(std::is_unsigned<ValueType>(), "Config::BufferValueType must be unsigned");
+            static_assert(std::is_unsigned<ScratchType>(), "Config::BufferScrathType must be unsigned");
+            static_assert(sizeof(ValueType)*2 == sizeof(ScratchType), "ScratchType must be 2x bigger than value type");
+            static_assert(sizeof(ValueType) == 1, "currently only supported BufferValueType is 1 byte");
         }
 
-        BufferWriter(const BufferWriter&) = delete;
-        BufferWriter& operator=(const BufferWriter& ) = delete;
-        BufferWriter(BufferWriter&&) noexcept = default;
-        BufferWriter& operator=(BufferWriter&&) noexcept = default;
-        ~BufferWriter() noexcept = default;
+        BasicBufferWriter(const BasicBufferWriter&) = delete;
+        BasicBufferWriter& operator=(const BasicBufferWriter& ) = delete;
+        BasicBufferWriter(BasicBufferWriter&&) noexcept = default;
+        BasicBufferWriter& operator=(BasicBufferWriter&&) noexcept = default;
+        ~BasicBufferWriter() noexcept = default;
 
         template<size_t SIZE, typename T>
         void writeBytes(const T &v) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
 
-            if (!m_scratchBits) {
+            if (!_scratchBits) {
                 directWrite(&v, 1);
             } else {
                 using UT = typename std::make_unsigned<T>::type;
-                writeBits(reinterpret_cast<const UT &>(v), BITS_SIZE<T>);
+                writeBits(reinterpret_cast<const UT &>(v), details::BITS_SIZE<T>);
             }
         }
 
@@ -96,36 +102,36 @@ namespace bitsery {
         void writeBuffer(const T *buf, size_t count) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
-            if (!m_scratchBits) {
+            if (!_scratchBits) {
                 directWrite(buf, count);
             } else {
                 using UT = typename std::make_unsigned<T>::type;
                 //todo improve implementation
                 const auto end = buf + count;
                 for (auto it = buf; it != end; ++it)
-                    writeBits(reinterpret_cast<const UT &>(*it), BITS_SIZE<T>);
+                    writeBits(reinterpret_cast<const UT &>(*it), details::BITS_SIZE<T>);
             }
         }
 
         template<typename T>
         void writeBits(const T &v, size_t bitsCount) {
             static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
-            assert(bitsCount <= BITS_SIZE<T>);
+            assert(0 < bitsCount && bitsCount <= details::BITS_SIZE<T>);
             assert(v <= ((1ULL << bitsCount) - 1));
             writeBitsInternal(v, bitsCount);
         }
 
         void align() {
-            if (m_scratchBits)
-                writeBitsInternal(value_type{}, BITS_SIZE<value_type> - m_scratchBits);
+            if (_scratchBits)
+                writeBitsInternal(ValueType{}, details::BITS_SIZE<ValueType> - _scratchBits);
         }
 
         void flush() {
-            if (m_scratchBits) {
-                auto tmp = static_cast<value_type>( m_scratch & bufTypeMask );
+            if (_scratchBits) {
+                auto tmp = static_cast<ValueType>( _scratch & _MASK );
                 directWrite(&tmp, 1);
-                m_scratch >>= m_scratchBits;
-                m_scratchBits -= m_scratchBits;
+                _scratch >>= _scratchBits;
+                _scratchBits -= _scratchBits;
             }
         }
 
@@ -133,57 +139,68 @@ namespace bitsery {
     private:
 
         template<typename T>
-        void directWrite(const T *v, size_t count) {
-            const auto bytesSize = sizeof(T) * count;
-            const auto pos = _buf.size();
-            _buf.resize(pos + bytesSize);
-            std::copy_n(reinterpret_cast<const value_type *>(v), bytesSize, _buf.data() + pos);
+        void directWrite(T&& v, size_t count) {
+            _directWriteSwapTag(std::forward<T>(v), count, std::integral_constant<bool,
+                    Config::NetworkEndianness != details::getSystemEndianness()>{});
+        }
+
+        template<typename T>
+        void _directWriteSwapTag(const T *v, size_t count, std::true_type) {
+            std::for_each(v, std::next(v, count), [this](const T& v) {
+                const auto res = details::swap(v);
+                std::copy_n(reinterpret_cast<const ValueType*>(&res), sizeof(T), _outIt);
+            });
+        }
+
+        template<typename T>
+        void _directWriteSwapTag(const T *v, size_t count, std::false_type) {
+            std::copy_n(reinterpret_cast<const ValueType*>(v), count * sizeof(T), _outIt);
         }
 
         template<typename T>
         void writeBitsInternal(const T &v, size_t size) {
+            constexpr size_t valueSize = details::BITS_SIZE<ValueType>;
             auto value = v;
             auto bitsLeft = size;
             while (bitsLeft > 0) {
-                auto bits = std::min(bitsLeft, BITS_SIZE<value_type>);
-                m_scratch |= static_cast<SCRATCH_TYPE>( value ) << m_scratchBits;
-                m_scratchBits += bits;
-                if (m_scratchBits >= BITS_SIZE<value_type>) {
-                    auto tmp = static_cast<value_type>(m_scratch & bufTypeMask);
+                auto bits = std::min(bitsLeft, valueSize);
+                _scratch |= static_cast<ScratchType>( value ) << _scratchBits;
+                _scratchBits += bits;
+                if (_scratchBits >= valueSize) {
+                    auto tmp = static_cast<ValueType>(_scratch & _MASK);
                     directWrite(&tmp, 1);
-                    m_scratch >>= BITS_SIZE<value_type>;
-                    m_scratchBits -= BITS_SIZE<value_type>;
+                    _scratch >>= valueSize;
+                    _scratchBits -= valueSize;
 
-                    value >>= BITS_SIZE<value_type>;
+                    value >>= valueSize;
                 }
                 bitsLeft -= bits;
             }
         }
-        void writeBitsInternal(const value_type &v, size_t size) {
+
+        //overload for ValueType, for better performance
+        void writeBitsInternal(const ValueType &v, size_t size) {
             if (size > 0) {
-                m_scratch |= static_cast<SCRATCH_TYPE>( v ) << m_scratchBits;
-                m_scratchBits += size;
-                if (m_scratchBits >= BITS_SIZE<value_type>) {
-                    auto tmp = static_cast<value_type>(m_scratch & bufTypeMask);
+                _scratch |= static_cast<ScratchType>( v ) << _scratchBits;
+                _scratchBits += size;
+                if (_scratchBits >= details::BITS_SIZE<ValueType>) {
+                    auto tmp = static_cast<ValueType>(_scratch & _MASK);
                     directWrite(&tmp, 1);
-                    m_scratch >>= BITS_SIZE<value_type>;
-                    m_scratchBits -= BITS_SIZE<value_type>;
+                    _scratch >>= details::BITS_SIZE<ValueType>;
+                    _scratchBits -= details::BITS_SIZE<ValueType>;
                 }
             }
         }
 
 
-        const value_type bufTypeMask = 0xFF;
-        using SCRATCH_TYPE = typename BIGGER_TYPE<value_type>::type;
-        std::vector<value_type> &_buf;
-        std::back_insert_iterator<std::vector<value_type>> _outIt;
-        SCRATCH_TYPE m_scratch{};
-        size_t m_scratchBits{};
-
-
-        //size_t _bufSize{};
-
+        const ValueType _MASK = std::numeric_limits<ValueType>::max();
+        std::back_insert_iterator<std::vector<ValueType>> _outIt;
+        ScratchType _scratch{};
+        size_t _scratchBits{};
     };
+
+    //helper type
+    using BufferWriter = BasicBufferWriter<DefaultConfig>;
 }
 
 #endif //BITSERY_BUFFER_WRITER_H

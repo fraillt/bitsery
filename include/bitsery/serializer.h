@@ -26,49 +26,12 @@
 #define BITSERY_SERIALIZER_H
 
 #include "common.h"
+#include "details/serialization_common.h"
+#include <cassert>
 #include <array>
+#include <string>
 
 namespace bitsery {
-
-/*
- * functions for range
- */
-
-    template<typename T, typename std::enable_if<std::is_integral<T>::value>::type * = nullptr>
-    auto getRangeValue(const T &v, const RangeSpec<T> &r) {
-        return static_cast<SAME_SIZE_UNSIGNED<T>>(v - r.min);
-    };
-
-    template<typename T, typename std::enable_if<std::is_enum<T>::value>::type * = nullptr>
-    auto getRangeValue(const T &v, const RangeSpec<T> &r) {
-        return static_cast<SAME_SIZE_UNSIGNED<T>>(v) - static_cast<SAME_SIZE_UNSIGNED<T>>(r.min);
-    };
-
-    template<typename T, typename std::enable_if<std::is_floating_point<T>::value>::type * = nullptr>
-    auto getRangeValue(const T &v, const RangeSpec<T> &r) {
-        using VT = SAME_SIZE_UNSIGNED<T>;
-        const VT maxUint = (static_cast<VT>(1) << r.bitsRequired) - 1;
-        const auto ratio = (v - r.min) / (r.max - r.min);
-        return static_cast<VT>(ratio * maxUint);
-    };
-
-/*
- * functions for substitution
- */
-
-    template<typename T, size_t N>
-    size_t findSubstitutionIndex(const T &v, const std::array<T, N> &defValues) {
-        auto index{1u};
-        for (auto &d:defValues) {
-            if (d == v)
-                return index;
-            ++index;
-        }
-        return 0u;
-    };
-
-
-
 
     template<typename Writter>
     class Serializer {
@@ -80,6 +43,7 @@ namespace bitsery {
             return serialize(*this, obj);
         }
 
+        //in c++17 change "class" to typename
         template <template <typename> class Extension, typename TValue, typename Fnc>
         Serializer& ext(const TValue& v, Fnc&& fnc ) {
             Extension<const TValue> ext{v};
@@ -95,7 +59,7 @@ namespace bitsery {
         template<size_t VSIZE, typename T, typename std::enable_if<std::is_floating_point<T>::value>::type * = nullptr>
         Serializer& value(const T &v) {
             static_assert(std::numeric_limits<T>::is_iec559, "");
-            _writter.template writeBytes<VSIZE>(reinterpret_cast<const SAME_SIZE_UNSIGNED<T> &>(v));
+            _writter.template writeBytes<VSIZE>(reinterpret_cast<const details::SAME_SIZE_UNSIGNED<T> &>(v));
             return *this;
         }
 
@@ -116,7 +80,7 @@ namespace bitsery {
          */
 
         Serializer& boolBit(bool v) {
-            _writter.template writeBits(static_cast<unsigned char>(v ? 1 : 0), 1);
+            _writter.writeBits(static_cast<unsigned char>(v ? 1 : 0), 1);
             return *this;
         }
 
@@ -131,8 +95,8 @@ namespace bitsery {
 
         template<typename T>
         Serializer& range(const T &v, const RangeSpec<T> &range) {
-            assert(isRangeValid(v, range));
-            _writter.template writeBits(getRangeValue(v, range), range.bitsRequired);
+            assert(details::isRangeValid(v, range));
+            _writter.template writeBits<decltype(details::getRangeValue(v, range))>(details::getRangeValue(v, range), range.bitsRequired);
             return *this;
         }
 
@@ -141,7 +105,7 @@ namespace bitsery {
          */
         template<typename T, size_t N, typename Fnc>
         Serializer& substitution(const T &v, const std::array<T, N> &expectedValues, Fnc &&fnc) {
-            auto index = findSubstitutionIndex(v, expectedValues);
+            auto index = details::findSubstitutionIndex(v, expectedValues);
             range(index, {{}, N +1});
             if (!index)
                 fnc(*this, v);
@@ -150,7 +114,7 @@ namespace bitsery {
 
         template<size_t VSIZE, typename T, size_t N>
         Serializer& substitution(const T &v, const std::array<T, N> &expectedValues) {
-            auto index = findSubstitutionIndex(v, expectedValues);
+            auto index = details::findSubstitutionIndex(v, expectedValues);
             range(index, {{}, N +1});
             if (!index)
                 value<VSIZE>(v);
@@ -159,7 +123,7 @@ namespace bitsery {
 
         template<typename T, size_t N>
         Serializer& substitution(const T &v, const std::array<T, N> &expectedValues) {
-            auto index = findSubstitutionIndex(v, expectedValues);
+            auto index = details::findSubstitutionIndex(v, expectedValues);
             range(index, {{}, N +1});
             if (!index)
                 object(v);
@@ -173,13 +137,19 @@ namespace bitsery {
         template<size_t VSIZE, typename T>
         Serializer& text(const std::basic_string<T> &str, size_t maxSize) {
             assert(str.size() <= maxSize);
-            procText<VSIZE>(str.data(), str.size());
+            auto first = std::begin(str);
+            auto last = std::end(str);
+            writeSize(std::distance(first, last));
+            procContainer<VSIZE>(first, last, std::true_type{});
             return *this;
         }
 
         template<size_t VSIZE, typename T, size_t N>
         Serializer& text(const T (&str)[N]) {
-            procText<VSIZE>(str, std::min(std::char_traits<T>::length(str), N - 1));
+            auto first = std::begin(str);
+            auto last = std::next(first, std::min(std::char_traits<T>::length(str), N - 1));
+            writeSize(std::distance(first, last));
+            procContainer<VSIZE>(first, last, std::true_type{});
             return *this;
         }
 
@@ -191,8 +161,7 @@ namespace bitsery {
         Serializer& container(const T &obj, size_t maxSize, Fnc &&fnc) {
             assert(obj.size() <= maxSize);
             writeSize(obj.size());
-            for (auto &v: obj)
-                fnc(*this, v);
+            procContainer(std::begin(obj), std::end(obj), std::forward<Fnc>(fnc));
             return *this;
         }
 
@@ -201,7 +170,8 @@ namespace bitsery {
             static_assert(VSIZE > 0, "");
             assert(obj.size() <= maxSize);
             writeSize(obj.size());
-            procContainer<VSIZE>(obj);
+            //todo optimisation is possible for contigous containers, but currently there is no compile-time check for this
+            procContainer<VSIZE>(std::begin(obj), std::end(obj), std::false_type{});
             return *this;
         }
 
@@ -209,7 +179,7 @@ namespace bitsery {
         Serializer& container(const T &obj, size_t maxSize) {
             assert(obj.size() <= maxSize);
             writeSize(obj.size());
-            procContainer<0>(obj);
+            procContainer(std::begin(obj), std::end(obj));
             return *this;
         }
 
@@ -221,21 +191,20 @@ namespace bitsery {
 
         template<typename T, size_t N, typename Fnc>
         Serializer& array(const std::array<T, N> &arr, Fnc &&fnc) {
-            for (auto &v: arr)
-                fnc(*this, v);
+            procContainer(std::begin(arr), std::end(arr), std::forward<Fnc>(fnc));
             return *this;
         }
 
         template<size_t VSIZE, typename T, size_t N>
         Serializer& array(const std::array<T, N> &arr) {
             static_assert(VSIZE > 0, "");
-            procContainer<VSIZE>(arr);
+            procContainer<VSIZE>(std::begin(arr), std::end(arr), std::true_type{});
             return *this;
         }
 
         template<typename T, size_t N>
         Serializer& array(const std::array<T, N> &arr) {
-            procContainer<0>(arr);
+            procContainer(std::begin(arr), std::end(arr));
             return *this;
         }
 
@@ -243,22 +212,20 @@ namespace bitsery {
 
         template<typename T, size_t N, typename Fnc>
         Serializer& array(const T (&arr)[N], Fnc &&fnc) {
-            const T *end = arr + N;
-            for (const T *tmp = arr; tmp != end; ++tmp)
-                fnc(*this, *tmp);
+            procContainer(std::begin(arr), std::end(arr), std::forward<Fnc>(fnc));
             return *this;
         }
 
         template<size_t VSIZE, typename T, size_t N>
         Serializer& array(const T (&arr)[N]) {
             static_assert(VSIZE > 0, "");
-            procCArray<VSIZE>(arr);
+            procContainer<VSIZE>(std::begin(arr), std::end(arr), std::true_type{});
             return *this;
         }
 
         template<typename T, size_t N>
         Serializer& array(const T (&arr)[N]) {
-            procCArray<0>(arr);
+            procContainer(std::begin(arr), std::end(arr));
             return *this;
         }
 
@@ -329,27 +296,36 @@ namespace bitsery {
             }
         }
 
-        template<size_t VSIZE, typename T>
-        void procContainer(T &&obj) {
-            //todo could be improved for arithmetic types in contiguous containers (std::vector, std::array) (keep in mind std::vector<bool> specialization)
-            for (auto &v: obj)
-                ProcessAnyType<VSIZE>::serialize(*this, v);
+        //process value types
+        //false_type means that we must process all elements individually
+        template<size_t VSIZE, typename It>
+        void procContainer(It first, It last, std::false_type) {
+            for (;first != last; ++first)
+                value<VSIZE>(*first);
         };
 
-        template<size_t VSIZE, typename T, size_t N>
-        void procCArray(T (&arr)[N]) {
-            //todo could be improved for arithmetic types
-            const T *end = arr + N;
-            for (const T *it = arr; it != end; ++it)
-                ProcessAnyType<VSIZE>::serialize(*this, *it);
+        //process value types
+        //true_type means, that we can copy whole buffer
+        template<size_t VSIZE, typename It>
+        void procContainer(It first, It last, std::true_type) {
+            if (first != last)
+                _writter.template writeBuffer<VSIZE>(&(*first), std::distance(first, last));
         };
 
-        template<size_t VSIZE, typename T>
-        void procText(const T *str, size_t size) {
-            writeSize(size);
-            if (size)
-                _writter.template writeBuffer<VSIZE>(str, size);
-        }
+        //process by calling functions
+        template<typename It, typename Fnc>
+        void procContainer(It first, It last, Fnc fnc) {
+            for (;first != last; ++first)
+                fnc(*this, *first);
+        };
+
+        //process object types
+        template<typename It>
+        void procContainer(It first, It last) {
+            for (;first != last; ++first)
+                object(*first);
+        };
+
     };
 
 }

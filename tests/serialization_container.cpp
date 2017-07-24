@@ -31,10 +31,40 @@
 using testing::ContainerEq;
 using testing::Eq;
 
+
+/*
+ * overload to get container of types
+ */
+
 template <typename Container>
 Container getFilledContainer() {
     return {1,2,3,4,5,78,456,8,54};
 }
+
+template <>
+std::vector<MyStruct1> getFilledContainer<std::vector<MyStruct1>>() {
+    return {
+            {0,1},
+            {2,3},
+            {4,5},
+            {6,7},
+            {8,9},
+            {11,34},
+            {5134,1532}
+    };
+}
+
+template <>
+std::list<MyStruct2> getFilledContainer<std::list<MyStruct2>>() {
+    return {
+            {MyStruct2::V1, {0,1}} ,
+            {MyStruct2::V3, {-45,45}}
+    };
+}
+
+/*
+ * start testing session
+ */
 
 template <typename T>
 class SerializeContainerArthmeticTypes:public testing::Test {
@@ -107,26 +137,6 @@ public:
     }
 };
 
-template <>
-std::vector<MyStruct1> getFilledContainer<std::vector<MyStruct1>>() {
-    return {
-            {0,1},
-            {2,3},
-            {4,5},
-            {6,7},
-            {8,9},
-            {11,34},
-            {5134,1532}
-    };
-}
-
-template <>
-std::list<MyStruct2> getFilledContainer<std::list<MyStruct2>>() {
-    return {
-            {MyStruct2::V1, {0,1}} ,
-            {MyStruct2::V3, {-45,45}}
-    };
-}
 
 using SequenceContainersWithCompositeTypes = ::testing::Types<
         std::vector<MyStruct1>,
