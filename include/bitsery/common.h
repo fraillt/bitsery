@@ -38,10 +38,15 @@ namespace bitsery {
  * serializer macro, serialize function specialization that accepts T& and const T&
  */
 
-
 #define SERIALIZE(ObjectType) \
 template <typename S, typename T, typename std::enable_if<std::is_same<T, ObjectType>::value || std::is_same<T, const ObjectType>::value>::type* = nullptr> \
 S& serialize(S& s, T& o)
 
+#define SERIALIZE_FRIEND(ObjectType) \
+template <typename S, typename T, typename std::enable_if<std::is_same<T, ObjectType>::value || std::is_same<T, const ObjectType>::value>::type* = nullptr> \
+friend S& serialize(S& s, T& o)
+
 }
+
+
 #endif //BITSERY_COMMON_H

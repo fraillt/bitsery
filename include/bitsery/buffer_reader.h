@@ -32,31 +32,34 @@
 
 namespace bitsery {
 
-    template <typename Config>
+    template<typename Config>
     struct BasicBufferReader {
         using ValueType = typename Config::BufferValueType;
         using ScratchType = typename Config::BufferScrathType;
 
-        BasicBufferReader(const ValueType* data, size_t size) : _pos{data}, _end{data + size}
-        {
+        BasicBufferReader(const ValueType *data, size_t size) : _pos{data}, _end{data + size} {
             static_assert(std::is_unsigned<ValueType>(), "Config::BufferValueType must be unsigned");
             static_assert(std::is_unsigned<ScratchType>(), "Config::BufferScrathType must be unsigned");
-            static_assert(sizeof(ValueType)*2 == sizeof(ScratchType), "ScratchType must be 2x bigger than value type");
+            static_assert(sizeof(ValueType) * 2 == sizeof(ScratchType),
+                          "ScratchType must be 2x bigger than value type");
             static_assert(sizeof(ValueType) == 1, "currently only supported BufferValueType is 1 byte");
         }
 
         explicit BasicBufferReader(const std::vector<ValueType> &buf) : BasicBufferReader(buf.data(), buf.size()) {
         }
 
-        template <size_t N>
-        explicit BasicBufferReader(const ValueType (&data)[N]): BasicBufferReader(data, N)
-        {
+        template<size_t N>
+        explicit BasicBufferReader(const ValueType (&data)[N]): BasicBufferReader(data, N) {
         }
 
-        BasicBufferReader(const BasicBufferReader&) = delete;
-        BasicBufferReader& operator=(const BasicBufferReader& ) = delete;
-        BasicBufferReader(BasicBufferReader&&) noexcept = default;
-        BasicBufferReader& operator=(BasicBufferReader&&) noexcept = default;
+        BasicBufferReader(const BasicBufferReader &) = delete;
+
+        BasicBufferReader &operator=(const BasicBufferReader &) = delete;
+
+        BasicBufferReader(BasicBufferReader &&) noexcept = default;
+
+        BasicBufferReader &operator=(BasicBufferReader &&) noexcept = default;
+
         ~BasicBufferReader() noexcept = default;
 
 
@@ -116,8 +119,8 @@ namespace bitsery {
         }
 
     private:
-        const ValueType* _pos;
-        const ValueType* _end;
+        const ValueType *_pos;
+        const ValueType *_end;
 
         template<typename T>
         bool directRead(T *v, size_t count) {
@@ -136,7 +139,7 @@ namespace bitsery {
 
         template<typename T>
         void _swapDataBits(T *v, size_t count, std::true_type) {
-            std::for_each(v, std::next(v, count), [this](T& v) { v = details::swap(v); });
+            std::for_each(v, std::next(v, count), [this](T &v) { v = details::swap(v); });
         }
 
         template<typename T>

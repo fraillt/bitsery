@@ -2,16 +2,22 @@
 
 Header only C++ binary serialization library.
 It is designed around the networking requirements for multiplayer real-time fast paced games as first person shooters.
+
+
 All cross-platform requirements are enforced at compile time, so serialized data do not store any run-time type information and is as small as possible.
+Furthermore knowing your specific requirements
+
+
+> **bitsery** is looking for your feedback.
 
 ## Features
 
-**bitsery** is looking for your feedback.
-* Has configurable endianess support.
-* Can serialize all common types: arithmetic types, enums, containers and text.
-* Has advanced features like value ranges and default values.
-* Is extensible, for types that requires different serialization and deserialization logic (e.g. pointers)
-* Has error checking on deserialization, and asserts on serialization runtime errors.
+* Cross-platform compatible
+* 2-in-1 declarative control flow, same code for serialization and deserialization.
+* Configurable endianess support.
+* Advanced serialization features like value ranges and entrophy encoding.
+* Easy to extend for types that requires different serialization and deserialization logic (e.g. pointers, or geometry compression).
+* Error checking at runtime on deserialization, and asserts on serialization errors.
 
 ## Example
 ```cpp

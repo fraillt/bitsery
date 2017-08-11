@@ -45,7 +45,7 @@ namespace bitsery {
         struct swapImpl {
             static uint64_t exec(uint64_t value) {
 #ifdef __GNUC__
-                return __builtin_bswap64( value );
+                return __builtin_bswap64(value);
 #else
                 value = ( value & 0x00000000FFFFFFFF ) << 32 | ( value & 0xFFFFFFFF00000000 ) >> 32;
             value = ( value & 0x0000FFFF0000FFFF ) << 16 | ( value & 0xFFFF0000FFFF0000 ) >> 16;
@@ -54,18 +54,16 @@ namespace bitsery {
 #endif
             }
 
-            static uint32_t exec(uint32_t value)
-            {
+            static uint32_t exec(uint32_t value) {
 #ifdef __GNUC__
-                return __builtin_bswap32( value );
+                return __builtin_bswap32(value);
 #else
                 return ( value & 0x000000ff ) << 24 | ( value & 0x0000ff00 ) << 8 | ( value & 0x00ff0000 ) >> 8 | ( value & 0xff000000 ) >> 24;
 #endif
             }
 
-            static uint16_t exec(uint16_t value)
-            {
-                return ( value & 0x00ff ) << 8 | ( value & 0xff00 ) >> 8;
+            static uint16_t exec(uint16_t value) {
+                return (value & 0x00ff) << 8 | (value & 0xff00) >> 8;
             }
 
             static uint8_t exec(uint8_t value) {
@@ -73,24 +71,26 @@ namespace bitsery {
             }
         };
 
-        template <typename TValue>
+        template<typename TValue>
         TValue swap(TValue value) {
             constexpr size_t TSize = sizeof(TValue);
             using UT = typename std::conditional<TSize == 1, uint8_t,
                     typename std::conditional<TSize == 2, uint16_t,
-                            typename std::conditional<TSize == 4, uint32_t , uint64_t>::type>::type>::type;
+                            typename std::conditional<TSize == 4, uint32_t, uint64_t>::type>::type>::type;
             return swapImpl::exec(static_cast<UT>(value));
         }
 
         //add test data in separate struct, because some compilers only support constexpr functions with return-only body
         struct EndiannessTestData {
             static constexpr uint32_t _sample4Bytes = 0x01020304;
-            static constexpr uint8_t _sample1stByte = (const uint8_t&)_sample4Bytes;
+            static constexpr uint8_t _sample1stByte = (const uint8_t &) _sample4Bytes;
         };
 
         constexpr EndiannessType getSystemEndianness() {
-            static_assert(EndiannessTestData::_sample1stByte == 0x04 || EndiannessTestData::_sample1stByte == 0x01, "system must be either little or big endian");
-            return EndiannessTestData::_sample1stByte == 0x04 ? EndiannessType::LittleEndian : EndiannessType::BigEndian;
+            static_assert(EndiannessTestData::_sample1stByte == 0x04 || EndiannessTestData::_sample1stByte == 0x01,
+                          "system must be either little or big endian");
+            return EndiannessTestData::_sample1stByte == 0x04 ? EndiannessType::LittleEndian
+                                                              : EndiannessType::BigEndian;
         }
 
     }

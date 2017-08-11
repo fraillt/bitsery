@@ -24,40 +24,52 @@
 #ifndef BITSERY_EXT_OPTIONAL_H
 #define BITSERY_EXT_OPTIONAL_H
 
+
+//this module do not include optional, but expects it to be declared in std::optional
+//if you're using experimental optional from <experimental/optional>
+//add it in std namespace like this:
+//namespace std {
+//    template <typename T>
+//    using optional = experimental::optional<T>;
+//}
 namespace bitsery {
     namespace ext {
 
-        template <typename T>
+        template<typename T>
         using std_optional = ::std::optional<T>;
 
-        template <typename T>
         class optional {
         public:
-            explicit optional(T& v):_value{v} {
+            template<typename T>
+            constexpr void assertType() const {
                 using TOpt = typename std::remove_cv<T>::type;
                 using TVal = typename TOpt::value_type;
                 static_assert(std::is_same<TOpt, std_optional<TVal>>(), "");
+                static_assert(std::is_default_constructible<TVal>::value, "");
             };
-            template <typename TSerializer, typename Fnc>
-            void serialize(TSerializer& ser, const Fnc& fnc) {
-                ser.boolByte(static_cast<bool>(_value));
-                if (_value)
-                    fnc(ser, *_value);
+
+            template<typename T, typename Ser, typename Fnc>
+            void serialize(const T &obj, Ser &ser, Fnc &&fnc) const {
+                assertType<T>();
+                ser.boolByte(static_cast<bool>(obj));
+                if (obj)
+                    fnc(ser, *obj);
             }
-            template <typename TSerializer, typename Fnc>
-            void deserialize(TSerializer& ser, const Fnc& fnc) {
+
+            template<typename T, typename Des, typename Fnc>
+            void deserialize(T &obj, Des &des, Fnc &&fnc) const {
+                assertType<T>();
                 bool exists{};
-                ser.boolByte(exists);
+                des.boolByte(exists);
                 if (exists) {
                     typename T::value_type tmp{};
-                    fnc(ser, tmp);
-                    _value = tmp;
+                    fnc(des, tmp);
+                    obj = tmp;
                 } else {
-                    _value = T{};
+                    //experimental optional doesnt have .reset method
+                    obj = T{};
                 }
             }
-        private:
-            T& _value;
         };
 
     }

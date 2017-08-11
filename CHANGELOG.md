@@ -1,3 +1,14 @@
+<a name="2.1.0"></a>
+# [2.1.0](https://github.com/fraillt/bitsery/compare/v2.0.0...v2.1.0) (2017-08-07)
+
+### Features
+
+* added **SERIALIZE_FRIEND** macro to be able to serialize private struct fields
+* static_assert when trying to serialize object, that doesn't have **serialize** function defined.
+* added **custom** function to override default behaviour for **object** serialization
+* renamed function **ext** to **extension** and changed its interface, to make it more easy to extend
+
+
 <a name="2.0.0"></a>
 # [2.0.0](https://github.com/fraillt/bitsery/compare/v1.1.1...v2.0.0) (2017-07-25)
 
@@ -30,10 +41,10 @@
 ### Features
 
 Serialization functions:
-* **value** - primitive types (ints, enums, floats)
+* **value** - [fundamental types](doc/design/fundamental_types.md)
 * **container** - dynamic size containers
 * **array** - fixed size containers
 * **text** - for c-array and std::string
-* **range** - compresion for primitive types (e.g. int between [255..512] will take up 8bits
+* **range** - compresion for fundamental types (e.g. int between [255..512] will take up 8bits
 * **substitution** - default value from list (e.g. 4d vector, that is most of the time equals to [0,0,0,1] can store only 1bit)
 * **boolBit**/**boolByte** - serialize bool, as 1bit or 1byte.

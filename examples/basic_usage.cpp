@@ -27,11 +27,15 @@ struct MyStruct {
     uint32_t i;
     MyEnum e;
     std::vector<float> fs;
+    char16_t x;
+    bool y;
 };
 
 //define how object should be serialized/deserialized
 SERIALIZE(MyStruct) {
     return s.
+            value1(o.y).
+            value2(o.x).
             value4(o.i).
             value2(o.e).
             container4(o.fs, 10);

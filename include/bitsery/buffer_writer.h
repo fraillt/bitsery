@@ -57,6 +57,14 @@ namespace bitsery {
             _bitsCount += details::BITS_SIZE<T> * count;
         }
 
+        void align() {
+            _bitsCount += 8 - (_bitsCount % 8);
+        }
+
+        void flush() {
+
+        }
+
         //get size in bytes
         size_t getSize() const {
             return _bitsCount / 8;
@@ -67,7 +75,7 @@ namespace bitsery {
 
     };
 
-    template <typename Config>
+    template<typename Config>
     struct BasicBufferWriter {
         using ValueType = typename Config::BufferValueType;
         using ScratchType = typename Config::BufferScrathType;
@@ -75,14 +83,19 @@ namespace bitsery {
         explicit BasicBufferWriter(std::vector<ValueType> &buffer) : _outIt{std::back_inserter(buffer)} {
             static_assert(std::is_unsigned<ValueType>(), "Config::BufferValueType must be unsigned");
             static_assert(std::is_unsigned<ScratchType>(), "Config::BufferScrathType must be unsigned");
-            static_assert(sizeof(ValueType)*2 == sizeof(ScratchType), "ScratchType must be 2x bigger than value type");
+            static_assert(sizeof(ValueType) * 2 == sizeof(ScratchType),
+                          "ScratchType must be 2x bigger than value type");
             static_assert(sizeof(ValueType) == 1, "currently only supported BufferValueType is 1 byte");
         }
 
-        BasicBufferWriter(const BasicBufferWriter&) = delete;
-        BasicBufferWriter& operator=(const BasicBufferWriter& ) = delete;
-        BasicBufferWriter(BasicBufferWriter&&) noexcept = default;
-        BasicBufferWriter& operator=(BasicBufferWriter&&) noexcept = default;
+        BasicBufferWriter(const BasicBufferWriter &) = delete;
+
+        BasicBufferWriter &operator=(const BasicBufferWriter &) = delete;
+
+        BasicBufferWriter(BasicBufferWriter &&) noexcept = default;
+
+        BasicBufferWriter &operator=(BasicBufferWriter &&) noexcept = default;
+
         ~BasicBufferWriter() noexcept = default;
 
         template<size_t SIZE, typename T>
@@ -139,22 +152,22 @@ namespace bitsery {
     private:
 
         template<typename T>
-        void directWrite(T&& v, size_t count) {
+        void directWrite(T &&v, size_t count) {
             _directWriteSwapTag(std::forward<T>(v), count, std::integral_constant<bool,
                     Config::NetworkEndianness != details::getSystemEndianness()>{});
         }
 
         template<typename T>
         void _directWriteSwapTag(const T *v, size_t count, std::true_type) {
-            std::for_each(v, std::next(v, count), [this](const T& v) {
+            std::for_each(v, std::next(v, count), [this](const T &v) {
                 const auto res = details::swap(v);
-                std::copy_n(reinterpret_cast<const ValueType*>(&res), sizeof(T), _outIt);
+                std::copy_n(reinterpret_cast<const ValueType *>(&res), sizeof(T), _outIt);
             });
         }
 
         template<typename T>
         void _directWriteSwapTag(const T *v, size_t count, std::false_type) {
-            std::copy_n(reinterpret_cast<const ValueType*>(v), count * sizeof(T), _outIt);
+            std::copy_n(reinterpret_cast<const ValueType *>(v), count * sizeof(T), _outIt);
         }
 
         template<typename T>

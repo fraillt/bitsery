@@ -49,7 +49,7 @@ namespace bitsery {
         template<typename T>
         using SAME_SIZE_UNSIGNED = typename SAME_SIZE_UNSIGNED_TYPE<T>::type;
 
-        template <typename T>
+        template<typename T>
         constexpr size_t getSize(T v, size_t s) {
             return v > 0 ? getSize(v / 2, s + 1) : s;
         }
@@ -149,21 +149,21 @@ namespace bitsery {
             return static_cast<VT>(ratio * maxUint);
         };
 
-        template<typename T, typename std::enable_if<std::is_integral<T>::value>::type* = nullptr>
-        void setRangeValue(T& v, const RangeSpec<T>& r) {
+        template<typename T, typename std::enable_if<std::is_integral<T>::value>::type * = nullptr>
+        void setRangeValue(T &v, const RangeSpec<T> &r) {
             v += r.min;
         };
 
-        template<typename T, typename std::enable_if<std::is_enum<T>::value>::type* = nullptr>
-        void setRangeValue(T& v, const RangeSpec<T>& r) {
+        template<typename T, typename std::enable_if<std::is_enum<T>::value>::type * = nullptr>
+        void setRangeValue(T &v, const RangeSpec<T> &r) {
             using VT = std::underlying_type_t<T>;
-            reinterpret_cast<VT&>(v) += static_cast<VT>(r.min);
+            reinterpret_cast<VT &>(v) += static_cast<VT>(r.min);
         };
 
-        template<typename T, typename std::enable_if<std::is_floating_point<T>::value>::type* = nullptr>
-        void setRangeValue(T& v, const RangeSpec<T>& r) {
+        template<typename T, typename std::enable_if<std::is_floating_point<T>::value>::type * = nullptr>
+        void setRangeValue(T &v, const RangeSpec<T> &r) {
             using UIT = SAME_SIZE_UNSIGNED<T>;
-            const auto intRep = reinterpret_cast<UIT&>(v);
+            const auto intRep = reinterpret_cast<UIT &>(v);
             const UIT maxUint = (static_cast<UIT>(1) << r.bitsRequired) - 1;
             v = r.min + (static_cast<T>(intRep) / maxUint) * (r.max - r.min);
         };
@@ -195,6 +195,26 @@ namespace bitsery {
             return 0u;
         };
 
+/*
+ * functions for object serialization
+ */
+
+        template<typename S, typename T, typename Enabled = void>
+        struct SerializeFunction {
+            static S &invoke(S &s, T &v) {
+                static_assert(!std::is_void<Enabled>::value, "please define 'serialize' function.");
+                return s;
+            }
+        };
+
+        template<typename S, typename T>
+        struct SerializeFunction<S, T, typename std::enable_if<
+                std::is_same<S &, decltype(serialize(std::declval<S &>(), std::declval<T &>()))>::value
+        >::type> {
+            static S &invoke(S &s, T &v) {
+                return serialize(s, v);
+            }
+        };
 
 /*
  * delta functions
@@ -205,7 +225,8 @@ namespace bitsery {
 
             template<typename T>
             ObjectMemoryPosition(const T &oldObj, const T &newObj)
-                    :ObjectMemoryPosition{reinterpret_cast<const char *>(&oldObj), reinterpret_cast<const char *>(&newObj),
+                    :ObjectMemoryPosition{reinterpret_cast<const char *>(&oldObj),
+                                          reinterpret_cast<const char *>(&newObj),
                                           sizeof(T)} {
             }
 

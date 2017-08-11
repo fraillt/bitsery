@@ -1,0 +1,1 @@
+int char (except bool)

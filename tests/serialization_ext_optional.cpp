@@ -36,24 +36,20 @@
 #include <bitsery/ext/optional.h>
 
 
-template <typename T>
-using extoptional = bitsery::ext::optional<T>;
+using extoptional = bitsery::ext::optional;
 
 using testing::Eq;
 
 
 template <typename T>
 void test(SerializationContext& ctx, const T& v, T& r) {
-    auto fnc = [](auto ser, auto& v) {
-        ser.template value<sizeof(v)>(v);
-    };
-    ctx.createSerializer().ext<extoptional>(v, fnc);
-    ctx.createDeserializer().ext<extoptional>(r, fnc);
+    ctx.createSerializer().extension4(v, extoptional{});
+    ctx.createDeserializer().extension4(r, extoptional{});
 }
 
 TEST(SerializeExtensionOptional, EmptyOptional) {
-    std::optional<int> t1{};
-    std::optional<int> r1{};
+    std::optional<int32_t> t1{};
+    std::optional<int32_t> r1{};
 
     SerializationContext ctx1;
     test(ctx1,t1, r1);
@@ -69,8 +65,8 @@ TEST(SerializeExtensionOptional, EmptyOptional) {
 }
 
 TEST(SerializeExtensionOptional, OptionalHasValue) {
-    std::optional<int> t1{43};
-    std::optional<int> r1{52};
+    std::optional<int32_t> t1{43};
+    std::optional<int32_t> r1{52};
 
     SerializationContext ctx1;
     test(ctx1,t1, r1);
