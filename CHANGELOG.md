@@ -1,4 +1,10 @@
 <a name="2.0.0"></a>
+
+# [2.0.1](https://github.com/fraillt/bitsery/compare/v2.0.0...v2.0.1) (2017-08-12)
+
+### Other notes
+* added travis build status
+
 # [2.0.0](https://github.com/fraillt/bitsery/compare/v1.1.1...v2.0.0) (2017-07-25)
 
 ### Features
