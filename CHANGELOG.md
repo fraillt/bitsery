@@ -1,5 +1,5 @@
 <a name="2.1.0"></a>
-# [2.1.0](https://github.com/fraillt/bitsery/compare/v2.0.0...v2.1.0) (2017-08-07)
+# [2.1.0](https://github.com/fraillt/bitsery/compare/v2.0.1...v2.1.0) (2017-08-07)
 
 ### Features
 
@@ -8,6 +8,12 @@
 * added **custom** function to override default behaviour for **object** serialization
 * renamed function **ext** to **extension** and changed its interface, to make it more easy to extend
 
+
+<a name="2.0.1"></a>
+# [2.0.1](https://github.com/fraillt/bitsery/compare/v2.0.0...v2.0.1) (2017-08-12)
+
+### Other notes
+* added travis build status
 
 <a name="2.0.0"></a>
 # [2.0.0](https://github.com/fraillt/bitsery/compare/v1.1.1...v2.0.0) (2017-07-25)

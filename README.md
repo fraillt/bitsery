@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/fraillt/bitsery.svg?branch=master)](https://travis-ci.org/fraillt/bitsery)
 # Bitsery
 
 Header only C++ binary serialization library.
@@ -5,8 +6,6 @@ It is designed around the networking requirements for multiplayer real-time fast
 
 
 All cross-platform requirements are enforced at compile time, so serialized data do not store any run-time type information and is as small as possible.
-Furthermore knowing your specific requirements
-
 
 > **bitsery** is looking for your feedback.
 
