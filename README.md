@@ -18,6 +18,12 @@ All cross-platform requirements are enforced at compile time, so serialized data
 * Easy to extend for types that requires different serialization and deserialization logic (e.g. pointers, or geometry compression).
 * Error checking at runtime on deserialization, and asserts on serialization errors.
 
+## How to use it
+This documentation comprises these parts:
+* [Tutorial](doc/tutorial/README.md) - getting started.
+* [Reference section](doc/README.md) - all the details.
+
+
 ## Example
 ```cpp
 #include <bitsery/bitsery.h>

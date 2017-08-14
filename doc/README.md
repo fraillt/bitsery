@@ -2,9 +2,11 @@ To get the most out of **Bitsery**, start with the [tutorial](tutorial/README.md
 Once you're familiar with the library consider the following reference material.
 
 Library design:
+* [*valueN* instead of *value*](design/func_n.md)
 * [fundamental types](design/fundamental_types.md)
 * [serializer/deserializer functions overloads](design/function_overload.md)
 * [extending library functionality](design/extensions.md)
+* [errors handling](design/errors.md)
 
 Serializer/Deserializer functions (alphabetical order):
 * [align](fnc_array.md)
