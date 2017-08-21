@@ -1,4 +1,4 @@
-# The Problem
+# The problem
 
 You want to serialize *Player* structure efficiently into buffer.
 
@@ -65,7 +65,7 @@ Although it is simple and fast (it could be faster if we reserve buffer before w
 
 You can improve your name serialization in various ways, but then your serialization and deserialization code gets compllicated and error prone. We can do better than this.
 
-# **Bitsery** solution
+# Bitsery solution
 
 Let's solve the same problem with the library.
 ```cpp
@@ -117,10 +117,10 @@ size: 17
 First of all, buffer size dropped from 64 down to 17bytes: 12 bytes (3*4) for floats and only 5bytes for the name "Yolo".
 In the process you also lost all limitations that had naive solution. You even gain some features for free:
 * endianess support.
-* much more readable structure serialization code.
+* more readable serialization code.
 
 
-Let's take a look at the code, how we did this. 
+Let's look at the code, how we did this.
 
 
 There are three distinct parts that participate in serialization process.

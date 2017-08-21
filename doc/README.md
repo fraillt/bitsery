@@ -15,7 +15,7 @@ Serializer/Deserializer functions (alphabetical order):
 * [container](fnc_container.md)
 * [custom](fnc_custom.md)
 * [extension](fnc_extension.md)
-* [isValid](fnc_isValid.md)
+* [isValid](reference/fnc_is_valid.md)
 * [object](fnc_object.md)
 * [range](fnc_range.md)
 * [substitution](fnc_substitution.md)
