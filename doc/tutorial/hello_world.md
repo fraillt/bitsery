@@ -1,4 +1,4 @@
-# The Problem
+# The problem
 
 You want to serialize *Player* structure efficiently into buffer.
 
