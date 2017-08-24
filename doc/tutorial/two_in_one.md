@@ -26,7 +26,6 @@ template <typename S, typename T, typename std::enable_if<std::is_same<T, Player
 void serialize (S& s, T& o) {
 ...
 }
-
 ```
 
 Let's modify our [hello world](hello_world.md) example and add deserialization to it.
