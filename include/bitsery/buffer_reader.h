@@ -26,16 +26,15 @@
 #define BITSERY_BUFFER_READER_H
 
 #include "common.h"
-
 #include <algorithm>
-#include <vector>
 
 namespace bitsery {
 
     template<typename Config>
     struct BasicBufferReader {
-        using ValueType = typename Config::BufferValueType;
-        using ScratchType = typename Config::BufferScrathType;
+        using BufferType = typename Config::BufferType;
+        using ValueType = typename BufferType::value_type;
+        using ScratchType = typename details::SCRATCH_TYPE<ValueType>::type;
 
         BasicBufferReader(const ValueType *data, size_t size) : _pos{data}, _end{data + size} {
             static_assert(std::is_unsigned<ValueType>(), "Config::BufferValueType must be unsigned");
@@ -45,11 +44,10 @@ namespace bitsery {
             static_assert(sizeof(ValueType) == 1, "currently only supported BufferValueType is 1 byte");
         }
 
-        explicit BasicBufferReader(const std::vector<ValueType> &buf) : BasicBufferReader(buf.data(), buf.size()) {
-        }
+        BasicBufferReader(typename BufferType::iterator begin, typename BufferType::iterator end)
+                : BasicBufferReader(std::addressof(*begin), std::distance(begin, end)) {}
 
-        template<size_t N>
-        explicit BasicBufferReader(const ValueType (&data)[N]): BasicBufferReader(data, N) {
+        explicit BasicBufferReader(const BufferType &buf) : BasicBufferReader(buf.data(), buf.size()) {
         }
 
         BasicBufferReader(const BasicBufferReader &) = delete;

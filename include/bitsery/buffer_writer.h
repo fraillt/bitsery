@@ -27,10 +27,7 @@
 
 #include "common.h"
 #include <cassert>
-#include <algorithm>
-#include <iterator>
 #include <utility>
-#include <vector>
 
 namespace bitsery {
 
@@ -62,11 +59,11 @@ namespace bitsery {
         }
 
         void flush() {
-
+            _bitsCount += (8 - (_bitsCount % 8)) % 8;
         }
 
         //get size in bytes
-        size_t getSize() const {
+        size_t getWrittenBytesCount() const {
             return _bitsCount / 8;
         }
 
@@ -77,11 +74,13 @@ namespace bitsery {
 
     template<typename Config>
     struct BasicBufferWriter {
-        using ValueType = typename Config::BufferValueType;
-        using ScratchType = typename Config::BufferScrathType;
+        using BufferType = typename Config::BufferType;
+        using ValueType = typename BufferType::value_type;
+        using ScratchType = typename details::SCRATCH_TYPE<ValueType>::type;
+        using BufferContext = details::WriteBufferContext<BufferType, Config::FixedBufferSize>;
 
-        explicit BasicBufferWriter(std::vector<ValueType> &buffer) : _outIt{std::back_inserter(buffer)} {
-            static_assert(std::is_unsigned<ValueType>(), "Config::BufferValueType must be unsigned");
+        explicit BasicBufferWriter(BufferType &buffer) : _bufferContext{buffer} {
+            static_assert(std::is_unsigned<ValueType>(), "Config::BufferType::value_type must be unsigned");
             static_assert(std::is_unsigned<ScratchType>(), "Config::BufferScrathType must be unsigned");
             static_assert(sizeof(ValueType) * 2 == sizeof(ScratchType),
                           "ScratchType must be 2x bigger than value type");
@@ -148,6 +147,9 @@ namespace bitsery {
             }
         }
 
+        size_t getWrittenBytesCount() const {
+            return _bufferContext.getWrittenBytesCount();
+        }
 
     private:
 
@@ -161,13 +163,13 @@ namespace bitsery {
         void _directWriteSwapTag(const T *v, size_t count, std::true_type) {
             std::for_each(v, std::next(v, count), [this](const T &v) {
                 const auto res = details::swap(v);
-                std::copy_n(reinterpret_cast<const ValueType *>(&res), sizeof(T), _outIt);
+                _bufferContext.write(reinterpret_cast<const ValueType *>(&res), sizeof(T));
             });
         }
 
         template<typename T>
         void _directWriteSwapTag(const T *v, size_t count, std::false_type) {
-            std::copy_n(reinterpret_cast<const ValueType *>(v), count * sizeof(T), _outIt);
+            _bufferContext.write(reinterpret_cast<const ValueType *>(v), count * sizeof(T));
         }
 
         template<typename T>
@@ -207,7 +209,7 @@ namespace bitsery {
 
 
         const ValueType _MASK = std::numeric_limits<ValueType>::max();
-        std::back_insert_iterator<std::vector<ValueType>> _outIt;
+        BufferContext _bufferContext;
         ScratchType _scratch{};
         size_t _scratchBits{};
     };

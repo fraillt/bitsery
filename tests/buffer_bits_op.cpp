@@ -30,7 +30,7 @@ using testing::Eq;
 using testing::ContainerEq;
 using bitsery::BufferWriter;
 using bitsery::BufferReader;
-using Buffer = std::vector<bitsery::DefaultConfig::BufferValueType>;
+using Buffer = bitsery::DefaultConfig::BufferType;
 
 struct IntegralUnsignedTypes {
     uint32_t a;

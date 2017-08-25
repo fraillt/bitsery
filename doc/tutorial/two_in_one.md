@@ -135,4 +135,4 @@ serialize(des, res); //des-> Deserializer, data-> Player
 
 You have learned how to write *serialize* function for your type, that works with serialization and deserialization. You also learned that deserialization is very similar to serialization, but has runtime error checking.
 
-In [next chapter](composition.md) you'll learn more serialization/deserialization functions and how to compose them efficiently to add default or custom serialization/deserialization behaviour.
+In [next chapter](composition.md) you'll learn how to compose complex serialization/deserialization flows efficiently.

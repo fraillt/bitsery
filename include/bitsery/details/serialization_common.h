@@ -201,18 +201,17 @@ namespace bitsery {
 
         template<typename S, typename T, typename Enabled = void>
         struct SerializeFunction {
-            static S &invoke(S &s, T &v) {
+            static void invoke(S &s, T &v) {
                 static_assert(!std::is_void<Enabled>::value, "please define 'serialize' function.");
-                return s;
             }
         };
 
         template<typename S, typename T>
         struct SerializeFunction<S, T, typename std::enable_if<
-                std::is_same<S &, decltype(serialize(std::declval<S &>(), std::declval<T &>()))>::value
+                std::is_same<void, decltype(serialize(std::declval<S &>(), std::declval<T &>()))>::value
         >::type> {
-            static S &invoke(S &s, T &v) {
-                return serialize(s, v);
+            static void invoke(S &s, T &v) {
+                serialize(s, v);
             }
         };
 

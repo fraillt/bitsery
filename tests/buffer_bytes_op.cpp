@@ -31,7 +31,7 @@ using testing::Eq;
 using testing::ContainerEq;
 using bitsery::BufferWriter;
 using bitsery::BufferReader;
-using Buffer = std::vector<bitsery::DefaultConfig::BufferValueType>;
+using Buffer = bitsery::DefaultConfig::BufferType;
 
 struct IntegralTypes {
     int64_t a;
@@ -124,7 +124,7 @@ TEST(BufferBytesOperations, BufferReaderUsingDataPlusSizeCtor) {
     EXPECT_THAT(data.f, ContainerEq(res.f));
 }
 
-TEST(BufferBytesOperations, BufferReaderUsingCArrayCtor) {
+TEST(BufferBytesOperations, BufferReaderUsingIteratorsCtor) {
     //setup data
     auto data =getInitializedIntegralTypes();
     //create and write to buffer
@@ -133,10 +133,8 @@ TEST(BufferBytesOperations, BufferReaderUsingCArrayCtor) {
     writeIntegralTypesToBuffer(bw, data);
 
     ASSERT_THAT(std::distance(buf.begin(), buf.end()), Eq(18));
-    uint8_t cArrBuf[18];
-    std::copy(buf.begin(), buf.end(), cArrBuf);
     //read from buffer
-    BufferReader br{cArrBuf};
+    BufferReader br{buf.begin(), buf.end()};
     IntegralTypes res{};
     EXPECT_THAT(br.readBytes<4>(res.b), Eq(true));
     EXPECT_THAT(br.readBytes<1>(res.f[0]), Eq(true));

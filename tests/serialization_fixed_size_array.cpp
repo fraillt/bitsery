@@ -67,12 +67,14 @@ TEST(SerializeFSArrayStdArray, CustomFunctionThatSerializesAnEmptyByteEveryEleme
     auto ser = ctx.createSerializer();
     ser.array(src, [](auto &s, auto& v) {
         char tmp{};
-        s.object(v).value1(tmp);
+        s.object(v);
+        s.value1(tmp);
     });
     auto des = ctx.createDeserializer();
     des.array(res, [](auto &s, auto& v) {
         char tmp{};
-        s.object(v).value1(tmp);
+        s.object(v);
+        s.value1(tmp);
     });
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(src.size() * (MyStruct1::SIZE + sizeof(char))));
@@ -118,12 +120,14 @@ TEST(SerializeFSArrayCArray, CustomFunctionThatSerializesAnEmptyByteEveryElement
     auto ser = ctx.createSerializer();
     ser.array(src, [](auto& s, auto& v) {
         char tmp{};
-        s.object(v).value1(tmp);
+        s.object(v);
+        s.value1(tmp);
     });
     auto des = ctx.createDeserializer();
     des.array(res, [](auto& s, auto& v) {
         char tmp{};
-        s.object(v).value1(tmp);
+        s.object(v);
+        s.value1(tmp);
     });
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(std::extent<decltype(src)>::value * (MyStruct1::SIZE + sizeof(char))));

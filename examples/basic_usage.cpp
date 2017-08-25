@@ -24,7 +24,6 @@ SERIALIZE(Player) {
     s.value4(o.pos.y);
     s.value4(o.pos.z);
     s.text1(o.name);
-    return s;
 }
 
 Player createData() {

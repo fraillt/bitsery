@@ -3,11 +3,12 @@
 
 ### Features
 
+* now all serializer/deserializer functions return void, to avoid undefined behaviour for functions parameters evaluation when using method chaining. There was no benefits apart from *nicer* syntax, but could have undefined behaviour when building complex serialization flows.
+* changed BufferWriter/Reader config, added *FixedBufferSize* bool parameter for *BufferWriter* for much better serializer performance (more than 50% improvement). Default is old behavour - using back_insert_iterator when writing.
 * added **SERIALIZE_FRIEND** macro to be able to serialize private struct fields
-* static_assert when trying to serialize object, that doesn't have **serialize** function defined.
+* user friendly static_assert when trying to serialize object, that doesn't have **serialize** function defined.
 * added **custom** function to override default behaviour for **object** serialization
 * renamed function **ext** to **extension** and changed its interface, to make it more easy to extend
-
 
 <a name="2.0.1"></a>
 # [2.0.1](https://github.com/fraillt/bitsery/compare/v2.0.0...v2.0.1) (2017-08-12)

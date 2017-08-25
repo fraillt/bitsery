@@ -26,6 +26,7 @@
 #include <type_traits>
 #include <cstddef>
 #include <cstdint>
+#include <algorithm>
 
 namespace bitsery {
 
@@ -92,6 +93,80 @@ namespace bitsery {
             return EndiannessTestData::_sample1stByte == 0x04 ? EndiannessType::LittleEndian
                                                               : EndiannessType::BigEndian;
         }
+
+
+        template<typename T>
+        struct SCRATCH_TYPE {
+        };
+
+        template<>
+        struct SCRATCH_TYPE<uint8_t> {
+            using type = uint16_t;
+        };
+
+        template<>
+        struct SCRATCH_TYPE<uint16_t> {
+            using type = uint32_t;
+        };
+
+        template<>
+        struct SCRATCH_TYPE<uint32_t> {
+            using type = uint64_t;
+        };
+
+        template<typename Buffer, bool isFixed>
+        class WriteBufferContext {
+        };
+
+        template<typename Buffer>
+        class WriteBufferContext<Buffer, true> {
+        public:
+            using ValueType = typename Buffer::value_type;
+            using IteratorType = typename Buffer::iterator;
+
+            explicit WriteBufferContext(Buffer &buffer)
+                    : _buffer{buffer},
+                      _outIt{buffer.begin()} {
+            }
+
+            void write(const ValueType *data, size_t size) {
+                _outIt = std::copy_n(data, size, _outIt);
+            }
+
+            size_t getWrittenBytesCount() const {
+                return std::distance(_buffer.begin(), _outIt) * sizeof(ValueType);
+            }
+
+        private:
+            Buffer &_buffer;
+            IteratorType _outIt;
+        };
+
+        template<typename Buffer>
+        class WriteBufferContext<Buffer, false> {
+        public:
+            using ValueType = typename Buffer::value_type;
+            using IteratorType = std::back_insert_iterator<Buffer>;
+
+            explicit WriteBufferContext(Buffer &buffer)
+                    : _buffer{buffer},
+                      _outIt{std::back_insert_iterator<Buffer>(buffer)},
+                      _initialSize{buffer.size()} {
+            }
+
+            void write(const ValueType *data, size_t size) {
+                std::copy_n(data, size, _outIt);
+            }
+
+            size_t getWrittenBytesCount() const {
+                return (std::distance(_buffer.begin(), _buffer.end()) - _initialSize) * sizeof(ValueType);
+            }
+
+        private:
+            Buffer &_buffer;
+            IteratorType _outIt;
+            size_t _initialSize;
+        };
 
     }
 }

@@ -33,8 +33,12 @@ TEST(SerializeBooleans, BoolAsBit) {
     bool t2{false};
     bool res1;
     bool res2;
-    ctx.createSerializer().boolBit(t1).boolBit(t2);
-    ctx.createDeserializer().boolBit(res1).boolBit(res2);
+    auto ser = ctx.createSerializer();
+    ser.boolBit(t1);
+    ser.boolBit(t2);
+    auto des = ctx.createDeserializer();
+    des.boolBit(res1);
+    des.boolBit(res2);
 
     EXPECT_THAT(res1, Eq(t1));
     EXPECT_THAT(res2, Eq(t2));
@@ -47,8 +51,12 @@ TEST(SerializeBooleans, BoolAsByte) {
     bool t2{false};
     bool res1;
     bool res2;
-    ctx.createSerializer().boolByte(t1).boolByte(t2);
-    ctx.createDeserializer().boolByte(res1).boolByte(res2);
+    auto ser = ctx.createSerializer();
+    ser.boolByte(t1);
+    ser.boolByte(t2);
+    auto des = ctx.createDeserializer();
+    des.boolByte(res1);
+    des.boolByte(res2);
 
     EXPECT_THAT(res1, Eq(t1));
     EXPECT_THAT(res2, Eq(t2));

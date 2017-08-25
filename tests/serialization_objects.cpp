@@ -60,13 +60,12 @@ SERIALIZE(Z)
 {
 	s.object(o.x);
 	s.object(o.y);
-	return s;
 }
 
 SERIALIZE(X)
 {
-	return s.template value<sizeof(o.x)>(o.x)
-		.template text<1>(o.s, 1000);
+	s.template value<sizeof(o.x)>(o.x);
+	s.template text<1>(o.s, 1000);
 }
 
 SERIALIZE(Y)
@@ -77,7 +76,6 @@ SERIALIZE(Y)
 	s.array(o.arr, writeInt);
 	s.array(o.carr, writeInt);
 	s.container(o.vx, 10000, [](auto& s, auto& v) { s.object(v); });
-	return s;
 }
 
 
@@ -157,7 +155,7 @@ TEST(DeltaSerializer, GeneralConceptTest) {
 	yNew.vx[1].s = "bla";
 	yNew.vx.push_back(X{ 3 });
 
-	std::vector<bitsery::DefaultConfig::BufferValueType> buf;
+	bitsery::DefaultConfig::BufferType buf;
 	bitsery::BufferWriter bw{ buf };
 	bitsery::DeltaSerializer<bitsery::BufferWriter, Y> ser(bw, y, yNew);
 	serialize(ser, yNew);

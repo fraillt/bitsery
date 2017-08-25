@@ -56,7 +56,7 @@ namespace bitsery {
         template<typename T>
         DeltaDeserializer &object(T &&obj) {
             if (getChangedState(obj))
-                return serialize(*this, std::forward<T>(obj));
+                serialize(*this, std::forward<T>(obj));
             return *this;
         }
 

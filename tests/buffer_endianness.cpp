@@ -30,7 +30,7 @@ using testing::Eq;
 using testing::ContainerEq;
 using bitsery::EndiannessType;
 using bitsery::DefaultConfig;
-using Buffer = std::vector<bitsery::DefaultConfig::BufferValueType>;
+using Buffer = bitsery::DefaultConfig::BufferType;
 
 constexpr EndiannessType getInverseEndianness(EndiannessType e) {
     return e == EndiannessType::LittleEndian
@@ -40,8 +40,8 @@ constexpr EndiannessType getInverseEndianness(EndiannessType e) {
 
 struct InverseEndiannessConfig {
     static constexpr bitsery::EndiannessType NetworkEndianness = getInverseEndianness(DefaultConfig::NetworkEndianness);
-    using BufferValueType = DefaultConfig::BufferValueType;
-    using BufferScrathType = DefaultConfig::BufferScrathType;
+    static constexpr bool FixedBufferSize = DefaultConfig::FixedBufferSize;
+    using BufferType = DefaultConfig::BufferType;
 };
 
 struct IntegralTypes {
@@ -147,7 +147,7 @@ struct IntegralUnsignedTypes {
 
 TEST(BufferEndianness, WhenBufferValueTypeIs1ByteThenBitOperationsIsNotAffectedByEndianness) {
     //fill initial values
-    static_assert(sizeof(DefaultConfig::BufferValueType) == 1, "currently only 1 byte size, value size is supported");
+    static_assert(sizeof(DefaultConfig::BufferType::value_type) == 1, "currently only 1 byte size, value size is supported");
     //fill initial values
     constexpr IntegralUnsignedTypes src {
             0x0000334455667788,//bits 19

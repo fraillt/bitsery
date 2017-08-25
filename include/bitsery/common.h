@@ -25,13 +25,14 @@
 #define BITSERY_COMMON_H
 
 #include "details/buffer_common.h"
+#include <vector>
 
 namespace bitsery {
 
     struct DefaultConfig {
         static constexpr EndiannessType NetworkEndianness = EndiannessType::LittleEndian;
-        using BufferValueType = uint8_t;
-        using BufferScrathType = uint16_t;
+        static constexpr bool FixedBufferSize = false;//false means that buffer is resizable and will be used back_insert_iterator for insertion, for reading has no effect.
+        using BufferType = std::vector<uint8_t>;//buffer value type must be unsigned, currently only uint8_t supported
     };
 
 /*
@@ -40,11 +41,11 @@ namespace bitsery {
 
 #define SERIALIZE(ObjectType) \
 template <typename S, typename T, typename std::enable_if<std::is_same<T, ObjectType>::value || std::is_same<T, const ObjectType>::value>::type* = nullptr> \
-S& serialize(S& s, T& o)
+void serialize(S& s, T& o)
 
 #define SERIALIZE_FRIEND(ObjectType) \
 template <typename S, typename T, typename std::enable_if<std::is_same<T, ObjectType>::value || std::is_same<T, const ObjectType>::value>::type* = nullptr> \
-friend S& serialize(S& s, T& o)
+friend void serialize(S& s, T& o)
 
 }
 
