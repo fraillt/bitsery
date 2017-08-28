@@ -1,6 +1,8 @@
 [![Build Status](https://travis-ci.org/fraillt/bitsery.svg?branch=master)](https://travis-ci.org/fraillt/bitsery)
 # Bitsery
 
+[![Join the chat at https://gitter.im/bitsery/Lobby](https://badges.gitter.im/bitsery/Lobby.svg)](https://gitter.im/bitsery/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Header only C++ binary serialization library.
 It is designed around the networking requirements for multiplayer real-time fast paced games as first person shooters.
 All cross-platform requirements are enforced at compile time, so serialized data do not store any run-time type information and is as small as possible.
