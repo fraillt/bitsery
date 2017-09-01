@@ -80,7 +80,7 @@ TEST(BufferEndianness, WhenWriteBytesThenBytesAreSwapped) {
     bw.writeBytes<1>(src.e);
     bw.flush();
     //read from buffer using inverse endianness config
-    bitsery::BasicBufferReader<InverseEndiannessConfig> br{buf};
+    bitsery::BasicBufferReader<InverseEndiannessConfig> br{bw.getWrittenRange()};
     IntegralTypes res{};
     br.readBytes<8>(res.a);
     br.readBytes<4>(res.b);
@@ -106,7 +106,7 @@ TEST(BufferEndianness, WhenWriteBuffer1ByteValuesThenEndiannessIsIgnored) {
     bw.writeBuffer<1>(src, SIZE);
     bw.flush();
     //read from buffer using inverse endianness config
-    bitsery::BasicBufferReader<InverseEndiannessConfig> br{buf};
+    bitsery::BasicBufferReader<InverseEndiannessConfig> br{bw.getWrittenRange()};
     br.readBuffer<1>(res, SIZE);
     //result is identical, because we write separate values, of size 1byte, that requires no swapping
     //check results
@@ -125,7 +125,7 @@ TEST(BufferEndianness, WhenWriteBufferMoreThan1ByteValuesThenValuesAreSwapped) {
     bw.writeBuffer<2>(src, SIZE);
     bw.flush();
     //read from buffer using inverse endianness config
-    bitsery::BasicBufferReader<InverseEndiannessConfig> br{buf};
+    bitsery::BasicBufferReader<InverseEndiannessConfig> br{bw.getWrittenRange()};
     br.readBuffer<2>(res, SIZE);
     //result is identical, because we write separate values, of size 1byte, that requires no swapping
     //check results
@@ -169,7 +169,7 @@ TEST(BufferEndianness, WhenBufferValueTypeIs1ByteThenBitOperationsIsNotAffectedB
     bw.writeBits(src.d, dBITS);
     bw.flush();
     //read from buffer using inverse endianness config
-    bitsery::BasicBufferReader<InverseEndiannessConfig> br{buf};
+    bitsery::BasicBufferReader<InverseEndiannessConfig> br{bw.getWrittenRange()};
     IntegralUnsignedTypes res{};
     br.readBits(res.a, aBITS);
     br.readBits(res.b, bBITS);

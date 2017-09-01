@@ -92,7 +92,8 @@ public:
     };
 
     size_t getBufferSize() const {
-        return buf.size();
+        auto range = bw->getWrittenRange();
+        return std::distance(range.begin(), range.end());
     }
 
     //since all containers .size() method returns size_t, it cannot be directly serialized, because size_t is platform dependant
@@ -107,7 +108,7 @@ public:
 
     bitsery::Deserializer<bitsery::BufferReader> createDeserializer() {
         bw->flush();
-        br = std::make_unique<bitsery::BufferReader>(buf);
+        br = std::make_unique<bitsery::BufferReader>(bw->getWrittenRange());
         return {*br};
     };
 };

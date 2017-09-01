@@ -18,7 +18,7 @@ All cross-platform requirements are enforced at compile time, so serialized data
 * Configurable endianess support.
 * Advanced serialization features like value ranges and entrophy encoding.
 * Easy to extend for types that requires different serialization and deserialization logic (e.g. pointers, or geometry compression).
-* Error checking at runtime on deserialization, and asserts on serialization errors.
+* No exceptions. Error checking at runtime for deserialization, and asserts on serialization.
 
 ## How to use it
 This documentation comprises these parts:

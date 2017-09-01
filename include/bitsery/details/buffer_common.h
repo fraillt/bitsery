@@ -27,6 +27,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <algorithm>
+#include <utility>
+#include <cassert>
 
 namespace bitsery {
 
@@ -37,6 +39,14 @@ namespace bitsery {
         LittleEndian,
         BigEndian
     };
+
+    template<typename I>
+    struct BufferRange : std::pair<I, I> {
+        using std::pair<I, I>::pair;
+        I begin() const { return this->first; }
+        I end() const { return this->second; }
+    };
+
 
     namespace details {
         template<typename T>
@@ -126,46 +136,66 @@ namespace bitsery {
 
             explicit WriteBufferContext(Buffer &buffer)
                     : _buffer{buffer},
-                      _outIt{buffer.begin()} {
+                      _outIt{buffer.begin()},
+                      _end{buffer.end()}
+            {
             }
 
             void write(const ValueType *data, size_t size) {
+                assert(std::distance(_outIt, _end) >= static_cast<typename Buffer::difference_type>(size));
                 _outIt = std::copy_n(data, size, _outIt);
             }
 
-            size_t getWrittenBytesCount() const {
-                return std::distance(_buffer.begin(), _outIt) * sizeof(ValueType);
+            BufferRange<IteratorType> getWrittenRange() const {
+                return BufferRange<IteratorType>{_buffer.begin(), _outIt};
             }
 
         private:
             Buffer &_buffer;
             IteratorType _outIt;
+            IteratorType _end;
         };
 
         template<typename Buffer>
         class WriteBufferContext<Buffer, false> {
         public:
             using ValueType = typename Buffer::value_type;
-            using IteratorType = std::back_insert_iterator<Buffer>;
+            using IteratorType = typename Buffer::iterator;
 
             explicit WriteBufferContext(Buffer &buffer)
-                    : _buffer{buffer},
-                      _outIt{std::back_insert_iterator<Buffer>(buffer)},
-                      _initialSize{buffer.size()} {
+                    : _buffer{buffer}
+            {
+                resizeToCapacity(0);
             }
 
             void write(const ValueType *data, size_t size) {
-                std::copy_n(data, size, _outIt);
+                if (std::distance(_outIt, _end) >= static_cast<typename Buffer::difference_type>(size)) {
+                    _outIt = std::copy_n(data, size, _outIt);
+                } else {
+                    //get current position before invalidating iterators
+                    auto pos = std::distance(_buffer.begin(), _outIt);
+                    //make dummy call to back insert iterator to resize buffer
+                    *(std::back_insert_iterator<Buffer>(_buffer)) = {};
+                    resizeToCapacity(pos);
+                    write(data, size);
+                }
             }
 
-            size_t getWrittenBytesCount() const {
-                return (std::distance(_buffer.begin(), _buffer.end()) - _initialSize) * sizeof(ValueType);
+            BufferRange<IteratorType> getWrittenRange() const {
+                return BufferRange<IteratorType>{_buffer.begin(), _outIt};
             }
 
         private:
+            void resizeToCapacity(typename Buffer::difference_type writePos) {
+                if (_buffer.capacity() != _buffer.size()) {
+                    _buffer.resize(_buffer.capacity());
+                }
+                _end = _buffer.end();
+                _outIt = std::next(_buffer.begin(), writePos);
+            }
             Buffer &_buffer;
             IteratorType _outIt;
-            size_t _initialSize;
+            IteratorType _end;
         };
 
     }

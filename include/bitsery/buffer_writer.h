@@ -147,8 +147,8 @@ namespace bitsery {
             }
         }
 
-        size_t getWrittenBytesCount() const {
-            return _bufferContext.getWrittenBytesCount();
+        BufferRange<typename BufferType::iterator> getWrittenRange() const {
+            return _bufferContext.getWrittenRange();
         }
 
     private:

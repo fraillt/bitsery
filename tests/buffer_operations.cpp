@@ -45,7 +45,9 @@ constexpr size_t getBits(T v) {
     return bitsery::details::calcRequiredBits<T>({}, v);
 };
 
-TEST(BufferBitsOperations, WriteAndReadBits) {
+// *** bits operations
+
+TEST(BufferBitsAndBytesOperations, WriteAndReadBits) {
     //setup data
     constexpr IntegralUnsignedTypes data{
         485454,//bits 19
@@ -71,10 +73,11 @@ TEST(BufferBitsOperations, WriteAndReadBits) {
     bw.writeBits(data.d, dBITS);
     bw.writeBits(data.e, eBITS);
     bw.flush();
+    auto range = bw.getWrittenRange();
     auto bytesCount = ((aBITS + bBITS + cBITS + dBITS + eBITS) / 8) +1 ;
-    EXPECT_THAT(std::distance(buf.begin(), buf.end()), Eq(bytesCount));
+    EXPECT_THAT(std::distance(range.begin(), range.end()), Eq(bytesCount));
     //read from buffer
-    BufferReader br{buf};
+    BufferReader br{range};
     IntegralUnsignedTypes res;
 
     br.readBits(res.a, aBITS);
@@ -91,19 +94,7 @@ TEST(BufferBitsOperations, WriteAndReadBits) {
 
 }
 
-TEST(BufferBitsOperations, WhenFinishedFlushWriter) {
-
-    Buffer buf;
-    BufferWriter bw{buf};
-
-    bw.writeBits(3u, 2);
-    EXPECT_THAT(std::distance(buf.begin(), buf.end()), Eq(0));
-    bw.flush();
-    EXPECT_THAT(std::distance(buf.begin(), buf.end()), Eq(1));
-
-}
-
-TEST(BufferBitsOperations, BufferSizeIsCountedPerByteNotPerBit) {
+TEST(BufferBitsAndBytesOperations, BufferSizeIsCountedPerByteNotPerBit) {
     //setup data
 
     //create and write to buffer
@@ -112,10 +103,11 @@ TEST(BufferBitsOperations, BufferSizeIsCountedPerByteNotPerBit) {
 
     bw.writeBits(7u,3);
     bw.flush();
-    EXPECT_THAT(std::distance(buf.begin(), buf.end()), Eq(1));
+    auto range = bw.getWrittenRange();
+    EXPECT_THAT(std::distance(range.begin(), range.end()), Eq(1));
 
     //read from buffer
-    BufferReader br{buf};
+    BufferReader br{range};
     uint16_t tmp;
     EXPECT_THAT(br.readBits(tmp,4), Eq(true));
     EXPECT_THAT(br.readBits(tmp,2), Eq(true));
@@ -123,16 +115,16 @@ TEST(BufferBitsOperations, BufferSizeIsCountedPerByteNotPerBit) {
     EXPECT_THAT(br.readBits(tmp,2), Eq(false));
 
     //part of next byte
-    BufferReader br1{buf};
+    BufferReader br1{range};
     EXPECT_THAT(br1.readBits(tmp,2), Eq(true));
     EXPECT_THAT(br1.readBits(tmp,7), Eq(false));
 
     //bigger than byte
-    BufferReader br2{buf};
+    BufferReader br2{range};
     EXPECT_THAT(br2.readBits(tmp,9), Eq(false));
 }
 
-TEST(BufferBitsOperations, ConsecutiveCallsToAlignHasNoEffect) {
+TEST(BufferBitsAndBytesOperations, ConsecutiveCallsToAlignHasNoEffect) {
     Buffer buf;
     BufferWriter bw{buf};
 
@@ -148,7 +140,7 @@ TEST(BufferBitsOperations, ConsecutiveCallsToAlignHasNoEffect) {
     bw.flush();
 
     unsigned char tmp;
-    BufferReader br{buf};
+    BufferReader br{bw.getWrittenRange()};
     EXPECT_THAT(br.readBits(tmp,2), Eq(true));
     EXPECT_THAT(tmp, Eq(3u));
     EXPECT_THAT(br.align(), Eq(true));
@@ -163,24 +155,7 @@ TEST(BufferBitsOperations, ConsecutiveCallsToAlignHasNoEffect) {
     EXPECT_THAT(tmp, Eq(15u));
 }
 
-
-
-TEST(BufferBitsOperations, WhenAlignedFlushHasNoEffect) {
-    //setup data
-
-    //create and write to buffer
-    Buffer buf;
-    BufferWriter bw{buf};
-
-    bw.writeBits(3u, 2);
-    bw.align();
-    EXPECT_THAT(std::distance(buf.begin(), buf.end()), Eq(1));
-    bw.flush();
-    EXPECT_THAT(std::distance(buf.begin(), buf.end()), Eq(1));
-}
-
-
-TEST(BufferBitsOperations, AlignMustWriteZerosBits) {
+TEST(BufferBitsAndBytesOperations, AlignWritesZerosBits) {
     //setup data
 
     //create and write to buffer
@@ -190,16 +165,128 @@ TEST(BufferBitsOperations, AlignMustWriteZerosBits) {
     //write 2 bits and align
     bw.writeBits(3u, 2);
     bw.align();
+    bw.flush();
 
     unsigned char tmp;
-    BufferReader br1{buf};
+    BufferReader br1{bw.getWrittenRange()};
     br1.readBits(tmp,2);
     //read aligned bits
     EXPECT_THAT(br1.readBits(tmp,6), Eq(true));
     EXPECT_THAT(tmp, Eq(0));
 
-    BufferReader br2{buf};
+    BufferReader br2{bw.getWrittenRange()};
     //read 2 bits
     br2.readBits(tmp,2);
     EXPECT_THAT(br2.align(), Eq(true));
 }
+
+
+// *** bytes operations
+
+struct IntegralTypes {
+    int64_t a;
+    uint32_t b;
+    int16_t c;
+    uint8_t d;
+    int8_t e;
+    int8_t f[2];
+};
+
+TEST(BufferBitsAndBytesOperations, WriteAndReadBytes) {
+    //setup data
+    IntegralTypes data;
+    data.a = -4894541654564;
+    data.b = 94545646;
+    data.c = -8778;
+    data.d = 200;
+    data.e = -98;
+    data.f[0] = 43;
+    data.f[1] = -45;
+
+    //create and write to buffer
+    Buffer buf{};
+    BufferWriter bw{buf};
+    bw.writeBytes<4>(data.b);
+    bw.writeBytes<2>(data.c);
+    bw.writeBytes<1>(data.d);
+    bw.writeBytes<8>(data.a);
+    bw.writeBytes<1>(data.e);
+    bw.writeBuffer<1>(data.f, 2);
+    bw.flush();
+    auto range = bw.getWrittenRange();
+
+    EXPECT_THAT(std::distance(range.begin(), range.end()), Eq(18));
+    //read from buffer
+    BufferReader br{range};
+    IntegralTypes res{};
+    EXPECT_THAT(br.readBytes<4>(res.b), Eq(true));
+    EXPECT_THAT(br.readBytes<2>(res.c), Eq(true));
+    EXPECT_THAT(br.readBytes<1>(res.d), Eq(true));
+    EXPECT_THAT(br.readBytes<8>(res.a), Eq(true));
+    EXPECT_THAT(br.readBytes<1>(res.e), Eq(true));
+    EXPECT_THAT(br.readBuffer<1>(res.f, 2), Eq(true));
+    //assert results
+
+    EXPECT_THAT(data.a, Eq(res.a));
+    EXPECT_THAT(data.b, Eq(res.b));
+    EXPECT_THAT(data.c, Eq(res.c));
+    EXPECT_THAT(data.d, Eq(res.d));
+    EXPECT_THAT(data.e, Eq(res.e));
+    EXPECT_THAT(data.f, ContainerEq(res.f));
+
+}
+
+TEST(BufferBitsAndBytesOperations, ReadWriteBufferFncCanAcceptSignedData) {
+    //setup data
+    constexpr size_t DATA_SIZE = 3;
+    int16_t src[DATA_SIZE] {54,-4877,30067};
+    //create and write to buffer
+    Buffer buf{};
+    BufferWriter bw{buf};
+    bw.writeBuffer<2>(src, DATA_SIZE);
+    bw.flush();
+    //read from buffer
+    BufferReader br1{bw.getWrittenRange()};
+    int16_t dst[DATA_SIZE]{};
+    EXPECT_THAT(br1.readBuffer<2>(dst, DATA_SIZE), Eq(true));
+    EXPECT_THAT(dst, ContainerEq(src));
+
+    //read more than available
+    BufferReader br2{bw.getWrittenRange()};
+    int16_t dstMore[DATA_SIZE+1]{};
+    EXPECT_THAT(br2.readBuffer<2>(dstMore, DATA_SIZE+1), Eq(false));
+}
+
+TEST(BufferBitsAndBytesOperations, ReadWriteBufferCanWorkOnUnalignedData) {
+    //setup data
+    constexpr size_t DATA_SIZE = 3;
+    int16_t src[DATA_SIZE] {54,-4877,30067};
+    //create and write to buffer
+    Buffer buf{};
+    BufferWriter bw{buf};
+    bw.writeBits(15u, 4);
+    bw.writeBuffer<2>(src, DATA_SIZE);
+    bw.writeBits(12u, 4);
+    bw.flush();
+    auto range = bw.getWrittenRange();
+    EXPECT_THAT(std::distance(range.begin(), range.end()), Eq(sizeof(src) + 1));
+
+    //read from buffer
+    BufferReader br1{range};
+    int16_t dst[DATA_SIZE]{};
+    uint8_t tmp{};
+    br1.readBits(tmp, 4);
+    EXPECT_THAT(tmp, Eq(15));
+    EXPECT_THAT(br1.readBuffer<2>(dst, DATA_SIZE), Eq(true));
+    EXPECT_THAT(dst, ContainerEq(src));
+    br1.readBits(tmp, 4);
+    EXPECT_THAT(tmp, Eq(12));
+
+    //read more than available
+    BufferReader br2{range};
+    br2.readBits(tmp, 4);
+    int16_t dstMore[DATA_SIZE+1]{};
+    EXPECT_THAT(tmp, Eq(15));
+    EXPECT_THAT(br2.readBuffer<2>(dstMore, DATA_SIZE+1), Eq(false));
+}
+

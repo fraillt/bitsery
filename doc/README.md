@@ -2,7 +2,7 @@ To get the most out of **Bitsery**, start with the [tutorial](tutorial/README.md
 Once you're familiar with the library consider the following reference material.
 
 Library design:
-* [*valueN* instead of *value*](design/func_n.md)
+* [*valueN* instead of *value*](design/function_n.md)
 * [fundamental types](design/fundamental_types.md)
 * [serializer/deserializer functions overloads](design/function_overload.md)
 * [extending library functionality](design/extensions.md)
@@ -28,11 +28,6 @@ BasicBufferWriter/Reader functions:
 Tips and tricks:
 
 Advanced topics:
-
-
-
-FAQ:
-* [Known limitations](limitations.md)
 
 Other:
 * [Why Bitsery?](why-bitsery.md)

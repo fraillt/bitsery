@@ -4,7 +4,11 @@
 ### Features
 
 * now all serializer/deserializer functions return void, to avoid undefined behaviour for functions parameters evaluation when using method chaining. There was no benefits apart from *nicer* syntax, but could have undefined behaviour when building complex serialization flows.
-* changed BufferWriter/Reader config, added *FixedBufferSize* bool parameter for *BufferWriter* for much better serializer performance (more than 50% improvement). Default is old behavour - using back_insert_iterator when writing.
+* changed BufferWriter/Reader behaviour,
+ * after serialization, call *getWrittenRange* to get valid written range.
+ * BufferReader only has constructors with iterators.
+ * added *FixedBufferSize* config bool parameter for *BufferWriter* for better serializer performance (more than 50% improvement). Default is resizable buffer.
+ * BufferWritter for resizable buffer now always resize to *capacity* to avoid using *back_insert_iterator* for better performance.
 * added **SERIALIZE_FRIEND** macro to be able to serialize private struct fields
 * user friendly static_assert when trying to serialize object, that doesn't have **serialize** function defined.
 * added **custom** function to override default behaviour for **object** serialization

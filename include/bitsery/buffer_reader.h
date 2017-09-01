@@ -34,9 +34,11 @@ namespace bitsery {
     struct BasicBufferReader {
         using BufferType = typename Config::BufferType;
         using ValueType = typename BufferType::value_type;
+        using IteratorType = typename BufferType::iterator;
         using ScratchType = typename details::SCRATCH_TYPE<ValueType>::type;
 
-        BasicBufferReader(const ValueType *data, size_t size) : _pos{data}, _end{data + size} {
+        BasicBufferReader(IteratorType begin, IteratorType end)
+                :_pos{begin}, _end{end} {
             static_assert(std::is_unsigned<ValueType>(), "Config::BufferValueType must be unsigned");
             static_assert(std::is_unsigned<ScratchType>(), "Config::BufferScrathType must be unsigned");
             static_assert(sizeof(ValueType) * 2 == sizeof(ScratchType),
@@ -44,11 +46,8 @@ namespace bitsery {
             static_assert(sizeof(ValueType) == 1, "currently only supported BufferValueType is 1 byte");
         }
 
-        BasicBufferReader(typename BufferType::iterator begin, typename BufferType::iterator end)
-                : BasicBufferReader(std::addressof(*begin), std::distance(begin, end)) {}
-
-        explicit BasicBufferReader(const BufferType &buf) : BasicBufferReader(buf.data(), buf.size()) {
-        }
+        BasicBufferReader(BufferRange<IteratorType> range)
+                :BasicBufferReader(range.begin(), range.end()) {}
 
         BasicBufferReader(const BasicBufferReader &) = delete;
 
@@ -117,8 +116,8 @@ namespace bitsery {
         }
 
     private:
-        const ValueType *_pos;
-        const ValueType *_end;
+        IteratorType _pos;
+        IteratorType _end;
 
         template<typename T>
         bool directRead(T *v, size_t count) {

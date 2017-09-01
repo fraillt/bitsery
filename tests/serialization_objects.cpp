@@ -161,7 +161,7 @@ TEST(DeltaSerializer, GeneralConceptTest) {
 	serialize(ser, yNew);
 	bw.flush();
 
-	bitsery::BufferReader br{ buf };
+	bitsery::BufferReader br{ bw.getWrittenRange() };
 	bitsery::DeltaDeserializer<bitsery::BufferReader, Y> des(br, y, yRead);
 	serialize(des, yRead);
 
