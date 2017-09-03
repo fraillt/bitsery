@@ -37,7 +37,10 @@ struct FixedBufferConfig {
     using BufferType = std::array<uint8_t, 100>;
 };
 
-struct NonFixedBufferConfig: public DefaultConfig {
+struct NonFixedBufferConfig {
+    static constexpr bitsery::EndiannessType NetworkEndianness = DefaultConfig::NetworkEndianness;
+    static constexpr bool FixedBufferSize = false;
+    using BufferType = std::vector<uint8_t>;
 };
 
 template <typename Config>
@@ -66,7 +69,7 @@ void writeData(BW& bw) {
     bw.template writeBytes<4>(tmp5);
 }
 
-TYPED_TEST(BufferWriting, GetWrittenRangeReturnsIterators) {
+TYPED_TEST(BufferWriting, GetWrittenRangeReturnsBeginEndIterators) {
     using Config = typename TestFixture::type;
     using Buffer = typename Config::BufferType;
     Buffer buf{};
@@ -77,8 +80,7 @@ TYPED_TEST(BufferWriting, GetWrittenRangeReturnsIterators) {
     EXPECT_THAT(std::distance(range.begin(), range.end()), DATA_SIZE);
 }
 
-TYPED_TEST(BufferWriting, WhenWritingBitsThenFlushWriter) {
-
+TYPED_TEST(BufferWriting, WhenWritingBitsThenMustFlushWriter) {
     Buffer buf;
     bitsery::BufferWriter bw{buf};
 
@@ -105,11 +107,14 @@ TYPED_TEST(BufferWriting, WhenDataAlignedThenFlushHasNoEffect) {
     EXPECT_THAT(std::distance(range2.begin(), range2.end()), Eq(1));
 }
 
-//TEST(BufferWritingFixedBuffer, ) {
-//    FixedBufferConfig::BufferType buf{};
-//    bitsery::BasicBufferWriter<FixedBufferConfig> bw{buf};
-//    writeData(bw);
-//    bw.flush();
-//    auto r = bw.getWrittenRange();
-//    EXPECT_THAT(buf.begin(), r.begin());
-//}
+TEST(BufferWrittingNonFixedBuffer, BufferIsAlwaysResizedToCapacity) {
+    using Buffer = typename NonFixedBufferConfig::BufferType;
+    Buffer buf{};
+    bitsery::BasicBufferWriter<NonFixedBufferConfig> bw{buf};
+    for (auto i = 0; i < 5; ++i) {
+        uint32_t tmp{};
+        bw.writeBytes<4>(tmp);
+        bw.writeBytes<4>(tmp);
+        EXPECT_TRUE(buf.size() == buf.capacity());
+    }
+}

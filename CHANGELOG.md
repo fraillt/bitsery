@@ -1,18 +1,20 @@
-<a name="2.1.0"></a>
-# [2.1.0](https://github.com/fraillt/bitsery/compare/v2.0.1...v2.1.0) (2017-08-07)
+# [3.0.0](https://github.com/fraillt/bitsery/compare/v2.0.1...v3.0.0) (2017-09-02)
 
 ### Features
 
+* added **SERIALIZE_FRIEND** macro to be able to serialize private struct fields.
+* friendly static_assert message when serializing **object**, that doesn't have **serialize** function defined.
+* added **custom** function to override default behaviour for **object** serialization.
+* renamed function **ext** to **extension** and changed its interface, to make it more easy to extend.
+* improved serialization performance: added support for fixed size buffer for best performance.
+
+### Breaking changes
+
 * now all serializer/deserializer functions return void, to avoid undefined behaviour for functions parameters evaluation when using method chaining. There was no benefits apart from *nicer* syntax, but could have undefined behaviour when building complex serialization flows.
-* changed BufferWriter/Reader behaviour,
- * after serialization, call *getWrittenRange* to get valid written range.
- * BufferReader only has constructors with iterators.
- * added *FixedBufferSize* config bool parameter for *BufferWriter* for better serializer performance (more than 50% improvement). Default is resizable buffer.
- * BufferWritter for resizable buffer now always resize to *capacity* to avoid using *back_insert_iterator* for better performance.
-* added **SERIALIZE_FRIEND** macro to be able to serialize private struct fields
-* user friendly static_assert when trying to serialize object, that doesn't have **serialize** function defined.
-* added **custom** function to override default behaviour for **object** serialization
-* renamed function **ext** to **extension** and changed its interface, to make it more easy to extend
+* changed BufferWriter/Reader behaviour:
+  * added *FixedBufferSize* config bool parameter for *BufferWriter* for better serializer performance (more than 50% improvement). Default config is resizable buffer (*std::vector<uint8_t>*).
+  * after serialization, call *getWrittenRange* to get valid range written to buffer, because BufferWritter for resizable buffer now always resize to *capacity* to avoid using *back_insert_iterator* for better performance.
+  * BufferReader only has constructors with iterators (range).
 
 <a name="2.0.1"></a>
 # [2.0.1](https://github.com/fraillt/bitsery/compare/v2.0.0...v2.0.1) (2017-08-12)
@@ -32,7 +34,7 @@
 ### Bug Fixes
 * *align* method fixed in *BufferReader*
 
-### Other notes
+### Breaking changes
 
 * file structure changed, added *details* folder.
 * no longer support for implicit size converions for all functions (*value*, *array*, *container*), instead added helper functions with specific size, to avoid typing *s.template value<1>...* within serialization function body

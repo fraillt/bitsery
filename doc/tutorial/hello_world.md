@@ -105,7 +105,8 @@ int main() {
   serialize(ser, data);
 
   bw.flush();
-  std::cout << "size: " << buf.size() << std::endl;
+  auto range = bw.getWrittenRange();
+  std::cout << "size: " << std::distance(range.begin(), range.end()) << std::endl;
   return 0;
 }
 ```
@@ -147,10 +148,13 @@ Serialization function is very readable, and explicitly express intent what and 
 > learn more about why you need to write [value4 instead of value](../design/function_n.md).
 
 
-Finally before sending buffer to network you must *flush* BufferWriter, it writes any remaining bits to buffer. In our case it is not required, because we only worked with whole bytes, but it is good practice to always use it after finishing serialization.
+Finally, before getting serialized data you must *flush* BufferWriter, it writes any remaining bits to buffer. In our case it is not required, because we only worked with whole bytes, but it is good practice to always use it after finishing serialization.
+
+To actually get written data you must call *getWrittenRange*, it return begin/end iterators to our buffer (*std::vector<uint8_t> buf*), for performance reasons BufferWritter always resizes underlying buffer to *capacity* so it could use containers iterator to update data, instead of back_insert_iterator to insert data.
 
 ```cpp
   bw.flush();
+  auto range = bw.getWrittenRange();
 ```
 
 # Summary

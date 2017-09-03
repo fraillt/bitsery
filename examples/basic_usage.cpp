@@ -1,61 +1,47 @@
-#include <vector>
 #include <bitsery/bitsery.h>
-#include <cstring>
-#include <iostream>
 
-struct Vector3f {
-    float x;
-    float y;
-    float z;
-    bool operator == (const Vector3f& o) const {
-        return x == o.x && y == o.y && z == o.z;
-    }
+enum class MyEnum:uint16_t { V1,V2,V3 };
+struct MyStruct {
+    uint32_t i;
+    MyEnum e;
+    std::vector<float> fs;
 };
 
-struct Player {
-    Vector3f pos;
-    char name[50];
+//define how object should be serialized/deserialized
+SERIALIZE(MyStruct) {
+    s.value4(o.i);
+    s.value2(o.e);
+    s.container4(o.fs, 10);
 };
 
 using namespace bitsery;
 
-SERIALIZE(Player) {
-    s.value4(o.pos.x);
-    s.value4(o.pos.y);
-    s.value4(o.pos.z);
-    s.text1(o.name);
-}
-
-Player createData() {
-    Player data;
-    data.pos.x = 0.45f;
-    data.pos.y = 50.9f;
-    data.pos.z = -15687.87f;
-    strcpy(data.name,"Yolo");
-    return data;
-}
-
 int main() {
-    const Player data = createData();
-    Player res{};
+    //set some random data
+    MyStruct data{8941, MyEnum::V2, {15.0f, -8.5f, 0.045f}};
+    MyStruct res{};
 
-    std::vector<uint8_t> buf;
-
-    BufferWriter bw{buf};
+    //create serializer
+    //1) create buffer to store data
+    std::vector<uint8_t> buffer;
+    //2) create buffer writer that is able to write bytes or bits to buffer
+    BufferWriter bw{buffer};
+    //3) create serializer
     Serializer<BufferWriter> ser{bw};
 
-    serialize(ser, data);
+    //serialize object, can also be invoked like this: serialize(ser, data)
+    ser.object(data);
 
+    //flush to buffer, before creating buffer reader
     bw.flush();
 
-    BufferReader br{buf};
+    //create deserializer
+    //1) create buffer reader
+    BufferReader br{bw.getWrittenRange()};
+    //2) create deserializer
     Deserializer<BufferReader> des{br};
 
-    serialize(des, res);
-
-    std::cout << "deserializer state: " << des.isValid() << std::endl
-              << "buffer completed: " << br.isCompleted() << std::endl
-              << "pos equals: " << (res.pos == data.pos) << std::endl
-              << "name equals: " << (strcmp(res.name, data.name) == 0);
-    return 0;
+    //deserialize same object, can also be invoked like this: serialize(des, data)
+    des.object(res);
+    assert(data.fs == res.fs && data.i == res.i && data.e == res.e);
 }

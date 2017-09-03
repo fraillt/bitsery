@@ -81,7 +81,7 @@ int main() {
 
     bw.flush();
 
-    BufferReader br{buf};
+    BufferReader br{bw.getWrittenRange()};
     Deserializer<BufferReader> des{br};
 
     serialize(des, res);
@@ -104,16 +104,18 @@ name equals: 1
 We created *Deserializer* and modified *serialize* function to accept *Serializer* and *Deserializer*.
 
 Deserialization is very similar as serialization, it also consists of three separate components:
-* Buffer - container that we read data from, in our case vector<uint8_t>.
-* BufferReader - reads bytes and bits from *Buffer*, it also makes sure that it is portable across Little and Big endian systems.
+* Buffer - container that we read data from, in our case *vector<uint8_t>*.
+* BufferReader - reads bytes and bits from *Buffer*, it also makes sure that it is portable across Little and Big endian systems. 
 * Deserializer - same interface as *Serializer* that use *BufferReader* to read bits and bytes, and convert to specific type. Deserializer also checks for errors at runtime, because data might come from untrusted source and can terminate program with buffer-overflow or segmentation fault if we are not careful.
 
 Since deserialization involves error checking there are two additional functions to check if everything is correct after deserialization.
 * [BufferReader.isCompleted()](../reference/buf_is_completed.md) - returns true, if whole buffer was read during deserialization.
 * [Deserializer.isValid()](../reference/fnc_is_valid.md) - returns true, if there was no errors during deserialization.
 
+One thing to note about BufferReader is that it doesn't have constructor that accepts buffer directly. Instead it only accepts begin/end iterators, because it needs to know precise data buffer length, to correctly use *isComplete* function.
+
 ```cpp
-BufferReader br{buf};
+BufferReader br{bw.getWrittenRange()};
 Deserializer<BufferReader> des{br};
 ```
 

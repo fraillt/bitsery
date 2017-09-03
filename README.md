@@ -9,7 +9,7 @@ It is designed around the networking requirements for multiplayer real-time fast
 
 All cross-platform requirements are enforced at compile time, so serialized data do not store any run-time type information and is as small as possible.
 
-> **bitsery** is looking for your feedback.
+> **bitsery** is looking for your feedback on [gitter](https://gitter.im/bitsery/Lobby)
 
 ## Features
 
@@ -39,10 +39,9 @@ struct MyStruct {
 
 //define how object should be serialized/deserialized
 SERIALIZE(MyStruct) {
-    return s.
-            value4(o.i).
-            value2(o.e).
-            container4(o.fs, 10);
+    s.value4(o.i);
+    s.value2(o.e);
+    s.container4(o.fs, 10);
 };
 
 using namespace bitsery;
@@ -68,7 +67,7 @@ int main() {
 
     //create deserializer
     //1) create buffer reader
-    BufferReader br{buffer};
+    BufferReader br{bw.getWrittenRange()};
     //2) create deserializer
     Deserializer<BufferReader> des{br};
 
