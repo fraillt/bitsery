@@ -88,10 +88,10 @@ struct Player {
 using namespace bitsery;
 
 void serialize(Serializer<BufferWriter>& s, const Player& data) {
-  s.value4(data.pos.x);
-  s.value4(data.pos.y);
-  s.value4(data.pos.z);
-  s.text1(data.name);
+  s.value4b(data.pos.x);
+  s.value4b(data.pos.y);
+  s.value4b(data.pos.z);
+  s.text1b(data.name);
 }
 
 int main() {
@@ -127,7 +127,7 @@ Let's look at the code, how we did this.
 There are three distinct parts that participate in serialization process.
 * Buffer - container that we store our serialized data, in our case vector<uint8_t>.
 * BufferWriter - resposible for writing bytes and bits to *Buffer*, it also makes sure that it is portable across Little and Big endian systems.
-* Serializer - extendable interface that converts any type to bytes or bits, and use *BufferWriter* to write them. Serializer interface also ensures that code is portable at compile time. This means, that if your serialization code compiles on other platform, it will be 100% correct.
+* Serializer - extendable interface that converts any type to bytes or bits, and use *BufferWriter* to write them. Serializer object does not store any state, it only forwards all calls to BufferWritter, further more it ensures that code is portable at compile time. This means, that if your serialization code compiles on other platform, it will be 100% correct.
 ```cpp
   std::vector<uint8_t> buf;
   BufferWriter bw{buf};
@@ -135,20 +135,20 @@ There are three distinct parts that participate in serialization process.
 ```
 
 Serialization function is very readable, and explicitly express intent what and how to serialize:
-* *value4* serialize [fundamental type](../design/fundamental_types.md) (ints, floats, chars, enums) of 4 bytes.
-* *text1* effectively serialize text, and underlying text type is 1byte per letter.
+* *value4b* serialize [fundamental type](../design/fundamental_types.md) (ints, floats, chars, enums) of 4 bytes.
+* *text1b* effectively serialize text, and underlying text type is 1byte per letter.
 
 ```cpp
-  s.value4(data.pos.x);
-  s.value4(data.pos.y);
-  s.value4(data.pos.z);
-  s.text1(data.name);
+  s.value4b(data.pos.x);
+  s.value4b(data.pos.y);
+  s.value4b(data.pos.z);
+  s.text1b(data.name);
 ```
 
-> learn more about why you need to write [value4 instead of value](../design/function_n.md).
+> learn more about why you need to write [value4b instead of value](../design/function_n.md).
 
 
-Finally, before getting serialized data you must *flush* BufferWriter, it writes any remaining bits to buffer. In our case it is not required, because we only worked with whole bytes, but it is good practice to always use it after finishing serialization.
+Finally, before getting serialized data you must *flush* BufferWriter, it writes any remaining bits to buffer and additional data for types that require forward/backward compatibility. In our case it is not required, because we only worked with whole bytes, but it is good practice to always use it after finishing serialization.
 
 To actually get written data you must call *getWrittenRange*, it return begin/end iterators to our buffer (*std::vector<uint8_t> buf*), for performance reasons BufferWritter always resizes underlying buffer to *capacity* so it could use containers iterator to update data, instead of back_insert_iterator to insert data.
 

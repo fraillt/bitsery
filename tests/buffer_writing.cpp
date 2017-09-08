@@ -81,9 +81,10 @@ TYPED_TEST(BufferWriting, GetWrittenRangeReturnsBeginEndIterators) {
 }
 
 TYPED_TEST(BufferWriting, WhenWritingBitsThenMustFlushWriter) {
-    Buffer buf;
-    bitsery::BufferWriter bw{buf};
-
+    using Config = typename TestFixture::type;
+    using Buffer = typename Config::BufferType;
+    Buffer buf{};
+    bitsery::BasicBufferWriter<Config> bw{buf};
     bw.writeBits(3u, 2);
     auto range1 = bw.getWrittenRange();
     bw.flush();

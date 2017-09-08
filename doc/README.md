@@ -2,34 +2,50 @@ To get the most out of **Bitsery**, start with the [tutorial](tutorial/README.md
 Once you're familiar with the library consider the following reference material.
 
 Library design:
-* [*valueN* instead of *value*](design/function_n.md)
-* [fundamental types](design/fundamental_types.md)
-* [serializer/deserializer functions overloads](design/function_overload.md)
-* [extending library functionality](design/extensions.md)
-* [errors handling](design/errors.md)
+* `valueNb instead of value`
+* `fundamental types`
+* `serializer/deserializer functions overloads`
+* `extending library functionality`
+* `errors handling`
+* `forward/backward compatibility via growable`
 
-Serializer/Deserializer functions (alphabetical order):
-* [align](fnc_array.md)
-* [array](fnc_array.md)
-* [boolBit/Byte](fnc_bool.md)
-* [container](fnc_container.md)
-* [custom](fnc_custom.md)
-* [extension](fnc_extension.md)
-* [isValid](reference/fnc_is_valid.md)
-* [object](fnc_object.md)
-* [range](fnc_range.md)
-* [substitution](fnc_substitution.md)
-* [text](fnc_text.md)
-* [value](fnc_value.md)
+Core Serializer/Deserializer functions (alphabetical order):
+* `boolByte`
+* `container`
+* `object`
+* `text`
+* `value`
+
+Advanced Serializer/Deserializer functions (alphabetical order):
+* `align`
+* `boolBit`
+* `entropy`
+* `extend`
+* `growable`
+* `range`
 
 BasicBufferWriter/Reader functions:
-* [writeBits](bb_write_bits.md)
+* `writeBits/readBits`
+* `writeBytes/readBytes`
+* `writeBuffer/readBuffer`
+* `align`
+* `beginSession/endSession`
+* `flush (writer only)`
+* `setError (reader only)`
+* `getError (reader only)`
+* `isCompletedSuccessfully (reader only)`
+
+
 
 Tips and tricks:
+* if you're getting static assert "please define 'serialize' function", most likely it is because your SERIALIZE function is not defined in same namespace as object.
 
-Advanced topics:
+Limitations:
+* max **text** or **container** size can be 2^(n-2) (where n = sizeof(std::size_t) * 8) for 32-bit systems it is 1073741823 (0x3FFFFFF).
+* when using **growable** serialized buffer cannot be greater than 2^(n-2) (where n = sizeof(std::size_t) * 8).
 
 Other:
-* [Why Bitsery?](why-bitsery.md)
 * [Contributing](../CONTRIBUTING.md)
 * [Change log](../CHANGELOG.md)
+
+

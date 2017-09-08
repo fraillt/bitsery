@@ -9,10 +9,10 @@ So one way to make this happen is to have *Serializer/Deserializer* as template 
 ```cpp
 template <typename S>
 void serialize(S& s, Player& o) {
-  s.value4(o.pos.x);
-  s.value4(o.pos.y);
-  s.value4(o.pos.z);
-  s.text1(o.name);
+  s.value4b(o.pos.x);
+  s.value4b(o.pos.y);
+  s.value4b(o.pos.z);
+  s.text1b(o.name);
 }
 ```
 
@@ -53,10 +53,10 @@ struct Player {
 using namespace bitsery;
 
 SERIALIZE(Player) {
-    s.value4(o.pos.x);
-    s.value4(o.pos.y);
-    s.value4(o.pos.z);
-    s.text1(o.name);
+    s.value4b(o.pos.x);
+    s.value4b(o.pos.y);
+    s.value4b(o.pos.z);
+    s.text1b(o.name);
 }
 
 Player createData() {
@@ -86,8 +86,7 @@ int main() {
 
     serialize(des, res);
 
-    std::cout << "deserializer state: " << des.isValid() << std::endl
-              << "buffer completed: " << br.isCompleted() << std::endl
+    std::cout << "buffer completed successfully: " << br.isCompletedSuccessfully() << std::endl
               << "pos equals: " << (res.pos == data.pos) << std::endl
               << "name equals: " << (strcmp(res.name, data.name) == 0);
     return 0;
@@ -95,8 +94,7 @@ int main() {
 ```
 
 ```bash
-deserializer state: 1
-buffer completed: 1
+buffer completed successfully: 1
 pos equals: 1
 name equals: 1
 ```
@@ -105,14 +103,14 @@ We created *Deserializer* and modified *serialize* function to accept *Serialize
 
 Deserialization is very similar as serialization, it also consists of three separate components:
 * Buffer - container that we read data from, in our case *vector<uint8_t>*.
-* BufferReader - reads bytes and bits from *Buffer*, it also makes sure that it is portable across Little and Big endian systems. 
-* Deserializer - same interface as *Serializer* that use *BufferReader* to read bits and bytes, and convert to specific type. Deserializer also checks for errors at runtime, because data might come from untrusted source and can terminate program with buffer-overflow or segmentation fault if we are not careful.
+* BufferReader - reads bytes and bits from *Buffer*, it makes sure that it is portable across Little and Big endian systems and also checks for errors at runtime, because data might come from untrusted source and can terminate program with buffer-overflow or segmentation fault if we are not careful.
+* Deserializer - same interface as *Serializer* but forward all data to *BufferReader* to read bits and bytes.
 
 Since deserialization involves error checking there are two additional functions to check if everything is correct after deserialization.
-* [BufferReader.isCompleted()](../reference/buf_is_completed.md) - returns true, if whole buffer was read during deserialization.
-* [Deserializer.isValid()](../reference/fnc_is_valid.md) - returns true, if there was no errors during deserialization.
+* [BufferReader.isCompletedSuccessfully()](../reference/buf_is_completed_successfully.md) - returns true, if whole buffer was read during deserialization and no errors was found.
+* [BufferReader.getError()](../reference/buf_get_error.md) - returns current buffer reader state. Useful when buffer contains more than one object, and you want to check each objects deserialization state separately.
 
-One thing to note about BufferReader is that it doesn't have constructor that accepts buffer directly. Instead it only accepts begin/end iterators, because it needs to know precise data buffer length, to correctly use *isComplete* function.
+One thing to note about BufferReader is that it doesn't have constructor that accepts buffer directly. Instead it only accepts begin/end iterators, because it needs to know precise data buffer length, to correctly use *isCompleteSuccessfully* function.
 
 ```cpp
 BufferReader br{bw.getWrittenRange()};

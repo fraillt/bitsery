@@ -20,15 +20,17 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-#ifndef BITSERY_BUFFER_COMMON_H
-#define BITSERY_BUFFER_COMMON_H
+#ifndef BITSERY_DETAILS_BUFFER_COMMON_H
+#define BITSERY_DETAILS_BUFFER_COMMON_H
 
 #include <type_traits>
-#include <cstddef>
-#include <cstdint>
 #include <algorithm>
 #include <utility>
 #include <cassert>
+#include <vector>
+#include <stack>
+#include <cstring>
+#include "both_common.h"
 
 namespace bitsery {
 
@@ -47,6 +49,11 @@ namespace bitsery {
         I end() const { return this->second; }
     };
 
+    enum class BufferReaderError {
+        NO_ERROR,
+        BUFFER_OVERFLOW,
+        INVALID_BUFFER_DATA
+    };
 
     namespace details {
         template<typename T>
@@ -124,36 +131,218 @@ namespace bitsery {
             using type = uint64_t;
         };
 
+//        struct BufferSessionInfo {
+//            size_t depth;
+//            size_t offset;
+//        };
+
+        class BufferSessionsWriter {
+        public:
+            void begin() {
+                //write position
+                _sessionIndex.push(_sessions.size());
+                _sessions.emplace_back(0);
+            }
+            void end(size_t pos) {
+                assert(!_sessionIndex.empty());
+                //change position to session end
+                auto sessionIt = std::next(std::begin(_sessions), _sessionIndex.top());
+                _sessionIndex.pop();
+                *sessionIt = pos;
+            }
+            template <typename TWriter>
+            void flushSessions(TWriter& writer) {
+                if (_sessions.size()) {
+                    assert(_sessionIndex.empty());
+                    auto range = writer.getWrittenRange();
+                    auto dataSize = static_cast<size_t>(std::distance(range.begin(), range.end()));
+                    for(auto& s:_sessions) {
+                        details::writeSize(writer, s);
+                    }
+                    _sessions.clear();
+
+                    range = writer.getWrittenRange();
+                    auto totalSize = static_cast<size_t>(std::distance(range.begin(), range.end()));
+                    //write offset where actual data ends
+                    auto sessionsOffset = totalSize - dataSize + 2;//2 bytes for offset data
+                    if (sessionsOffset < 0x8000u) {
+                        writer.template writeBytes<2>(static_cast<uint16_t>(sessionsOffset));
+                    } else {
+                        //size doesnt fit in 2 bytes, write 4 bytes instead
+                        sessionsOffset+=2;
+                        uint16_t low = static_cast<uint16_t>(sessionsOffset);
+                        //mark most significant bit, that size is 4 bytes
+                        uint16_t high = static_cast<uint16_t>(0x8000u | (sessionsOffset >> 16));
+                        writer.template writeBytes<2>(low);
+                        writer.template writeBytes<2>(high);
+                    }
+                }
+            }
+        private:
+            std::vector<size_t> _sessions{};
+            std::stack<size_t> _sessionIndex;
+        };
+
+        template <typename TReader, typename TIterator>
+        struct BufferSessionsReader {
+            TIterator _bufBegin;
+            BufferSessionsReader(TReader& r, TIterator& begin, TIterator& end)
+                    :_reader{r},
+                     _pos{begin},
+                     _end{end}
+            {
+                _bufBegin = begin;
+            }
+            void begin() {
+                if (_sessions.empty())
+                    initializeSessions();
+                //save end position for current session
+                _sessionsStack.push(_end);
+                if (_nextSessionIt != std::end(_sessions)) {
+                    if (std::distance(_pos, _end) > 0) {
+                        //set end position for new session
+                        auto newEnd = std::next(_bufBegin, *_nextSessionIt);
+                        if (std::distance(newEnd, _end) < 0)
+                        {
+                            //new session cannot end further than current end
+                            _reader.setError(BufferReaderError::INVALID_BUFFER_DATA);
+                            return;
+                        }
+                        _end = newEnd;
+                        ++_nextSessionIt;
+                    }
+                    //if we reached the end, means that there is no more data to read, hence there is no more sessions to advance to
+                } else {
+                    //there is no data to read anymore
+                    //pos == end or buffer overflow while session is active
+                    if (!(_pos == _end || _reader.getError() == BufferReaderError::NO_ERROR)) {
+                        _reader.setError(BufferReaderError::INVALID_BUFFER_DATA);
+                    }
+                }
+            }
+
+            void end() {
+                if (!_sessionsStack.empty()) {
+                    //move position to the end of session
+                    //can additionaly be checked for session data versioning
+                    //_pos == _end : same versions
+                    //distance(_pos,_end) > 0: reading newer version
+                    //getError() == BUFFER_OVERFLOW: reading older version
+                    auto dist = std::distance(_pos, _end);
+                    if (dist > 0) {
+                        //newer version might have some inner sessions, try to find the one after current ends
+                        auto currPos = static_cast<size_t>(std::distance(_bufBegin, _end));
+                        for (; _nextSessionIt != std::end(_sessions); ++_nextSessionIt) {
+                            if (*_nextSessionIt > currPos)
+                                break;
+                        }
+                    }
+                    _pos = _end;
+                    //restore end position
+                    _end = _sessionsStack.top();
+                    _sessionsStack.pop();
+                }
+            }
+
+            bool hasActiveSessions() const {
+                return _sessionsStack.size() > 0;
+            }
+
+        private:
+            TReader& _reader;
+            TIterator& _pos;
+            TIterator& _end;
+
+            std::vector<size_t> _sessions{};
+            std::vector<size_t>::iterator _nextSessionIt{};
+            std::stack<TIterator> _sessionsStack{};
+
+            void initializeSessions() {
+                //save current position
+                auto currPos = _pos;
+                auto bufferSizeLeft = std::distance(_pos, _end);
+                //read size
+                if (bufferSizeLeft < 2) {
+                    _reader.setError(BufferReaderError::INVALID_BUFFER_DATA);
+                    return;
+                }
+                auto endSessionsSizesIt = std::next(_end, -2);
+                _pos = endSessionsSizesIt;
+                size_t sessionsOffset{};
+                uint16_t high;
+                _reader.template readBytes<2>(high);
+
+
+                if (high >= 0x8000u) {
+                    if (bufferSizeLeft < 4) {
+                        _reader.setError(BufferReaderError::INVALID_BUFFER_DATA);
+                        return;
+                    }
+                    endSessionsSizesIt = std::next(endSessionsSizesIt, -2);
+                    _pos = endSessionsSizesIt;
+                    uint16_t low;
+                    _reader.template readBytes<2>(low);
+                    //mask out last bit
+                    high &= 0x7FFFu;
+                    sessionsOffset = static_cast<size_t>((high << 16) | low);
+
+                } else
+                    sessionsOffset = high;
+                if (static_cast<size_t>(bufferSizeLeft) < sessionsOffset) {
+                    _reader.setError(BufferReaderError::INVALID_BUFFER_DATA);
+                    return;
+                }
+                //we can initialy resizes to this value, and we'll shrink it after reading
+                //read session sizes
+                auto sessionsIt = std::back_inserter(_sessions);
+                _pos = std::next(_end, -sessionsOffset);
+                while (std::distance(_pos, endSessionsSizesIt) > 0) {
+                    //todo try to read into iterator directly
+                    size_t size;
+                    details::readSize(_reader, size);
+                    *sessionsIt++ = size;
+                }
+                _sessions.shrink_to_fit();
+                //set iterators to data
+                _pos = currPos;
+                _end = std::next(_end, -sessionsOffset);
+                _nextSessionIt = std::begin(_sessions);//set before first session;
+            }
+        };
+
         template<typename Buffer, bool isFixed>
         class WriteBufferContext {
+
         };
 
         template<typename Buffer>
-        class WriteBufferContext<Buffer, true> {
+        class WriteBufferContext<Buffer, true>{
         public:
             using ValueType = typename Buffer::value_type;
             using IteratorType = typename Buffer::iterator;
 
             explicit WriteBufferContext(Buffer &buffer)
                     : _buffer{buffer},
-                      _outIt{buffer.begin()},
-                      _end{buffer.end()}
+                      _outIt{std::addressof(*std::begin(buffer))},
+                      _end{std::addressof(*std::end(buffer))}
             {
             }
 
             void write(const ValueType *data, size_t size) {
                 assert(std::distance(_outIt, _end) >= static_cast<typename Buffer::difference_type>(size));
-                _outIt = std::copy_n(data, size, _outIt);
+                memcpy(_outIt, data, size);
+                _outIt += size;
             }
 
             BufferRange<IteratorType> getWrittenRange() const {
-                return BufferRange<IteratorType>{_buffer.begin(), _outIt};
+                auto begin = std::begin(_buffer);
+                return BufferRange<IteratorType>{begin, std::next(begin, _outIt - std::addressof(*begin))};
             }
 
         private:
             Buffer &_buffer;
-            IteratorType _outIt;
-            IteratorType _end;
+            ValueType* _outIt;
+            ValueType* _end;
         };
 
         template<typename Buffer>
@@ -169,11 +358,12 @@ namespace bitsery {
             }
 
             void write(const ValueType *data, size_t size) {
-                if (std::distance(_outIt, _end) >= static_cast<typename Buffer::difference_type>(size)) {
-                    _outIt = std::copy_n(data, size, _outIt);
+                if ((_end - _outIt) >= static_cast<typename Buffer::difference_type>(size)) {
+                    std::memcpy(_outIt, data, size);
+                    _outIt += size;
                 } else {
                     //get current position before invalidating iterators
-                    auto pos = std::distance(_buffer.begin(), _outIt);
+                    auto pos = std::distance(std::addressof(*std::begin(_buffer)), _outIt);
                     //make dummy call to back insert iterator to resize buffer
                     *(std::back_insert_iterator<Buffer>(_buffer)) = {};
                     resizeToCapacity(pos);
@@ -182,24 +372,26 @@ namespace bitsery {
             }
 
             BufferRange<IteratorType> getWrittenRange() const {
-                return BufferRange<IteratorType>{_buffer.begin(), _outIt};
+                auto begin = std::begin(_buffer);
+                return BufferRange<IteratorType>{begin, std::next(begin, _outIt - std::addressof(*begin))};
             }
 
         private:
+
             void resizeToCapacity(typename Buffer::difference_type writePos) {
                 if (_buffer.capacity() != _buffer.size()) {
                     _buffer.resize(_buffer.capacity());
                 }
-                _end = _buffer.end();
-                _outIt = std::next(_buffer.begin(), writePos);
+                _end = std::addressof(*std::end(_buffer));
+                _outIt = std::addressof(*std::next(std::begin(_buffer), writePos));
             }
             Buffer &_buffer;
-            IteratorType _outIt;
-            IteratorType _end;
+            ValueType* _outIt;
+            ValueType* _end;
         };
 
     }
 }
 
 
-#endif //BITSERY_BUFFER_COMMON_H
+#endif //BITSERY_DETAILS_BUFFER_COMMON_H

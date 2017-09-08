@@ -48,16 +48,16 @@ namespace bitsery {
                 static_assert(std::is_default_constructible<TVal>::value, "");
             };
 
-            template<typename T, typename Ser, typename Fnc>
-            void serialize(const T &obj, Ser &ser, Fnc &&fnc) const {
+            template<typename Ser, typename Writer, typename T, typename Fnc>
+            void serialize(Ser &ser, Writer &, const T &obj, Fnc &&fnc) const {
                 assertType<T>();
                 ser.boolByte(static_cast<bool>(obj));
                 if (obj)
                     fnc(ser, *obj);
             }
 
-            template<typename T, typename Des, typename Fnc>
-            void deserialize(T &obj, Des &des, Fnc &&fnc) const {
+            template<typename Des, typename Reader, typename T, typename Fnc>
+            void deserialize(Des &des, Reader& , T &obj, Fnc &&fnc) const {
                 assertType<T>();
                 bool exists{};
                 des.boolByte(exists);

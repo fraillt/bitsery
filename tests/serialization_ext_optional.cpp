@@ -43,8 +43,8 @@ using testing::Eq;
 
 template <typename T>
 void test(SerializationContext& ctx, const T& v, T& r) {
-    ctx.createSerializer().extension4(v, extoptional{});
-    ctx.createDeserializer().extension4(r, extoptional{});
+    ctx.createSerializer().extend4b(v, extoptional{});
+    ctx.createDeserializer().extend4b(r, extoptional{});
 }
 
 TEST(SerializeExtensionOptional, EmptyOptional) {

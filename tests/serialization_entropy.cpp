@@ -25,72 +25,72 @@
 #include "serialization_test_utils.h"
 using namespace testing;
 
-TEST(SerializeSubstitution, WhenSubstitutedThenOnlyWriteIndexUsingMinRequiredBits) {
+TEST(SerializeEntropyEncoding, WhenEntropyEncodedThenOnlyWriteIndexUsingMinRequiredBits) {
     int32_t v = 4849;
     int32_t res;
     constexpr size_t N = 3;
-    std::array<int32_t,N> subsitution{485,4849,89};
+    int32_t entropyValues[3]{485,4849,89};
     SerializationContext ctx;
-    ctx.createSerializer().substitution<4>(v, subsitution);
-    ctx.createDeserializer().substitution<4>(res, subsitution);
+    ctx.createSerializer().entropy<4>(v, entropyValues);
+    ctx.createDeserializer().entropy<4>(res, entropyValues);
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
 
     SerializationContext ctx1;
-    ctx1.createSerializer().substitution<4>(v, subsitution);
+    ctx1.createSerializer().entropy<4>(v, entropyValues);
     auto des = ctx1.createDeserializer();
     des.range(res, {0, N + 1});
     EXPECT_THAT(res, Eq(2));
 }
 
-TEST(SerializeSubstitution, WhenNoSubstitutionThenWriteZeroBitsAndValueOrObject) {
+TEST(SerializeEntropyEncoding, WhenNoEntropyEncodedThenWriteZeroBitsAndValueOrObject) {
     int16_t v = 8945;
     int16_t res;
-    std::array<int16_t,3> subsitution{485,4849,89};
+    int16_t entropyValues[3]{485,4849,89};
     SerializationContext ctx;
-    ctx.createSerializer().substitution<2>(v, subsitution);
-    ctx.createDeserializer().substitution<2>(res, subsitution);
+    ctx.createSerializer().entropy<2>(v, entropyValues);
+    ctx.createDeserializer().entropy<2>(res, entropyValues);
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(sizeof(int16_t)+1));
 }
 
-TEST(SerializeSubstitution, CustomTypeSubstituted) {
+TEST(SerializeEntropyEncoding, CustomTypeEntropyEncoded) {
     MyStruct1 v = {12,10};
     MyStruct1 res;
     constexpr size_t N = 4;
-    std::array<MyStruct1, N> subsitution = {
+    MyStruct1 entropyValues[N]{
             MyStruct1{12,10}, MyStruct1{485, 454},
             MyStruct1{4849,89}, MyStruct1{0,1}};
     SerializationContext ctx;
-    ctx.createSerializer().substitution(v, subsitution);
-    ctx.createDeserializer().substitution(res, subsitution);
+    ctx.createSerializer().entropy(v, entropyValues);
+    ctx.createDeserializer().entropy(res, entropyValues);
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
 }
 
-TEST(SerializeSubstitution, CustomTypeNotSubstituted) {
+TEST(SerializeEntropyEncoding, CustomTypeNotEntropyEncoded) {
     MyStruct1 v = {8945,4456};
     MyStruct1 res;
     constexpr size_t N = 4;
-    std::array<MyStruct1, N> subsitution = {
+    MyStruct1 entropyValues[N] {
             MyStruct1{12,10}, MyStruct1{485, 454},
             MyStruct1{4849,89}, MyStruct1{0,1}};
     SerializationContext ctx;
-    ctx.createSerializer().substitution(v, subsitution);
-    ctx.createDeserializer().substitution(res, subsitution);
+    ctx.createSerializer().entropy(v, entropyValues);
+    ctx.createDeserializer().entropy(res, entropyValues);
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(MyStruct1::SIZE + 1));
 }
 
-TEST(SerializeSubstitution, CustomFunctionNotSubstituted) {
+TEST(SerializeEntropyEncoding, CustomFunctionNotEntropyEncoded) {
     MyStruct1 v = {8945,4456};
     MyStruct1 res;
     constexpr size_t N = 4;
-    std::array<MyStruct1, N> subsitution = {
+    MyStruct1 entropyValues[N] {
             MyStruct1{12,10}, MyStruct1{485, 454},
             MyStruct1{4849,89}, MyStruct1{0,1}};
 
@@ -105,30 +105,30 @@ TEST(SerializeSubstitution, CustomFunctionNotSubstituted) {
         s.range(v.i1, rangeForValue);
         s.range(v.i2, rangeForValue);
     };
-    ser.substitution(v, subsitution, serLambda);
+    ser.entropy(v, entropyValues, serLambda);
 
     auto des = ctx.createDeserializer();
     auto desLambda = [rangeForValue](auto& s, MyStruct1& v) {
         s.range(v.i1, rangeForValue);
         s.range(v.i2, rangeForValue);
     };
-    des.substitution(res, subsitution, desLambda);
+    des.entropy(res, entropyValues, desLambda);
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq((rangeForIndex.bitsRequired + rangeForValue.bitsRequired * 2 - 1) / 8 + 1 ));
 }
 
-TEST(SerializeSubstitution, WhenSubstitutedThenCustomFunctionNotInvoked) {
+TEST(SerializeEntropyEncoding, WhenEntropyEncodedThenCustomFunctionNotInvoked) {
     MyStruct1 v = {4849,89};
     MyStruct1 res;
     constexpr size_t N = 4;
-    std::array<MyStruct1, N> subsitution = {
+    MyStruct1 entropyValues[N] {
             MyStruct1{12,10}, MyStruct1{485, 454},
             MyStruct1{4849,89}, MyStruct1{0,1}};
 
     SerializationContext ctx;
-    ctx.createSerializer().substitution(v, subsitution, [](bitsery::Serializer<bitsery::BufferWriter>& ,const MyStruct1& ) {});
-    ctx.createDeserializer().substitution(res, subsitution, [](bitsery::Deserializer<bitsery::BufferReader>&, MyStruct1& ) {});
+    ctx.createSerializer().entropy(v, entropyValues, [](bitsery::Serializer<bitsery::BufferWriter>& ,const MyStruct1& ) {});
+    ctx.createDeserializer().entropy(res, entropyValues, [](bitsery::Deserializer<bitsery::BufferReader>&, MyStruct1& ) {});
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));

@@ -21,7 +21,6 @@
 //SOFTWARE.
 
 
-
 #ifndef BITSERY_SERIALIZER_H
 #define BITSERY_SERIALIZER_H
 
@@ -29,14 +28,21 @@
 #include "details/serialization_common.h"
 #include <cassert>
 #include <array>
-#include <string>
 
 namespace bitsery {
 
     template<typename Writter>
     class Serializer {
     public:
-        Serializer(Writter &w) : _writter{w} {};
+        Serializer(Writter &w, void* context = nullptr) : _writter{w}, _context{context} {};
+
+        /*
+         * get serialization context.
+         * this is optional, but might be required for some specific serialization flows.
+         */
+        void* getContext() {
+            return _context;
+        }
 
         /*
          * object function
@@ -45,6 +51,11 @@ namespace bitsery {
         void object(T &&obj) {
             details::SerializeFunction<Serializer, T>::invoke(*this, std::forward<T>(obj));
         }
+
+        template<typename T, typename Fnc>
+        void object(T &&obj, Fnc &&fnc) {
+            fnc(*this, std::forward<T>(obj));
+        };
 
         /*
          * value overloads
@@ -67,33 +78,35 @@ namespace bitsery {
         }
 
         /*
-         * custom function
+         * growable function
          */
 
         template<typename T, typename Fnc>
-        void custom(T &&obj, Fnc &&fnc) {
-            fnc(*this, std::forward<T>(obj));
+        void growable(const T &obj, Fnc &&fnc) {
+            _writter.beginSession();
+            fnc(*this, obj);
+            _writter.endSession();
         };
 
         /*
-         * extension functions
+         * extend functions
          */
 
         template<typename T, typename Ext, typename Fnc>
-        void extension(const T &obj, Ext &&ext, Fnc &&fnc) {
-            ext.serialize(obj, *this, std::forward<Fnc>(fnc));
+        void extend(const T &obj, Ext &&ext, Fnc &&fnc) {
+            ext.serialize(*this, _writter, obj, std::forward<Fnc>(fnc));
 
         };
 
         template<size_t VSIZE, typename T, typename Ext>
-        void extension(const T &obj, Ext &&ext) {
-            ext.serialize(obj, *this, [](auto &s, auto &v) { s.template value<VSIZE>(v); });
+        void extend(const T &obj, Ext &&ext) {
+            ext.serialize(*this, _writter, obj, [](auto &s, auto &v) { s.template value<VSIZE>(v); });
 
         };
 
         template<typename T, typename Ext>
-        void extension(const T &obj, Ext &&ext) {
-            ext.serialize(obj, *this, [](auto &s, auto &v) { s.object(v); });
+        void extend(const T &obj, Ext &&ext) {
+            ext.serialize(*this, _writter, obj, [](auto &s, auto &v) { s.object(v); });
         };
 
         /*
@@ -120,27 +133,27 @@ namespace bitsery {
         }
 
         /*
-         * substitution overloads
+         * entropy overloads
          */
         template<typename T, size_t N, typename Fnc>
-        void substitution(const T &v, const std::array<T, N> &expectedValues, Fnc &&fnc) {
-            auto index = details::findSubstitutionIndex(v, expectedValues);
+        void entropy(const T &v, const T (&expectedValues)[N], Fnc &&fnc) {
+            auto index = details::findEntropyIndex(v, expectedValues);
             range(index, {{}, N + 1});
             if (!index)
                 fnc(*this, v);
         };
 
         template<size_t VSIZE, typename T, size_t N>
-        void substitution(const T &v, const std::array<T, N> &expectedValues) {
-            auto index = details::findSubstitutionIndex(v, expectedValues);
+        void entropy(const T &v, const T (&expectedValues)[N]) {
+            auto index = details::findEntropyIndex(v, expectedValues);
             range(index, {{}, N + 1});
             if (!index)
                 value<VSIZE>(v);
         };
 
         template<typename T, size_t N>
-        void substitution(const T &v, const std::array<T, N> &expectedValues) {
-            auto index = details::findSubstitutionIndex(v, expectedValues);
+        void entropy(const T &v, const T (&expectedValues)[N]) {
+            auto index = details::findEntropyIndex(v, expectedValues);
             range(index, {{}, N + 1});
             if (!index)
                 object(v);
@@ -151,11 +164,12 @@ namespace bitsery {
          */
 
         template<size_t VSIZE, typename T>
-        void text(const std::basic_string<T> &str, size_t maxSize) {
-            assert(str.size() <= maxSize);
+        void text(const T &str, size_t maxSize) {
             auto first = std::begin(str);
             auto last = std::end(str);
-            writeSize(std::distance(first, last));
+            auto size = static_cast<size_t>(std::distance(first, last));
+            assert(size <= maxSize);
+            writeSize(size);
             procContainer<VSIZE>(first, last, std::true_type{});
         }
 
@@ -171,8 +185,12 @@ namespace bitsery {
          * container overloads
          */
 
+        //dynamic size containers
+
         template<typename T, typename Fnc>
         void container(const T &obj, size_t maxSize, Fnc &&fnc) {
+            static_assert(details::IsResizable<T>::value,
+                          "use container(const T&, Fnc) overload without `maxSize` for static containers");
             assert(obj.size() <= maxSize);
             writeSize(obj.size());
             procContainer(std::begin(obj), std::end(obj), std::forward<Fnc>(fnc));
@@ -180,6 +198,8 @@ namespace bitsery {
 
         template<size_t VSIZE, typename T>
         void container(const T &obj, size_t maxSize) {
+            static_assert(details::IsResizable<T>::value,
+                          "use container(const T&) overload without `maxSize` for static containers");
             static_assert(VSIZE > 0, "");
             assert(obj.size() <= maxSize);
             writeSize(obj.size());
@@ -189,48 +209,53 @@ namespace bitsery {
 
         template<typename T>
         void container(const T &obj, size_t maxSize) {
+            static_assert(details::IsResizable<T>::value,
+                          "use container(const T&) overload without `maxSize` for static containers");
             assert(obj.size() <= maxSize);
             writeSize(obj.size());
             procContainer(std::begin(obj), std::end(obj));
         }
 
-        /*
-         * array overloads (fixed size array (std::array, and c-style array))
-         */
+        //fixed size containers
 
-        //std::array overloads
-
-        template<typename T, size_t N, typename Fnc>
-        void array(const std::array<T, N> &arr, Fnc &&fnc) {
-            procContainer(std::begin(arr), std::end(arr), std::forward<Fnc>(fnc));
+        template<typename T, typename Fnc, typename std::enable_if<!std::is_integral<Fnc>::value>::type * = nullptr>
+        void container(const T &obj, Fnc &&fnc) {
+            static_assert(!details::IsResizable<T>::value,
+                          "use container(const T&, size_t, Fnc) overload with `maxSize` for dynamic containers");
+            procContainer(std::begin(obj), std::end(obj), std::forward<Fnc>(fnc));
         }
 
-        template<size_t VSIZE, typename T, size_t N>
-        void array(const std::array<T, N> &arr) {
+        template<size_t VSIZE, typename T>
+        void container(const T &obj) {
+            static_assert(!details::IsResizable<T>::value,
+                          "use container(const T&, size_t) overload with `maxSize` for dynamic containers");
             static_assert(VSIZE > 0, "");
-            procContainer<VSIZE>(std::begin(arr), std::end(arr), std::true_type{});
+            //todo optimisation is possible for contigous containers, but currently there is no compile-time check for this
+            procContainer<VSIZE>(std::begin(obj), std::end(obj), std::false_type{});
         }
 
-        template<typename T, size_t N>
-        void array(const std::array<T, N> &arr) {
-            procContainer(std::begin(arr), std::end(arr));
+        template<typename T>
+        void container(const T &obj) {
+            static_assert(!details::IsResizable<T>::value,
+                          "use container(const T&, size_t) overload with `maxSize` for dynamic containers");
+            procContainer(std::begin(obj), std::end(obj));
         }
 
         //c-style array overloads
 
         template<typename T, size_t N, typename Fnc>
-        void array(const T (&arr)[N], Fnc &&fnc) {
+        void container(const T (&arr)[N], Fnc &&fnc) {
             procContainer(std::begin(arr), std::end(arr), std::forward<Fnc>(fnc));
         }
 
         template<size_t VSIZE, typename T, size_t N>
-        void array(const T (&arr)[N]) {
+        void container(const T (&arr)[N]) {
             static_assert(VSIZE > 0, "");
             procContainer<VSIZE>(std::begin(arr), std::end(arr), std::true_type{});
         }
 
         template<typename T, size_t N>
-        void array(const T (&arr)[N]) {
+        void container(const T (&arr)[N]) {
             procContainer(std::begin(arr), std::end(arr));
         }
 
@@ -238,127 +263,112 @@ namespace bitsery {
             _writter.align();
         }
 
-        bool isValid() const {
-            //serialization cannot fail, it doesn't handle out of memory exception
-            return true;
-        }
-
-
         //overloads for functions with explicit type size
 
         template<typename T>
-        void value1(T &&v) { value<1>(std::forward<T>(v)); }
+        void value1b(T &&v) { value<1>(std::forward<T>(v)); }
 
         template<typename T>
-        void value2(T &&v) { value<2>(std::forward<T>(v)); }
+        void value2b(T &&v) { value<2>(std::forward<T>(v)); }
 
         template<typename T>
-        void value4(T &&v) { value<4>(std::forward<T>(v)); }
+        void value4b(T &&v) { value<4>(std::forward<T>(v)); }
 
         template<typename T>
-        void value8(T &&v) { value<8>(std::forward<T>(v)); }
+        void value8b(T &&v) { value<8>(std::forward<T>(v)); }
 
         template<typename T, typename Ext>
-        void extension1(const T &v, Ext &&ext) { extension<1>(v, std::forward<Ext>(ext)); };
+        void extend1b(const T &v, Ext &&ext) { extend<1>(v, std::forward<Ext>(ext)); };
 
         template<typename T, typename Ext>
-        void extension2(const T &v, Ext &&ext) { extension<2>(v, std::forward<Ext>(ext)); };
+        void extend2b(const T &v, Ext &&ext) { extend<2>(v, std::forward<Ext>(ext)); };
 
         template<typename T, typename Ext>
-        void extension4(const T &v, Ext &&ext) { extension<4>(v, std::forward<Ext>(ext)); };
+        void extend4b(const T &v, Ext &&ext) { extend<4>(v, std::forward<Ext>(ext)); };
 
         template<typename T, typename Ext>
-        void extension8(const T &v, Ext &&ext) { extension<8>(v, std::forward<Ext>(ext)); };
+        void extend8b(const T &v, Ext &&ext) { extend<8>(v, std::forward<Ext>(ext)); };
 
         template<typename T, size_t N>
-        void substitution1(const T &v, const std::array<T, N> &expectedValues) {
-            substitution<1>(v, expectedValues);
+        void entropy1b(const T &v, const T (&expectedValues)[N]) {
+            entropy<1>(v, expectedValues);
         };
 
         template<typename T, size_t N>
-        void substitution2(const T &v, const std::array<T, N> &expectedValues) {
-            substitution<2>(v, expectedValues);
+        void entropy2b(const T &v, const T (&expectedValues)[N]) {
+            entropy<2>(v, expectedValues);
         };
 
         template<typename T, size_t N>
-        void substitution4(const T &v, const std::array<T, N> &expectedValues) {
-            substitution<4>(v, expectedValues);
+        void entropy4b(const T &v, const T (&expectedValues)[N]) {
+            entropy<4>(v, expectedValues);
         };
 
         template<typename T, size_t N>
-        void substitution8(const T &v, const std::array<T, N> &expectedValues) {
-            substitution<8>(v, expectedValues);
+        void entropy8b(const T &v, const T (&expectedValues)[N]) {
+            entropy<8>(v, expectedValues);
         };
 
         template<typename T>
-        void text1(const std::basic_string<T> &str, size_t maxSize) { text<1>(str, maxSize); }
+        void text1b(const T &str, size_t maxSize) { text<1>(str, maxSize); }
 
         template<typename T>
-        void text2(const std::basic_string<T> &str, size_t maxSize) { text<2>(str, maxSize); }
+        void text2b(const T &str, size_t maxSize) { text<2>(str, maxSize); }
 
         template<typename T>
-        void text4(const std::basic_string<T> &str, size_t maxSize) { text<4>(str, maxSize); }
+        void text4b(const T &str, size_t maxSize) { text<4>(str, maxSize); }
 
         template<typename T, size_t N>
-        void text1(const T (&str)[N]) { text<1>(str); }
+        void text1b(const T (&str)[N]) { text<1>(str); }
 
         template<typename T, size_t N>
-        void text2(const T (&str)[N]) { text<2>(str); }
+        void text2b(const T (&str)[N]) { text<2>(str); }
 
         template<typename T, size_t N>
-        void text4(const T (&str)[N]) { text<4>(str); }
+        void text4b(const T (&str)[N]) { text<4>(str); }
 
         template<typename T>
-        void container1(T &&obj, size_t maxSize) { container<1>(std::forward<T>(obj), maxSize); }
+        void container1b(T &&obj, size_t maxSize) { container<1>(std::forward<T>(obj), maxSize); }
 
         template<typename T>
-        void container2(T &&obj, size_t maxSize) { container<2>(std::forward<T>(obj), maxSize); }
+        void container2b(T &&obj, size_t maxSize) { container<2>(std::forward<T>(obj), maxSize); }
 
         template<typename T>
-        void container4(T &&obj, size_t maxSize) { container<4>(std::forward<T>(obj), maxSize); }
+        void container4b(T &&obj, size_t maxSize) { container<4>(std::forward<T>(obj), maxSize); }
 
         template<typename T>
-        void container8(T &&obj, size_t maxSize) { container<8>(std::forward<T>(obj), maxSize); }
+        void container8b(T &&obj, size_t maxSize) { container<8>(std::forward<T>(obj), maxSize); }
+
+        template<typename T>
+        void container1b(T &&obj) { container<1>(std::forward<T>(obj)); }
+
+        template<typename T>
+        void container2b(T &&obj) { container<2>(std::forward<T>(obj)); }
+
+        template<typename T>
+        void container4b(T &&obj) { container<4>(std::forward<T>(obj)); }
+
+        template<typename T>
+        void container8b(T &&obj) { container<8>(std::forward<T>(obj)); }
 
         template<typename T, size_t N>
-        void array1(const std::array<T, N> &arr) { array<1>(arr); }
+        void container1b(const T (&arr)[N]) { container<1>(arr); }
 
         template<typename T, size_t N>
-        void array2(const std::array<T, N> &arr) { array<2>(arr); }
+        void container2b(const T (&arr)[N]) { container<2>(arr); }
 
         template<typename T, size_t N>
-        void array4(const std::array<T, N> &arr) { array<4>(arr); }
+        void container4b(const T (&arr)[N]) { container<4>(arr); }
 
         template<typename T, size_t N>
-        void array8(const std::array<T, N> &arr) { array<8>(arr); }
-
-        template<typename T, size_t N>
-        void array1(const T (&arr)[N]) { array<1>(arr); }
-
-        template<typename T, size_t N>
-        void array2(const T (&arr)[N]) { array<2>(arr); }
-
-        template<typename T, size_t N>
-        void array4(const T (&arr)[N]) { array<4>(arr); }
-
-        template<typename T, size_t N>
-        void array8(const T (&arr)[N]) { array<8>(arr); }
+        void container8b(const T (&arr)[N]) { container<8>(arr); }
 
     private:
         Writter &_writter;
+        void* _context;
 
         void writeSize(const size_t size) {
-            if (size < 0x80u) {
-                _writter.writeBits(1u, 1);
-                _writter.writeBits(size, 7);
-            } else if (size < 0x4000u) {
-                _writter.writeBits(2u, 2);
-                _writter.writeBits(size, 14);
-            } else {
-                assert(size < 0x40000000u);
-                _writter.writeBits(0u, 2);
-                _writter.writeBits(size, 30);
-            }
+            details::writeSize(_writter, size);
         }
 
         //process value types

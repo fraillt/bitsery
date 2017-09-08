@@ -55,11 +55,31 @@ namespace bitsery {
         }
 
         void align() {
-            _bitsCount += 8 - (_bitsCount % 8);
+            auto _scratch = (_bitsCount % 8);
+            _bitsCount += (8 - _scratch) % 8;
         }
 
         void flush() {
-            _bitsCount += (8 - (_bitsCount % 8)) % 8;
+            align();
+            //flush sessions count
+            if (_sessionsBytesCount > 0) {
+                auto sessionsDataSizeBytesCount = (_sessionsBytesCount < 0x8000u ? 2 : 4);
+                _bitsCount += (_sessionsBytesCount + sessionsDataSizeBytesCount) * 8;
+                _sessionsBytesCount = 0;
+            }
+        }
+
+        void beginSession() {
+
+        }
+
+        void endSession() {
+            auto endPos = getWrittenBytesCount();
+            details::writeSize(*this, endPos);
+            auto sessionEndBytesCount = getWrittenBytesCount() - endPos;
+            //remove written bytes, because we'll write them at the end
+            _bitsCount -= sessionEndBytesCount * 8;
+            _sessionsBytesCount += sessionEndBytesCount;
         }
 
         //get size in bytes
@@ -69,7 +89,7 @@ namespace bitsery {
 
     private:
         size_t _bitsCount{};
-
+        size_t _sessionsBytesCount{};
     };
 
     template<typename Config>
@@ -79,7 +99,9 @@ namespace bitsery {
         using ScratchType = typename details::SCRATCH_TYPE<ValueType>::type;
         using BufferContext = details::WriteBufferContext<BufferType, Config::FixedBufferSize>;
 
-        explicit BasicBufferWriter(BufferType &buffer) : _bufferContext{buffer} {
+        explicit BasicBufferWriter(BufferType &buffer)
+                : _bufferContext{buffer}
+        {
             static_assert(std::is_unsigned<ValueType>(), "Config::BufferType::value_type must be unsigned");
             static_assert(std::is_unsigned<ScratchType>(), "Config::BufferScrathType must be unsigned");
             static_assert(sizeof(ValueType) * 2 == sizeof(ScratchType),
@@ -134,21 +156,27 @@ namespace bitsery {
         }
 
         void align() {
-            if (_scratchBits)
-                writeBitsInternal(ValueType{}, details::BITS_SIZE<ValueType> - _scratchBits);
+            writeBitsInternal(ValueType{}, (details::BITS_SIZE<ValueType> - _scratchBits) % 8);
         }
 
         void flush() {
-            if (_scratchBits) {
-                auto tmp = static_cast<ValueType>( _scratch & _MASK );
-                directWrite(&tmp, 1);
-                _scratch >>= _scratchBits;
-                _scratchBits -= _scratchBits;
-            }
+            align();
+            _session.flushSessions(*this);
         }
 
         BufferRange<typename BufferType::iterator> getWrittenRange() const {
             return _bufferContext.getWrittenRange();
+        }
+
+        void beginSession() {
+            align();
+            _session.begin();
+        }
+
+        void endSession() {
+            align();
+            auto range = _bufferContext.getWrittenRange();
+            _session.end(static_cast<size_t>(std::distance(range.begin(), range.end())));
         }
 
     private:
@@ -212,6 +240,7 @@ namespace bitsery {
         BufferContext _bufferContext;
         ScratchType _scratch{};
         size_t _scratchBits{};
+        details::BufferSessionsWriter _session{};
     };
 
     //helper type

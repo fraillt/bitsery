@@ -20,12 +20,12 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-#ifndef BITSERY_SERIALIZATION_COMMON_H
-#define BITSERY_SERIALIZATION_COMMON_H
+#ifndef BITSERY_DETAILS_SERIALIZATION_COMMON_H
+#define BITSERY_DETAILS_SERIALIZATION_COMMON_H
 
-#include <cstdint>
 #include <type_traits>
 #include <array>
+#include "both_common.h"
 
 namespace bitsery {
 
@@ -60,7 +60,19 @@ namespace bitsery {
             return getSize(max - min, 0);
         }
 
+        template <typename T, typename = int>
+        struct IsResizable : std::false_type {};
+
+        template <typename T>
+        struct IsResizable <T, decltype((void)std::declval<T>().resize(1u), 0)> : std::true_type {};
     }
+
+    /*
+     * serialization/deserialization context
+     */
+    struct Context {
+        void* getCustomPtr();
+    };
 
 /*
  * range functions in bitsery namespace because these are used by user
@@ -138,7 +150,8 @@ namespace bitsery {
 
         template<typename T, typename std::enable_if<std::is_enum<T>::value>::type * = nullptr>
         auto getRangeValue(const T &v, const RangeSpec<T> &r) {
-            return static_cast<SAME_SIZE_UNSIGNED<T>>(v) - static_cast<SAME_SIZE_UNSIGNED<T>>(r.min);
+            using VT = SAME_SIZE_UNSIGNED<T>;
+            return static_cast<VT>(static_cast<VT>(v) - static_cast<VT>(r.min));
         };
 
         template<typename T, typename std::enable_if<std::is_floating_point<T>::value>::type * = nullptr>
@@ -181,11 +194,11 @@ namespace bitsery {
         }
 
 /*
- * functions for substitution
+ * functions for entropy encoding
  */
 
         template<typename T, size_t N>
-        size_t findSubstitutionIndex(const T &v, const std::array<T, N> &defValues) {
+        size_t findEntropyIndex(const T &v, const T (&defValues)[N]) {
             auto index{1u};
             for (auto &d:defValues) {
                 if (d == v)
@@ -214,6 +227,7 @@ namespace bitsery {
                 serialize(s, v);
             }
         };
+
 
 /*
  * delta functions
@@ -256,4 +270,4 @@ namespace bitsery {
 
 }
 
-#endif //BITSERY_SERIALIZATION_COMMON_H
+#endif //BITSERY_DETAILS_SERIALIZATION_COMMON_H

@@ -152,3 +152,15 @@ TEST(SerializeRange, DoubleUsingBitsSizeConstraint2) {
     EXPECT_THAT(ctx.getBufferSize(), Eq(7));
     EXPECT_THAT(res1, ::testing::DoubleNear(t1, (max - min) / (static_cast<bitsery::details::SAME_SIZE_UNSIGNED<double>>(1) << bits)));
 }
+
+TEST(SerializeRange, WhenDataIsInvalidThenReturnMinimumRangeValue) {
+    SerializationContext ctx;
+    constexpr RangeSpec<int> r1{4, 10};//6 is max, but 3bits required
+    int res1;
+    uint8_t tmp{0xFF};//write all 1 so when reading 3 bits we get 7
+    ctx.createSerializer().value1b(tmp);
+    ctx.createDeserializer().range(res1, r1);
+
+    EXPECT_THAT(ctx.getBufferSize(), Eq(1));
+    EXPECT_THAT(res1, Eq(4));
+}

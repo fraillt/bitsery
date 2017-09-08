@@ -65,8 +65,8 @@ TEST(SerializeValues, ValueSizeOverload1Byte) {
     constexpr size_t TSIZE = sizeof(v);
 
     SerializationContext ctx;
-    ctx.createSerializer().value1(v);
-    ctx.createDeserializer().value1(res);
+    ctx.createSerializer().value1b(v);
+    ctx.createDeserializer().value1b(res);
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(TSIZE, Eq(ctx.getBufferSize()));
@@ -78,8 +78,8 @@ TEST(SerializeValues, ValueSizeOverload2Byte) {
     constexpr size_t TSIZE = sizeof(v);
 
     SerializationContext ctx;
-    ctx.createSerializer().value2(v);
-    ctx.createDeserializer().value2(res);
+    ctx.createSerializer().value2b(v);
+    ctx.createDeserializer().value2b(res);
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(TSIZE, Eq(ctx.getBufferSize()));
@@ -91,8 +91,8 @@ TEST(SerializeValues, ValueSizeOverload4Byte) {
     constexpr size_t TSIZE = sizeof(v);
 
     SerializationContext ctx;
-    ctx.createSerializer().value4(v);
-    ctx.createDeserializer().value4(res);
+    ctx.createSerializer().value4b(v);
+    ctx.createDeserializer().value4b(res);
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(TSIZE, Eq(ctx.getBufferSize()));
@@ -104,8 +104,8 @@ TEST(SerializeValues, ValueSizeOverload8Byte) {
     constexpr size_t TSIZE = sizeof(v);
 
     SerializationContext ctx;
-    ctx.createSerializer().value8(v);
-    ctx.createDeserializer().value8(res);
+    ctx.createSerializer().value8b(v);
+    ctx.createDeserializer().value8b(res);
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(TSIZE, Eq(ctx.getBufferSize()));

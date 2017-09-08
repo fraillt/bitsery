@@ -24,13 +24,6 @@
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
 
-#include <bitsery/delta_serializer.h>
-#include <bitsery/delta_deserializer.h>
-
-#include <list>
-
-
-
 using testing::Eq;
 using testing::StrEq;
 using testing::ContainerEq;
@@ -73,8 +66,8 @@ SERIALIZE(Y)
 	auto writeInt = [](auto& s, auto& v) { s.template value<sizeof(v)>(v); };
 	s.template text<1>(o.s, 10000);
 	s.template value<sizeof(o.y)>(o.y);
-	s.array(o.arr, writeInt);
-	s.array(o.carr, writeInt);
+	s.container(o.arr, writeInt);
+	s.container(o.carr, writeInt);
 	s.container(o.vx, 10000, [](auto& s, auto& v) { s.object(v); });
 }
 
@@ -127,48 +120,3 @@ TEST(SerializeObject, GeneralConceptTest) {
 	EXPECT_THAT(zres.x.x, Eq(z.x.x));
 
 }
-
-TEST(DeltaSerializer, GeneralConceptTest) {
-	//std::string buf;
-	Y y{};
-	y.y = 3423;
-	y.arr[0] = 111;
-	y.arr[1] = 222;
-	y.arr[2] = 333;
-	y.carr[0] = 123;
-	y.carr[1] = 456;
-	y.carr[2] = 789;
-	y.vx.push_back(X(234));
-	y.vx.push_back(X(6245));
-	y.vx.push_back(X(613461));
-	y.s = "labal diena";
-	y.vx[0].s = "very nice";
-	y.vx[1].s = "very nice string, that is a little bit longer that previous";
-
-	Y yRead = y;
-	Y yNew = y;	
-	yNew.y = 111111;
-	yNew.arr[2] = 0xFFFFFFFF;
-	yNew.carr[1] = 0xFFFFFFFF;
-	yNew.s = "labas dienaABC";
-	yNew.vx[0].s = "very opapa";
-	yNew.vx[1].s = "bla";
-	yNew.vx.push_back(X{ 3 });
-
-	bitsery::DefaultConfig::BufferType buf;
-	bitsery::BufferWriter bw{ buf };
-	bitsery::DeltaSerializer<bitsery::BufferWriter, Y> ser(bw, y, yNew);
-	serialize(ser, yNew);
-	bw.flush();
-
-	bitsery::BufferReader br{ bw.getWrittenRange() };
-	bitsery::DeltaDeserializer<bitsery::BufferReader, Y> des(br, y, yRead);
-	serialize(des, yRead);
-
-	EXPECT_THAT(yRead.y, Eq(yNew.y));
-	EXPECT_THAT(yRead.vx, ContainerEq(yNew.vx));
-	EXPECT_THAT(yRead.arr, ContainerEq(yNew.arr));
-	EXPECT_THAT(yRead.carr, ContainerEq(yNew.carr));
-	EXPECT_THAT(yRead.s, StrEq(yNew.s));
-}
-

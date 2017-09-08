@@ -28,7 +28,6 @@
 #include <bitset>
 
 using testing::Eq;
-using testing::ContainerEq;
 using bitsery::BufferWriter;
 using bitsery::BufferReader;
 using Buffer = bitsery::DefaultConfig::BufferType;
@@ -42,7 +41,7 @@ struct IntegralTypes {
     int8_t f[2];
 };
 
-TEST(BufferReading, ReadReturnsFalseIfNotEnoughBufferSize) {
+TEST(BufferReading, WhenReadingMoreThanAvailableThenEmptyBufferError) {
     //setup data
     uint8_t a = 111;
 
@@ -56,19 +55,34 @@ TEST(BufferReading, ReadReturnsFalseIfNotEnoughBufferSize) {
     bw.flush();
     //read from buffer
     BufferReader br{bw.getWrittenRange()};
-    int16_t b;
     int32_t c;
-    EXPECT_THAT(br.readBytes<4>(c), Eq(false));
-    EXPECT_THAT(br.readBytes<2>(b), Eq(true));
-    EXPECT_THAT(br.readBytes<2>(b), Eq(false));
-    EXPECT_THAT(br.readBytes<1>(a), Eq(true));
-    EXPECT_THAT(br.readBytes<1>(a), Eq(false));
-    EXPECT_THAT(br.readBytes<2>(b), Eq(false));
-    EXPECT_THAT(br.readBytes<4>(c), Eq(false));
-
+    br.readBytes<4>(c);
+    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));
 }
 
-TEST(BufferReading, ReadIsCompletedWhenAllBytesAreRead) {
+TEST(BufferReading, WhenErrorOccursThenAllOtherOperationsFailsForSameError) {
+    //setup data
+    uint8_t a = 111;
+
+    //create and write to buffer
+    Buffer buf{};
+    BufferWriter bw{buf};
+
+    bw.writeBytes<1>(a);
+    bw.writeBytes<1>(a);
+    bw.writeBytes<1>(a);
+    bw.flush();
+    //read from buffer
+    BufferReader br{bw.getWrittenRange()};
+    int32_t c;
+    br.readBytes<4>(c);
+    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));
+    br.readBytes<1>(a);
+    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));
+}
+
+
+TEST(BufferReading, ReadIsCompletedSuccessfullyWhenAllBytesAreReadWithoutErrors) {
     //setup data
     IntegralTypes data;
     data.b = 94545646;
@@ -86,22 +100,59 @@ TEST(BufferReading, ReadIsCompletedWhenAllBytesAreRead) {
     //read from buffer
     BufferReader br{bw.getWrittenRange()};
     IntegralTypes res;
-    EXPECT_THAT(br.readBytes<4>(res.b), Eq(true));
-    EXPECT_THAT(br.readBytes<2>(res.c), Eq(true));
-    EXPECT_THAT(br.isCompleted(), Eq(false));
-    EXPECT_THAT(br.readBytes<1>(res.d), Eq(true));
-    EXPECT_THAT(br.isCompleted(), Eq(true));
-    EXPECT_THAT(br.readBytes<1>(res.d), Eq(false));
-    EXPECT_THAT(br.isCompleted(), Eq(true));
+    br.readBytes<4>(res.b);
+    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
+    br.readBytes<2>(res.c);
+    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
+    EXPECT_THAT(br.isCompletedSuccessfully(), Eq(false));
+    br.readBytes<1>(res.d);
+    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
+    EXPECT_THAT(br.isCompletedSuccessfully(), Eq(true));
+    br.readBytes<1>(res.d);
+    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));
+    EXPECT_THAT(br.isCompletedSuccessfully(), Eq(false));
 
     BufferReader br1{bw.getWrittenRange()};
-    EXPECT_THAT(br1.readBytes<4>(res.b), Eq(true));
-    EXPECT_THAT(br1.readBytes<2>(res.c), Eq(true));
-    EXPECT_THAT(br1.isCompleted(), Eq(false));
-    EXPECT_THAT(br1.readBytes<2>(res.c), Eq(false));
-    EXPECT_THAT(br1.isCompleted(), Eq(false));
-    EXPECT_THAT(br1.readBytes<1>(res.d), Eq(true));
-    EXPECT_THAT(br1.isCompleted(), Eq(true));
-
+    br1.readBytes<4>(res.b);
+    EXPECT_THAT(br1.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
+    br1.readBytes<2>(res.c);
+    EXPECT_THAT(br1.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
+    EXPECT_THAT(br1.isCompletedSuccessfully(), Eq(false));
+    br1.readBytes<2>(res.c);
+    EXPECT_THAT(br1.getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));
+    EXPECT_THAT(br1.isCompletedSuccessfully(), Eq(false));
+    br1.readBytes<1>(res.d);
+    EXPECT_THAT(br1.getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));
+    EXPECT_THAT(br1.isCompletedSuccessfully(), Eq(false));
 }
 
+TEST(BufferReading, WhenReaderHasErrorsAllOperationsReadsReturnZero) {
+    //setup data
+    uint8_t a = 111;
+
+    //create and write to buffer
+    Buffer buf{};
+    BufferWriter bw{buf};
+
+    bw.writeBytes<1>(a);
+    bw.writeBytes<1>(a);
+    bw.writeBytes<1>(a);
+    bw.flush();
+    //read from buffer
+    BufferReader br{bw.getWrittenRange()};
+    int32_t c;
+    br.readBytes<4>(c);
+    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));
+
+    int16_t r1= {-645};
+    uint32_t r2[2] = {54898,87854};
+    uint8_t r3 = 0xFF;
+
+    br.readBytes<2>(r1);
+    br.readBuffer<4>(r2, 2);
+    br.readBits(r3, 7);
+    EXPECT_THAT(r1, Eq(0));
+    EXPECT_THAT(r2[0], Eq(0u));
+    EXPECT_THAT(r2[1], Eq(0u));
+    EXPECT_THAT(r3, Eq(0u));
+}

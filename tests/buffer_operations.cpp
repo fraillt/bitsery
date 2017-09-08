@@ -109,19 +109,24 @@ TEST(BufferBitsAndBytesOperations, BufferSizeIsCountedPerByteNotPerBit) {
     //read from buffer
     BufferReader br{range};
     uint16_t tmp;
-    EXPECT_THAT(br.readBits(tmp,4), Eq(true));
-    EXPECT_THAT(br.readBits(tmp,2), Eq(true));
-    EXPECT_THAT(br.readBits(tmp,2), Eq(true));
-    EXPECT_THAT(br.readBits(tmp,2), Eq(false));
+    br.readBits(tmp,4);
+    br.readBits(tmp,2);
+    br.readBits(tmp,2);
+    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
+    br.readBits(tmp,2);
+    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));//false
 
     //part of next byte
     BufferReader br1{range};
-    EXPECT_THAT(br1.readBits(tmp,2), Eq(true));
-    EXPECT_THAT(br1.readBits(tmp,7), Eq(false));
+    br1.readBits(tmp,2);
+    EXPECT_THAT(br1.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
+    br1.readBits(tmp,7);
+    EXPECT_THAT(br1.getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));//false
 
     //bigger than byte
     BufferReader br2{range};
-    EXPECT_THAT(br2.readBits(tmp,9), Eq(false));
+    br2.readBits(tmp,9);
+    EXPECT_THAT(br2.getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));//false
 }
 
 TEST(BufferBitsAndBytesOperations, ConsecutiveCallsToAlignHasNoEffect) {
@@ -141,18 +146,20 @@ TEST(BufferBitsAndBytesOperations, ConsecutiveCallsToAlignHasNoEffect) {
 
     unsigned char tmp;
     BufferReader br{bw.getWrittenRange()};
-    EXPECT_THAT(br.readBits(tmp,2), Eq(true));
+    br.readBits(tmp,2);
     EXPECT_THAT(tmp, Eq(3u));
-    EXPECT_THAT(br.align(), Eq(true));
-
-    EXPECT_THAT(br.readBits(tmp,3), Eq(true));
+    br.align();
+    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
+    br.readBits(tmp,3);
+    br.align();
+    br.align();
+    br.align();
     EXPECT_THAT(tmp, Eq(7u));
-    EXPECT_THAT(br.align(), Eq(true));
-    EXPECT_THAT(br.align(), Eq(true));
-    EXPECT_THAT(br.align(), Eq(true));
+    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
 
-    EXPECT_THAT(br.readBits(tmp,4), Eq(true));
+    br.readBits(tmp,4);
     EXPECT_THAT(tmp, Eq(15u));
+    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
 }
 
 TEST(BufferBitsAndBytesOperations, AlignWritesZerosBits) {
@@ -166,18 +173,20 @@ TEST(BufferBitsAndBytesOperations, AlignWritesZerosBits) {
     bw.writeBits(3u, 2);
     bw.align();
     bw.flush();
-
+    auto range = bw.getWrittenRange();
+    EXPECT_THAT(std::distance(range.begin(), range.end()), Eq(1));
     unsigned char tmp;
-    BufferReader br1{bw.getWrittenRange()};
+    BufferReader br1{range};
     br1.readBits(tmp,2);
     //read aligned bits
-    EXPECT_THAT(br1.readBits(tmp,6), Eq(true));
+    br1.readBits(tmp,6);
     EXPECT_THAT(tmp, Eq(0));
 
-    BufferReader br2{bw.getWrittenRange()};
+    BufferReader br2{range};
     //read 2 bits
     br2.readBits(tmp,2);
-    EXPECT_THAT(br2.align(), Eq(true));
+    br2.align();
+    EXPECT_THAT(br2.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
 }
 
 
@@ -219,12 +228,13 @@ TEST(BufferBitsAndBytesOperations, WriteAndReadBytes) {
     //read from buffer
     BufferReader br{range};
     IntegralTypes res{};
-    EXPECT_THAT(br.readBytes<4>(res.b), Eq(true));
-    EXPECT_THAT(br.readBytes<2>(res.c), Eq(true));
-    EXPECT_THAT(br.readBytes<1>(res.d), Eq(true));
-    EXPECT_THAT(br.readBytes<8>(res.a), Eq(true));
-    EXPECT_THAT(br.readBytes<1>(res.e), Eq(true));
-    EXPECT_THAT(br.readBuffer<1>(res.f, 2), Eq(true));
+    br.readBytes<4>(res.b);
+    br.readBytes<2>(res.c);
+    br.readBytes<1>(res.d);
+    br.readBytes<8>(res.a);
+    br.readBytes<1>(res.e);
+    br.readBuffer<1>(res.f, 2);
+    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
     //assert results
 
     EXPECT_THAT(data.a, Eq(res.a));
@@ -248,13 +258,9 @@ TEST(BufferBitsAndBytesOperations, ReadWriteBufferFncCanAcceptSignedData) {
     //read from buffer
     BufferReader br1{bw.getWrittenRange()};
     int16_t dst[DATA_SIZE]{};
-    EXPECT_THAT(br1.readBuffer<2>(dst, DATA_SIZE), Eq(true));
+    br1.readBuffer<2>(dst, DATA_SIZE);
+    EXPECT_THAT(br1.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
     EXPECT_THAT(dst, ContainerEq(src));
-
-    //read more than available
-    BufferReader br2{bw.getWrittenRange()};
-    int16_t dstMore[DATA_SIZE+1]{};
-    EXPECT_THAT(br2.readBuffer<2>(dstMore, DATA_SIZE+1), Eq(false));
 }
 
 TEST(BufferBitsAndBytesOperations, ReadWriteBufferCanWorkOnUnalignedData) {
@@ -277,16 +283,37 @@ TEST(BufferBitsAndBytesOperations, ReadWriteBufferCanWorkOnUnalignedData) {
     uint8_t tmp{};
     br1.readBits(tmp, 4);
     EXPECT_THAT(tmp, Eq(15));
-    EXPECT_THAT(br1.readBuffer<2>(dst, DATA_SIZE), Eq(true));
+    br1.readBuffer<2>(dst, DATA_SIZE);
+    EXPECT_THAT(br1.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
     EXPECT_THAT(dst, ContainerEq(src));
     br1.readBits(tmp, 4);
     EXPECT_THAT(tmp, Eq(12));
-
-    //read more than available
-    BufferReader br2{range};
-    br2.readBits(tmp, 4);
-    int16_t dstMore[DATA_SIZE+1]{};
-    EXPECT_THAT(tmp, Eq(15));
-    EXPECT_THAT(br2.readBuffer<2>(dstMore, DATA_SIZE+1), Eq(false));
 }
+
+TEST(BufferBitsAndBytesOperations, RegressionTestReadBytesAfterReadBitsWithLotsOfZeroBits) {
+    //setup data
+    int16_t data[2]{0x0000, 0x7FFF};
+    int16_t res[2]{};
+    //create and write to buffer
+    Buffer buf{};
+    BufferWriter bw{buf};
+    bw.writeBits(2u, 2);
+    bw.writeBytes<2>(data[0]);
+    bw.writeBytes<2>(data[1]);
+    bw.align();
+    bw.flush();
+    auto range = bw.getWrittenRange();
+
+    //read from buffer
+    BufferReader br{range};
+    uint8_t tmp{};
+    br.readBits(tmp, 2);
+    EXPECT_THAT(tmp, Eq(2));
+    br.readBytes<2>(res[0]);
+    br.readBytes<2>(res[1]);
+    br.align();
+    EXPECT_THAT(res[0], Eq(data[0]));
+    EXPECT_THAT(res[1], Eq(data[1]));
+}
+
 

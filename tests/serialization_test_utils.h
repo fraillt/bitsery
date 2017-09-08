@@ -21,8 +21,8 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_SERIALIZERTESTS_H
-#define BITSERY_SERIALIZERTESTS_H
+#ifndef BITSERY_SERIALIZER_TEST_UTILS_H
+#define BITSERY_SERIALIZER_TEST_UTILS_H
 
 #include <bitsery/bitsery.h>
 #include <memory>
@@ -82,10 +82,11 @@ SERIALIZE(MyStruct2) {
 
 
 class SerializationContext {
+public:
     bitsery::DefaultConfig::BufferType buf{};
     std::unique_ptr<bitsery::BufferWriter> bw;
     std::unique_ptr<bitsery::BufferReader> br;
-public:
+
     bitsery::Serializer<bitsery::BufferWriter> createSerializer() {
         bw = std::make_unique<bitsery::BufferWriter>(buf);
         return {*bw};
@@ -113,4 +114,4 @@ public:
     };
 };
 
-#endif //BITSERY_SERIALIZERTESTS_H
+#endif //BITSERY_SERIALIZER_TEST_UTILS_H

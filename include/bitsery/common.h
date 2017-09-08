@@ -27,8 +27,6 @@
 #include "details/buffer_common.h"
 #include <vector>
 
-#include <list>
-
 namespace bitsery {
 
     struct DefaultConfig {

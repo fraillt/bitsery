@@ -27,18 +27,23 @@
 
 #include "common.h"
 #include <algorithm>
+#include <cstring>
 
 namespace bitsery {
 
     template<typename Config>
     struct BasicBufferReader {
+
         using BufferType = typename Config::BufferType;
         using ValueType = typename BufferType::value_type;
-        using IteratorType = typename BufferType::iterator;
+        using BufferIteratorType = typename BufferType::iterator;
         using ScratchType = typename details::SCRATCH_TYPE<ValueType>::type;
 
-        BasicBufferReader(IteratorType begin, IteratorType end)
-                :_pos{begin}, _end{end} {
+        BasicBufferReader(ValueType* begin, ValueType* end)
+                :_pos{begin},
+                 _end{end},
+                 _session{*this, _pos, _end}
+        {
             static_assert(std::is_unsigned<ValueType>(), "Config::BufferValueType must be unsigned");
             static_assert(std::is_unsigned<ScratchType>(), "Config::BufferScrathType must be unsigned");
             static_assert(sizeof(ValueType) * 2 == sizeof(ScratchType),
@@ -46,8 +51,13 @@ namespace bitsery {
             static_assert(sizeof(ValueType) == 1, "currently only supported BufferValueType is 1 byte");
         }
 
-        BasicBufferReader(BufferRange<IteratorType> range)
-                :BasicBufferReader(range.begin(), range.end()) {}
+        BasicBufferReader(BufferRange<BufferIteratorType> range)
+                :BasicBufferReader(std::addressof(*range.begin()), std::addressof(*range.end())) {
+            static_assert(std::is_same<
+                                  typename std::iterator_traits<BufferIteratorType>::iterator_category,
+                                  std::random_access_iterator_tag>::value,
+            "BufferReader only accepts random access iterators");
+        }
 
         BasicBufferReader(const BasicBufferReader &) = delete;
 
@@ -61,82 +71,115 @@ namespace bitsery {
 
 
         template<size_t SIZE, typename T>
-        bool readBytes(T &v) {
+        void readBytes(T &v) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
             using UT = typename std::make_unsigned<T>::type;
-            return !m_scratch
-                   ? directRead(&v, 1)
-                   : readBits(reinterpret_cast<UT &>(v), details::BITS_SIZE<T>);
+            if (!m_scratchBits)
+                directRead(&v, 1);
+            else
+                readBits(reinterpret_cast<UT &>(v), details::BITS_SIZE<T>);
         }
 
         template<size_t SIZE, typename T>
-        bool readBuffer(T *buf, size_t count) {
+        void readBuffer(T *buf, size_t count) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
 
-            if (!m_scratchBits)
-                return directRead(buf, count);
-
-            using UT = typename std::make_unsigned<T>::type;
-            //todo improve implementation
-            const auto end = buf + count;
-            for (auto it = buf; it != end; ++it) {
-                if (!readBits(reinterpret_cast<UT &>(*it), details::BITS_SIZE<T>))
-                    return false;
+            if (!m_scratchBits) {
+                directRead(buf, count);
+            } else {
+                using UT = typename std::make_unsigned<T>::type;
+                //todo improve implementation
+                const auto end = buf + count;
+                for (auto it = buf; it != end; ++it)
+                    readBits(reinterpret_cast<UT &>(*it), details::BITS_SIZE<T>);
             }
-            return true;
         }
 
 
         template<typename T>
-        bool readBits(T &v, size_t bitsCount) {
+        void readBits(T &v, size_t bitsCount) {
             static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
-
-            const auto bytesRequired = bitsCount > m_scratchBits
-                                       ? ((bitsCount - 1 - m_scratchBits) >> 3) + 1u
-                                       : 0u;
-            if (static_cast<size_t>(std::distance(_pos, _end)) < bytesRequired)
-                return false;
             readBitsInternal(v, bitsCount);
-            return true;
         }
 
-        bool align() {
+        void align() {
             if (m_scratchBits) {
                 ScratchType tmp{};
                 readBitsInternal(tmp, m_scratchBits);
-                return tmp == 0;
+                if (tmp)
+                    setError(BufferReaderError::INVALID_BUFFER_DATA);
             }
-            return true;
         }
 
-        bool isCompleted() const {
-            return _pos == _end;
+        bool isCompletedSuccessfully() const {
+            return _pos == _end && !_session.hasActiveSessions();
+        }
+
+        BufferReaderError getError() const {
+            auto res = std::distance(_end, _pos);
+            if (res > 0) {
+                auto err = static_cast<BufferReaderError>(res);
+                if (_session.hasActiveSessions() && err == BufferReaderError::BUFFER_OVERFLOW)
+                    return BufferReaderError::NO_ERROR;
+                return err;
+            }
+            return BufferReaderError::NO_ERROR;
+        }
+
+        void setError(BufferReaderError error) {
+            _end = _pos;
+            //to avoid creating temporary for error state, mark an error by passing _pos after the _end
+            std::advance(_pos, static_cast<size_t>(error));
+        }
+
+        void beginSession() {
+            align();
+            if (getError() != BufferReaderError::INVALID_BUFFER_DATA) {
+                _session.begin();
+            }
+        }
+
+        void endSession() {
+            align();
+            if (getError() != BufferReaderError::INVALID_BUFFER_DATA) {
+                _session.end();
+            }
         }
 
     private:
-        IteratorType _pos;
-        IteratorType _end;
+        ValueType* _pos;
+        ValueType* _end;
+        details::BufferSessionsReader<BasicBufferReader<Config>, ValueType*> _session;
+        ScratchType m_scratch{};
+        size_t m_scratchBits{};                                    ///< Number of bits currently in the scratch buffer. If the user wants to read more bits than this, we have to go fetch another dword from memory.
 
         template<typename T>
-        bool directRead(T *v, size_t count) {
+        void directRead(T *v, size_t count) {
             static_assert(!std::is_const<T>::value, "");
             const auto bytesCount = sizeof(T) * count;
-            if (static_cast<size_t>(std::distance(_pos, _end)) < bytesCount)
-                return false;
-            //read from buffer, to data ptr,
-            std::copy_n(_pos, bytesCount, reinterpret_cast<ValueType *>(v));
-            std::advance(_pos, bytesCount);
-            //swap each byte if nessesarry
-            _swapDataBits(v, count, std::integral_constant<bool,
-                    Config::NetworkEndianness != details::getSystemEndianness()>{});
-            return true;
+
+            if (std::distance(_pos, _end) >= static_cast<typename BufferType::difference_type>(bytesCount)) {
+
+                std::memcpy(reinterpret_cast<ValueType *>(v), _pos, bytesCount);
+                _pos += bytesCount;
+
+                //swap each byte if nessesarry
+                _swapDataBits(v, count, std::integral_constant<bool,
+                        Config::NetworkEndianness != details::getSystemEndianness()>{});
+            } else {
+                //set everything to zeros
+                std::memset(v, 0, bytesCount);
+
+                if (getError() == BufferReaderError::NO_ERROR)
+                    setError(BufferReaderError::BUFFER_OVERFLOW);
+            }
         }
 
         template<typename T>
         void _swapDataBits(T *v, size_t count, std::true_type) {
-            std::for_each(v, std::next(v, count), [this](T &v) { v = details::swap(v); });
+            std::for_each(v, std::next(v, count), [this](T &x) { x = details::swap(x); });
         }
 
         template<typename T>
@@ -165,9 +208,6 @@ namespace bitsery {
             }
             v = res;
         }
-
-        ScratchType m_scratch{};
-        size_t m_scratchBits{};                                    ///< Number of bits currently in the scratch buffer. If the user wants to read more bits than this, we have to go fetch another dword from memory.
 
     };
     //helper type

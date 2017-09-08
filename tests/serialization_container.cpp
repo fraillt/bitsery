@@ -24,6 +24,7 @@
 
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
+#include <algorithm>
 #include <numeric>
 #include <deque>
 #include <list>
@@ -36,29 +37,29 @@ using testing::Eq;
  * overload to get container of types
  */
 
-template <typename Container>
+template<typename Container>
 Container getFilledContainer() {
-    return {1,2,3,4,5,78,456,8,54};
+    return {1, 2, 3, 4, 5, 78, 456, 8, 54};
 }
 
-template <>
+template<>
 std::vector<MyStruct1> getFilledContainer<std::vector<MyStruct1>>() {
     return {
-            {0,1},
-            {2,3},
-            {4,5},
-            {6,7},
-            {8,9},
-            {11,34},
-            {5134,1532}
+            {0,    1},
+            {2,    3},
+            {4,    5},
+            {6,    7},
+            {8,    9},
+            {11,   34},
+            {5134, 1532}
     };
 }
 
-template <>
+template<>
 std::list<MyStruct2> getFilledContainer<std::list<MyStruct2>>() {
     return {
-            {MyStruct2::V1, {0,1}} ,
-            {MyStruct2::V3, {-45,45}}
+            {MyStruct2::V1, {0,   1}},
+            {MyStruct2::V3, {-45, 45}}
     };
 }
 
@@ -66,16 +67,16 @@ std::list<MyStruct2> getFilledContainer<std::list<MyStruct2>>() {
  * start testing session
  */
 
-template <typename T>
-class SerializeContainerArthmeticTypes:public testing::Test {
+template<typename T>
+class SerializeContainerDynamicSizeArthmeticTypes : public testing::Test {
 public:
     using TContainer = T;
     using TValue = typename T::value_type;
 
-    const TContainer src= getFilledContainer<TContainer>() ;
+    const TContainer src = getFilledContainer<TContainer>();
     TContainer res{};
 
-    size_t getExpectedBufSize(const SerializationContext& ctx) const {
+    size_t getExpectedBufSize(const SerializationContext &ctx) const {
         return ctx.containerSizeSerializedBytesCount(src.size()) + src.size() * sizeof(TValue);
     }
 };
@@ -85,9 +86,9 @@ using SequenceContainersWithArthmeticTypes = ::testing::Types<
         std::list<float>,
         std::deque<unsigned short>>;
 
-TYPED_TEST_CASE(SerializeContainerArthmeticTypes, SequenceContainersWithArthmeticTypes);
+TYPED_TEST_CASE(SerializeContainerDynamicSizeArthmeticTypes, SequenceContainersWithArthmeticTypes);
 
-TYPED_TEST(SerializeContainerArthmeticTypes, Values) {
+TYPED_TEST(SerializeContainerDynamicSizeArthmeticTypes, Values) {
     SerializationContext ctx{};
     using TValue = typename TestFixture::TValue;
 
@@ -98,7 +99,7 @@ TYPED_TEST(SerializeContainerArthmeticTypes, Values) {
     EXPECT_THAT(this->res, ContainerEq(this->src));
 }
 
-TYPED_TEST(SerializeContainerArthmeticTypes, CustomFunctionIncrements) {
+TYPED_TEST(SerializeContainerDynamicSizeArthmeticTypes, CustomFunctionIncrements) {
     SerializationContext ctx{};
 
     auto ser = ctx.createSerializer();
@@ -108,13 +109,13 @@ TYPED_TEST(SerializeContainerArthmeticTypes, CustomFunctionIncrements) {
         s.template value<sizeof(v)>(v);
     });
     auto des = ctx.createDeserializer();
-    des.container(this->res, 1000, [](auto &s, auto&v ) {
+    des.container(this->res, 1000, [](auto &s, auto &v) {
         s.template value<sizeof(v)>(v);
         //increment by 1 after reading
         v++;
     });
     //decrement result by 2, before comparing for eq
-    for(auto& v:this->res)
+    for (auto &v:this->res)
         v -= 2;
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(this->getExpectedBufSize(ctx)));
@@ -122,29 +123,28 @@ TYPED_TEST(SerializeContainerArthmeticTypes, CustomFunctionIncrements) {
 }
 
 
-
-
-template <typename T>
-class SerializeContainerCompositeTypes:public testing::Test {
+template<typename T>
+class SerializeContainerDynamicSizeCompositeTypes : public testing::Test {
 public:
     using TContainer = T;
     using TValue = typename T::value_type;
 
-    const TContainer src= getFilledContainer<TContainer>();
+    const TContainer src = getFilledContainer<TContainer>();
     TContainer res{};
-    size_t getExpectedBufSize(const SerializationContext& ctx) const {
+
+    size_t getExpectedBufSize(const SerializationContext &ctx) const {
         return ctx.containerSizeSerializedBytesCount(src.size()) + src.size() * TValue::SIZE;
     }
 };
 
 
-using SequenceContainersWithCompositeTypes = ::testing::Types<
+using SerializeContainerDynamicSizeWithCompositeTypes = ::testing::Types<
         std::vector<MyStruct1>,
         std::list<MyStruct2>>;
 
-TYPED_TEST_CASE(SerializeContainerCompositeTypes, SequenceContainersWithCompositeTypes);
+TYPED_TEST_CASE(SerializeContainerDynamicSizeCompositeTypes, SerializeContainerDynamicSizeWithCompositeTypes);
 
-TYPED_TEST(SerializeContainerCompositeTypes, DefaultSerializeFunction) {
+TYPED_TEST(SerializeContainerDynamicSizeCompositeTypes, DefaultSerializeFunction) {
     SerializationContext ctx{};
 
     ctx.createSerializer().container(this->src, 1000);
@@ -155,15 +155,95 @@ TYPED_TEST(SerializeContainerCompositeTypes, DefaultSerializeFunction) {
 }
 
 
-TYPED_TEST(SerializeContainerCompositeTypes, CustomFunctionThatDoNothing) {
+TYPED_TEST(SerializeContainerDynamicSizeCompositeTypes, CustomFunctionThatDoNothing) {
     SerializationContext ctx{};
 
 
-    auto emptyFnc = [](auto& s, auto& v) {};
+    auto emptyFnc = [](auto &s, auto &v) {};
     ctx.createSerializer().container(this->src, 1000, emptyFnc);
     ctx.createDeserializer().container(this->res, 1000, emptyFnc);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(ctx.containerSizeSerializedBytesCount(this->src.size())));
 }
+
+template<typename T>
+class SerializeContainerFixedSizeArithmeticTypes : public testing::Test {
+public:
+    using TContainer = T;
+
+    size_t getContainerSize() {
+        T tmp{};
+        return static_cast<size_t>(std::distance(std::begin(tmp), std::end(tmp)));
+    }
+};
+
+using StaticContainersWithIntegralTypes = ::testing::Types<
+        std::array<int16_t, 4>,
+        int16_t[4]>;
+
+TYPED_TEST_CASE(SerializeContainerFixedSizeArithmeticTypes, StaticContainersWithIntegralTypes);
+
+TYPED_TEST(SerializeContainerFixedSizeArithmeticTypes, ArithmeticValues) {
+    using Container = typename TestFixture::TContainer;
+    Container src{5, 9, 15, -459};
+    Container res{};
+
+    SerializationContext ctx;
+    ctx.createSerializer().container<2>(src);
+    ctx.createDeserializer().container<2>(res);
+
+    EXPECT_THAT(ctx.getBufferSize(), Eq(this->getContainerSize() * 2));
+    EXPECT_THAT(res, ContainerEq(src));
+
+}
+
+
+template<typename T>
+class SerializeContainerFixedSizeCompositeTypes : public SerializeContainerFixedSizeArithmeticTypes<T> {
+
+};
+
+using StaticContainersWithCompositeTypes = ::testing::Types<
+        std::array<MyStruct1, 4>,
+        MyStruct1[4]>;
+
+TYPED_TEST_CASE(SerializeContainerFixedSizeCompositeTypes, StaticContainersWithCompositeTypes);
+
+TYPED_TEST(SerializeContainerFixedSizeCompositeTypes, DefaultSerializationFunction) {
+    using Container = typename TestFixture::TContainer;
+    Container src{MyStruct1{0, 1}, MyStruct1{8, 9}, MyStruct1{11, 34}, MyStruct1{5134, 1532}};
+    Container res{};
+
+    SerializationContext ctx;
+    ctx.createSerializer().container(src);
+    ctx.createDeserializer().container(res);
+
+    EXPECT_THAT(ctx.getBufferSize(), Eq(this->getContainerSize() * MyStruct1::SIZE));
+    EXPECT_THAT(res, ContainerEq(src));
+}
+
+TYPED_TEST(SerializeContainerFixedSizeCompositeTypes, CustomFunctionThatSerializesAnEmptyByteEveryElement) {
+    using Container = typename TestFixture::TContainer;
+    Container src{MyStruct1{0, 1}, MyStruct1{2, 3}, MyStruct1{4, 5}, MyStruct1{5134, 1532}};
+    Container res{};
+
+    SerializationContext ctx;
+    auto ser = ctx.createSerializer();
+    ser.container(src, [](auto &s, auto &v) {
+        char tmp{};
+        s.object(v);
+        s.value1b(tmp);
+    });
+    auto des = ctx.createDeserializer();
+    des.container(res, [](auto &s, auto &v) {
+        char tmp{};
+        s.object(v);
+        s.value1b(tmp);
+    });
+
+    EXPECT_THAT(ctx.getBufferSize(), Eq(this->getContainerSize() * (MyStruct1::SIZE + sizeof(char))));
+    EXPECT_THAT(res, ContainerEq(src));
+}
+
 
 

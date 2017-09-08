@@ -9,9 +9,9 @@ struct MyStruct {
 
 //define how object should be serialized/deserialized
 SERIALIZE(MyStruct) {
-    s.value4(o.i);
-    s.value2(o.e);
-    s.container4(o.fs, 10);
+    s.value4b(o.i);
+    s.value2b(o.e);
+    s.container4b(o.fs, 10);
 };
 
 using namespace bitsery;
