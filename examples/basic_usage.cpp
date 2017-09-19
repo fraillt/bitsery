@@ -8,7 +8,8 @@ struct MyStruct {
 };
 
 //define how object should be serialized/deserialized
-SERIALIZE(MyStruct) {
+template <typename S>
+void serialize(S& s, MyStruct& o) {
     s.value4b(o.i);
     s.value2b(o.e);
     s.container4b(o.fs, 10);
@@ -27,7 +28,7 @@ int main() {
     //2) create buffer writer that is able to write bytes or bits to buffer
     BufferWriter bw{buffer};
     //3) create serializer
-    Serializer<BufferWriter> ser{bw};
+    Serializer ser{bw};
 
     //serialize object, can also be invoked like this: serialize(ser, data)
     ser.object(data);
@@ -39,7 +40,7 @@ int main() {
     //1) create buffer reader
     BufferReader br{bw.getWrittenRange()};
     //2) create deserializer
-    Deserializer<BufferReader> des{br};
+    Deserializer des{br};
 
     //deserialize same object, can also be invoked like this: serialize(des, data)
     des.object(res);

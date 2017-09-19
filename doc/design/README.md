@@ -1,6 +1,7 @@
 ## Motivation
 
 Inspiration to create **bitsery** came mainly because there aren't any good alternatives for C++.
+I wanted serializer that is easy to use like [cereal](http://uscilab.github.io/cereal/)
 Most well-known serialization libraries are *too fat* and tries to solve too many things by supporting multiple data formats (binary, json, xml) and multiple languages (C++, C#, Javascript, etc..) while in the process becomes hard to use, are memory or/and speed inefficient.
 
 The best alternative that I was able to find is [flatbuffers](https://google.github.io/flatbuffers/).

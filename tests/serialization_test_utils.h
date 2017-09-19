@@ -33,7 +33,7 @@
  */
 
 struct MyStruct1 {
-    MyStruct1(int v1, int v2) : i1{v1}, i2{v2} {}
+    MyStruct1(int32_t v1, int32_t v2) : i1{v1}, i2{v2} {}
 
     MyStruct1() : MyStruct1{0, 0} {}
 
@@ -47,12 +47,13 @@ struct MyStruct1 {
     static constexpr size_t SIZE = sizeof(MyStruct1::i1) + sizeof(MyStruct1::i2);
 };
 
-SERIALIZE(MyStruct1) {
+template <typename S>
+void serialize(S& s, MyStruct1& o) {
     s.template value<sizeof(o.i1)>(o.i1);
     s.template value<sizeof(o.i2)>(o.i2);
 }
 
-enum class MyEnumClass {
+enum class MyEnumClass:int32_t {
     E1, E2, E3, E4, E5, E6
 };
 
@@ -75,7 +76,8 @@ struct MyStruct2 {
     static constexpr size_t SIZE = MyStruct1::SIZE + sizeof(MyStruct2::e1);
 };
 
-SERIALIZE(MyStruct2) {
+template <typename S>
+void serialize(S&s, MyStruct2& o) {
     s.template value<sizeof(o.e1)>(o.e1);
     s.object(o.s1);
 }
@@ -87,9 +89,10 @@ public:
     std::unique_ptr<bitsery::BufferWriter> bw;
     std::unique_ptr<bitsery::BufferReader> br;
 
-    bitsery::Serializer<bitsery::BufferWriter> createSerializer() {
-        bw = std::make_unique<bitsery::BufferWriter>(buf);
-        return {*bw};
+    bitsery::Serializer createSerializer() {
+        //make_unique is not in c++11
+        bw = std::unique_ptr<bitsery::BufferWriter>(new bitsery::BufferWriter(buf));
+        return bitsery::Serializer{*bw};
     };
 
     size_t getBufferSize() const {
@@ -107,10 +110,11 @@ public:
         return 4;
     }
 
-    bitsery::Deserializer<bitsery::BufferReader> createDeserializer() {
+    bitsery::Deserializer createDeserializer() {
         bw->flush();
-        br = std::make_unique<bitsery::BufferReader>(bw->getWrittenRange());
-        return {*br};
+        //make_unique is not in c++11
+        br = std::unique_ptr<bitsery::BufferReader>(new bitsery::BufferReader(bw->getWrittenRange()));
+        return bitsery::Deserializer{*br};
     };
 };
 

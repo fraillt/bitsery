@@ -101,16 +101,16 @@ TEST(SerializeEntropyEncoding, CustomFunctionNotEntropyEncoded) {
     auto ser = ctx.createSerializer();
 
     //lambdas differ only in capture clauses, it would make sense to use std::bind, but debugger crashes when it sees std::bind...
-    auto serLambda = [rangeForValue](auto& s, const MyStruct1& v) {
-        s.range(v.i1, rangeForValue);
-        s.range(v.i2, rangeForValue);
+    auto serLambda = [&ser, rangeForValue](MyStruct1& v) {
+        ser.range(v.i1, rangeForValue);
+        ser.range(v.i2, rangeForValue);
     };
     ser.entropy(v, entropyValues, serLambda);
 
     auto des = ctx.createDeserializer();
-    auto desLambda = [rangeForValue](auto& s, MyStruct1& v) {
-        s.range(v.i1, rangeForValue);
-        s.range(v.i2, rangeForValue);
+    auto desLambda = [&des, rangeForValue](MyStruct1& v) {
+        des.range(v.i1, rangeForValue);
+        des.range(v.i2, rangeForValue);
     };
     des.entropy(res, entropyValues, desLambda);
 
@@ -127,8 +127,8 @@ TEST(SerializeEntropyEncoding, WhenEntropyEncodedThenCustomFunctionNotInvoked) {
             MyStruct1{4849,89}, MyStruct1{0,1}};
 
     SerializationContext ctx;
-    ctx.createSerializer().entropy(v, entropyValues, [](bitsery::Serializer<bitsery::BufferWriter>& ,const MyStruct1& ) {});
-    ctx.createDeserializer().entropy(res, entropyValues, [](bitsery::Deserializer<bitsery::BufferReader>&, MyStruct1& ) {});
+    ctx.createSerializer().entropy(v, entropyValues, [](MyStruct1& ) {});
+    ctx.createDeserializer().entropy(res, entropyValues, []( MyStruct1& ) {});
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));

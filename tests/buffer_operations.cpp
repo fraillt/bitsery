@@ -47,6 +47,31 @@ constexpr size_t getBits(T v) {
 
 // *** bits operations
 
+TEST(BufferBitsAndBytesOperations, WriteAndReadBitsMaxTypeValues) {
+    Buffer buf;
+    BufferWriter bw{buf};
+    bw.writeBits(std::numeric_limits<uint64_t>::max(), 64);
+    bw.writeBits(std::numeric_limits<uint32_t>::max(), 32);
+    bw.writeBits(std::numeric_limits<uint16_t>::max(), 16);
+    bw.writeBits(std::numeric_limits<uint8_t>::max(), 8);
+    bw.flush();
+
+    BufferReader br{bw.getWrittenRange()};
+    uint64_t v64{};
+    uint32_t v32{};
+    uint16_t v16{};
+    uint8_t v8{};
+    br.readBits(v64, 64);
+    br.readBits(v32, 32);
+    br.readBits(v16, 16);
+    br.readBits(v8, 8);
+
+    EXPECT_THAT(v64, Eq(std::numeric_limits<uint64_t>::max()));
+    EXPECT_THAT(v32, Eq(std::numeric_limits<uint32_t>::max()));
+    EXPECT_THAT(v16, Eq(std::numeric_limits<uint16_t>::max()));
+    EXPECT_THAT(v8, Eq(std::numeric_limits<uint8_t>::max()));
+}
+
 TEST(BufferBitsAndBytesOperations, WriteAndReadBits) {
     //setup data
     constexpr IntegralUnsignedTypes data{

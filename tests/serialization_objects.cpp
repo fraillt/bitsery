@@ -49,26 +49,29 @@ struct Y {
 struct Z { X x{}; Y y{}; };
 
 
-SERIALIZE(Z)
+template <typename S>
+void serialize(S& s, Z& o)
 {
 	s.object(o.x);
 	s.object(o.y);
 }
 
-SERIALIZE(X)
+template <typename S>
+void serialize(S& s, X& o)
 {
 	s.template value<sizeof(o.x)>(o.x);
 	s.template text<1>(o.s, 1000);
 }
 
-SERIALIZE(Y)
+template <typename S>
+void serialize(S& s, Y& o)
 {
-	auto writeInt = [](auto& s, auto& v) { s.template value<sizeof(v)>(v); };
+	auto writeInt = [&s]( int& v) { s.template value<sizeof(v)>(v); };
 	s.template text<1>(o.s, 10000);
 	s.template value<sizeof(o.y)>(o.y);
 	s.container(o.arr, writeInt);
 	s.container(o.carr, writeInt);
-	s.container(o.vx, 10000, [](auto& s, auto& v) { s.object(v); });
+	s.container(o.vx, 10000, [&s](X& v) { s.object(v); });
 }
 
 

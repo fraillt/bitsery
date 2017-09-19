@@ -32,10 +32,10 @@
 namespace bitsery {
 
 
-    template<typename Reader>
-    class Deserializer {
+    template<typename Config>
+    class BasicDeserializer {
     public:
-        Deserializer(Reader &r, void* context = nullptr) : _reader{r}, _context{context} {};
+        explicit BasicDeserializer(BasicBufferReader<Config> &r, void* context = nullptr) : _reader{r}, _context{context} {};
 
         /*
          * get serialization context.
@@ -51,12 +51,12 @@ namespace bitsery {
 
         template<typename T>
         void object(T &&obj) {
-            details::SerializeFunction<Deserializer, T>::invoke(*this, std::forward<T>(obj));
+            details::SerializeFunction<BasicDeserializer, T>::invoke(*this, std::forward<T>(obj));
         }
 
         template<typename T, typename Fnc>
         void object(T &&obj, Fnc &&fnc) {
-            fnc(*this, std::forward<T>(obj));
+            fnc(std::forward<T>(obj));
         };
 
         /*
@@ -71,7 +71,7 @@ namespace bitsery {
 
         template<size_t VSIZE, typename T, typename std::enable_if<std::is_enum<T>::value>::type * = nullptr>
         void value(T &v) {
-            using UT = std::underlying_type_t<T>;
+            using UT = typename std::underlying_type<T>::type;
             _reader.template readBytes<VSIZE>(reinterpret_cast<UT &>(v));
         }
 
@@ -87,7 +87,7 @@ namespace bitsery {
         template <typename T, typename Fnc>
         void growable(T&& obj, Fnc&& fnc) {
             _reader.beginSession();
-            fnc(*this, std::forward<T>(obj));
+            fnc(std::forward<T>(obj));
             _reader.endSession();
         };
 
@@ -102,12 +102,16 @@ namespace bitsery {
 
         template<size_t VSIZE, typename T, typename Ext>
         void extend(T &obj, Ext &&ext) {
-            ext.deserialize(*this, _reader, obj, [](auto &s, auto &v) { s.template value<VSIZE>(v); });
+            static_assert(details::HasTValue<details::ExtensionTraits<Ext, T>>::value,
+                          "this extension only supports overload with lambda");
+            ext.deserialize(*this, _reader, obj, [this](typename details::ExtensionTraits<Ext, T>::TValue &v) { value<VSIZE>(v); });
         };
 
         template<typename T, typename Ext>
         void extend(T &obj, Ext &&ext) {
-            ext.deserialize(*this, _reader, obj, [](auto &s, auto &v) { s.object(v); });
+            static_assert(details::HasTValue<details::ExtensionTraits<Ext, T>>::value,
+                          "this extension only supports overload with lambda");
+            ext.deserialize(*this, _reader, obj, [this](typename details::ExtensionTraits<Ext, T>::TValue &v) { object(v); });
         };
 
         /*
@@ -146,13 +150,13 @@ namespace bitsery {
          * entropy overloads
          */
         template<typename T, size_t N, typename Fnc>
-        void entropy(T &v, const T (&expectedValues)[N], Fnc &&fnc) {
+        void entropy(T &obj, const T (&expectedValues)[N], Fnc &&fnc) {
             size_t index;
             range(index, {{}, N + 1});
             if (index)
-                v = expectedValues[index - 1];
+                obj = expectedValues[index - 1];
             else
-                fnc(*this, v);
+                fnc(obj);
         };
 
         template<size_t VSIZE, typename T, size_t N>
@@ -166,13 +170,13 @@ namespace bitsery {
         };
 
         template<typename T, size_t N>
-        void entropy(T &v, const T (&expectedValues)[N]) {
+        void entropy(T &obj, const T (&expectedValues)[N]) {
             size_t index;
             range(index, {{}, N + 1});
             if (index)
-                v = expectedValues[index - 1];
+                obj = expectedValues[index - 1];
             else
-                object(v);
+                object(obj);
         };
 
         /*
@@ -181,10 +185,32 @@ namespace bitsery {
 
         template<size_t VSIZE, typename T>
         void text(T &str, size_t maxSize) {
+            static_assert(details::TextTraits<T>::isResizable,
+                          "use text(T&) overload without `maxSize` for static containers");
             size_t size;
             readSize(size, maxSize);
-            str.resize(size);
+            details::TextTraits<T>::resize(str, size);
+            auto begin = std::begin(str);
+            auto end = std::next(begin, size);
+            procContainer<VSIZE>(begin, end, std::true_type{});
+            //null terminated character at the end
+            *end = {};
+        }
+
+        template<size_t VSIZE, typename T>
+        void text(T &str) {
+            static_assert(!details::TextTraits<T>::isResizable,
+                          "use text(T&, size_t) overload with `maxSize` for dynamic containers");
+            size_t size;
+            auto begin = std::begin(str);
+            auto containerEnd = std::end(str);
+            assert(begin != containerEnd);
+            readSize(size, static_cast<size_t>(std::distance(begin, containerEnd) - 1));
+            //end of string, not en
+            auto end = std::next(begin, size);
             procContainer<VSIZE>(std::begin(str), std::end(str), std::true_type{});
+            //null terminated character at the end
+            *end = {};
         }
 
         template<size_t VSIZE, typename T, size_t N>
@@ -205,45 +231,45 @@ namespace bitsery {
 
         template<typename T, typename Fnc>
         void container(T &&obj, size_t maxSize, Fnc &&fnc) {
-            static_assert(details::IsResizable<T>::value,
-                          "use container(const T&) overload without `maxSize` for static containers");
-            decltype(obj.size()) size{};
+            static_assert(details::ContainerTraits<T>::isResizable,
+                          "use container(T&) overload without `maxSize` for static containers");
+            size_t size{};
             readSize(size, maxSize);
-            obj.resize(size);
+            details::ContainerTraits<T>::resize(obj, size);
             procContainer(std::begin(obj), std::end(obj), std::forward<Fnc>(fnc));
         }
 
         template<size_t VSIZE, typename T>
         void container(T &obj, size_t maxSize) {
-            static_assert(details::IsResizable<T>::value,
-                          "use container(const T&) overload without `maxSize` for static containers");
-            decltype(obj.size()) size{};
+            static_assert(details::ContainerTraits<T>::isResizable,
+                          "use container(T&) overload without `maxSize` for static containers");
+            size_t size{};
             readSize(size, maxSize);
-            obj.resize(size);
+            details::ContainerTraits<T>::resize(obj, size);
             procContainer<VSIZE>(std::begin(obj), std::end(obj), std::false_type{});
         }
 
         template<typename T>
         void container(T &obj, size_t maxSize) {
-            static_assert(details::IsResizable<T>::value,
-                          "use container(const T&) overload without `maxSize` for static containers");
-            decltype(obj.size()) size{};
+            static_assert(details::ContainerTraits<T>::isResizable,
+                          "use container(T&) overload without `maxSize` for static containers");
+            size_t size{};
             readSize(size, maxSize);
-            obj.resize(size);
+            details::ContainerTraits<T>::resize(obj, size);
             procContainer(std::begin(obj), std::end(obj));
         }
         //fixed size containers
 
         template<typename T, typename Fnc, typename std::enable_if<!std::is_integral<Fnc>::value>::type * = nullptr>
         void container(T &&obj, Fnc &&fnc) {
-            static_assert(!details::IsResizable<T>::value,
+            static_assert(!details::ContainerTraits<T>::isResizable,
                           "use container(T&, size_t, Fnc) overload with `maxSize` for dynamic containers");
             procContainer(std::begin(obj), std::end(obj), std::forward<Fnc>(fnc));
         }
 
         template<size_t VSIZE, typename T>
         void container(T &obj) {
-            static_assert(!details::IsResizable<T>::value,
+            static_assert(!details::ContainerTraits<T>::isResizable,
                           "use container(T&, size_t) overload with `maxSize` for dynamic containers");
             static_assert(VSIZE > 0);
             procContainer<VSIZE>(std::begin(obj), std::end(obj), std::false_type{});
@@ -251,7 +277,7 @@ namespace bitsery {
 
         template<typename T>
         void container(T &obj) {
-            static_assert(!details::IsResizable<T>::value,
+            static_assert(!details::ContainerTraits<T>::isResizable,
                           "use container(T&, size_t) overload with `maxSize` for dynamic containers");
             procContainer(std::begin(obj), std::end(obj));
         }
@@ -304,16 +330,16 @@ namespace bitsery {
         void extend8b(T &v, Ext &&ext) { extend<8>(v, std::forward<Ext>(ext)); };
 
         template<typename T, size_t N>
-        void entropy1b(T &v, const T (&expectedValues)[N]) { entropy<1>(v, expectedValues); };
+        void entropy1b(T &v, const T (&expectedValues)[N]) { entropy<1, T, N>(v, expectedValues); };
 
         template<typename T, size_t N>
-        void entropy2b(T &v, const T (&expectedValues)[N]) { entropy<2>(v, expectedValues); };
+        void entropy2b(T &v, const T (&expectedValues)[N]) { entropy<2, T, N>(v, expectedValues); };
 
         template<typename T, size_t N>
-        void entropy4b(T &v, const T (&expectedValues)[N]) { entropy<4>(v, expectedValues); };
+        void entropy4b(T &v, const T (&expectedValues)[N]) { entropy<4, T, N>(v, expectedValues); };
 
         template<typename T, size_t N>
-        void entropy8b(T &v, const T (&expectedValues)[N]) { entropy<8>(v, expectedValues); };
+        void entropy8b(T &v, const T (&expectedValues)[N]) { entropy<8, T, N>(v, expectedValues); };
 
         template<typename T>
         void text1b(T &str, size_t maxSize) { text<1>(str, maxSize); }
@@ -371,7 +397,7 @@ namespace bitsery {
         void container8b(T (&arr)[N]) { container<8>(arr); }
 
     private:
-        Reader &_reader;
+        BasicBufferReader<Config> &_reader;
         void* _context;
 
         void readSize(size_t &size, size_t maxSize) {
@@ -402,7 +428,7 @@ namespace bitsery {
         template<typename It, typename Fnc>
         void procContainer(It first, It last, Fnc fnc) {
             for (; first != last; ++first)
-                fnc(*this, *first);
+                fnc(*first);
         };
 
         //process object types
@@ -414,6 +440,8 @@ namespace bitsery {
 
     };
 
+    //helper type
+    using Deserializer = BasicDeserializer<DefaultConfig>;
 
 }
 

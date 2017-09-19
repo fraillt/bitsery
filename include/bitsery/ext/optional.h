@@ -32,6 +32,8 @@
 //    template <typename T>
 //    using optional = experimental::optional<T>;
 //}
+#include <type_traits>
+
 namespace bitsery {
     namespace ext {
 
@@ -40,6 +42,7 @@ namespace bitsery {
 
         class optional {
         public:
+
             template<typename T>
             constexpr void assertType() const {
                 using TOpt = typename std::remove_cv<T>::type;
@@ -53,7 +56,7 @@ namespace bitsery {
                 assertType<T>();
                 ser.boolByte(static_cast<bool>(obj));
                 if (obj)
-                    fnc(ser, *obj);
+                    fnc(const_cast<typename T::value_type& >(*obj));
             }
 
             template<typename Des, typename Reader, typename T, typename Fnc>
@@ -63,7 +66,7 @@ namespace bitsery {
                 des.boolByte(exists);
                 if (exists) {
                     typename T::value_type tmp{};
-                    fnc(des, tmp);
+                    fnc(tmp);
                     obj = tmp;
                 } else {
                     //experimental optional doesnt have .reset method
@@ -71,8 +74,15 @@ namespace bitsery {
                 }
             }
         };
-
     }
+
+    namespace details {
+        template <typename T>
+        struct ExtensionTraits<ext::optional, T> {
+            using TValue = typename T::value_type;
+        };
+    }
+
 }
 
 

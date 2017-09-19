@@ -108,17 +108,11 @@ TEST(SerializeText, CArraySerializesTextLength) {
     EXPECT_THAT(r1, ContainerEq(t1));
 }
 
-TEST(SerializeText, WhenCArrayNotNullterminatedThenMakeItNullterminated) {
+TEST(SerializeText, WhenCArrayNotNullterminatedThenAssert) {
     SerializationContext ctx;
     char16_t t1[CARR_LENGTH]{u"some text"};
     //make last character not nullterminated
     t1[CARR_LENGTH-1] = 'x';
-    char16_t r1[CARR_LENGTH]{};
 
-    ctx.createSerializer().text<2>(t1);
-    ctx.createDeserializer().text<2>(r1);
-
-    EXPECT_THAT(ctx.getBufferSize(), Eq(ctx.containerSizeSerializedBytesCount(CARR_LENGTH) +
-                                                (CARR_LENGTH - 1) * 2));
-    EXPECT_THAT(r1[CARR_LENGTH-1], Eq(0));
+    EXPECT_DEATH(ctx.createSerializer().text<2>(t1), "");
 }

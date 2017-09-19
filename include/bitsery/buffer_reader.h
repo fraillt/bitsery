@@ -35,8 +35,8 @@ namespace bitsery {
     struct BasicBufferReader {
 
         using BufferType = typename Config::BufferType;
-        using ValueType = typename BufferType::value_type;
-        using BufferIteratorType = typename BufferType::iterator;
+        using ValueType = typename details::BufferContainerTraits<BufferType>::TValue;
+        using BufferIteratorType = typename details::BufferContainerTraits<BufferType>::TIterator;
         using ScratchType = typename details::SCRATCH_TYPE<ValueType>::type;
 
         BasicBufferReader(ValueType* begin, ValueType* end)
@@ -78,7 +78,7 @@ namespace bitsery {
             if (!m_scratchBits)
                 directRead(&v, 1);
             else
-                readBits(reinterpret_cast<UT &>(v), details::BITS_SIZE<T>);
+                readBits(reinterpret_cast<UT &>(v), details::BITS_SIZE<T>::value);
         }
 
         template<size_t SIZE, typename T>
@@ -93,7 +93,7 @@ namespace bitsery {
                 //todo improve implementation
                 const auto end = buf + count;
                 for (auto it = buf; it != end; ++it)
-                    readBits(reinterpret_cast<UT &>(*it), details::BITS_SIZE<T>);
+                    readBits(reinterpret_cast<UT &>(*it), details::BITS_SIZE<T>::value);
             }
         }
 
@@ -160,7 +160,7 @@ namespace bitsery {
             static_assert(!std::is_const<T>::value, "");
             const auto bytesCount = sizeof(T) * count;
 
-            if (std::distance(_pos, _end) >= static_cast<typename BufferType::difference_type>(bytesCount)) {
+            if (std::distance(_pos, _end) >= static_cast<typename details::BufferContainerTraits<BufferType>::TDifference>(bytesCount)) {
 
                 std::memcpy(reinterpret_cast<ValueType *>(v), _pos, bytesCount);
                 _pos += bytesCount;
@@ -192,12 +192,12 @@ namespace bitsery {
             auto bitsLeft = size;
             T res{};
             while (bitsLeft > 0) {
-                auto bits = std::min(bitsLeft, details::BITS_SIZE<ValueType>);
+                auto bits = std::min(bitsLeft, details::BITS_SIZE<ValueType>::value);
                 if (m_scratchBits < bits) {
                     ValueType tmp;
                     directRead(&tmp, 1);
                     m_scratch |= static_cast<ScratchType>(tmp) << m_scratchBits;
-                    m_scratchBits += details::BITS_SIZE<ValueType>;
+                    m_scratchBits += details::BITS_SIZE<ValueType>::value;
                 }
                 auto shiftedRes =
                         static_cast<T>(m_scratch & ((static_cast<ScratchType>(1) << bits) - 1)) << (size - bitsLeft);

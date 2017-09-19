@@ -37,13 +37,13 @@ namespace bitsery {
         void writeBytes(const T &) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
-            _bitsCount += details::BITS_SIZE<T>;
+            _bitsCount += details::BITS_SIZE<T>::value;
         }
 
         template<typename T>
         void writeBits(const T &, size_t bitsCount) {
             static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
-            assert(bitsCount <= details::BITS_SIZE<T>);
+            assert(bitsCount <= details::BITS_SIZE<T>::value);
             _bitsCount += bitsCount;
         }
 
@@ -51,7 +51,7 @@ namespace bitsery {
         void writeBuffer(const T *, size_t count) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
-            _bitsCount += details::BITS_SIZE<T> * count;
+            _bitsCount += details::BITS_SIZE<T>::value * count;
         }
 
         void align() {
@@ -95,15 +95,14 @@ namespace bitsery {
     template<typename Config>
     struct BasicBufferWriter {
         using BufferType = typename Config::BufferType;
-        using ValueType = typename BufferType::value_type;
+        using ValueType = typename details::BufferContainerTraits<BufferType>::TValue;
         using ScratchType = typename details::SCRATCH_TYPE<ValueType>::type;
-        using BufferContext = details::WriteBufferContext<BufferType, Config::FixedBufferSize>;
+        using BufferContext = details::WriteBufferContext<BufferType, details::BufferContainerTraits<BufferType>::isResizable>;
 
         explicit BasicBufferWriter(BufferType &buffer)
                 : _bufferContext{buffer}
         {
-            static_assert(std::is_unsigned<ValueType>(), "Config::BufferType::value_type must be unsigned");
-            static_assert(std::is_unsigned<ScratchType>(), "Config::BufferScrathType must be unsigned");
+            static_assert(std::is_unsigned<ValueType>(), "Config::BufferType value type must be unsigned");
             static_assert(sizeof(ValueType) * 2 == sizeof(ScratchType),
                           "ScratchType must be 2x bigger than value type");
             static_assert(sizeof(ValueType) == 1, "currently only supported BufferValueType is 1 byte");
@@ -128,7 +127,7 @@ namespace bitsery {
                 directWrite(&v, 1);
             } else {
                 using UT = typename std::make_unsigned<T>::type;
-                writeBits(reinterpret_cast<const UT &>(v), details::BITS_SIZE<T>);
+                writeBits(reinterpret_cast<const UT &>(v), details::BITS_SIZE<T>::value);
             }
         }
 
@@ -143,20 +142,22 @@ namespace bitsery {
                 //todo improve implementation
                 const auto end = buf + count;
                 for (auto it = buf; it != end; ++it)
-                    writeBits(reinterpret_cast<const UT &>(*it), details::BITS_SIZE<T>);
+                    writeBits(reinterpret_cast<const UT &>(*it), details::BITS_SIZE<T>::value);
             }
         }
 
         template<typename T>
         void writeBits(const T &v, size_t bitsCount) {
             static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
-            assert(0 < bitsCount && bitsCount <= details::BITS_SIZE<T>);
-            assert(v <= ((1ULL << bitsCount) - 1));
+            assert(0 < bitsCount && bitsCount <= details::BITS_SIZE<T>::value);
+            assert(v <= (bitsCount < 64
+                         ? (1ULL << bitsCount) - 1
+                         : (1ULL << (bitsCount-1)) + ((1ULL << (bitsCount-1)) -1)));
             writeBitsInternal(v, bitsCount);
         }
 
         void align() {
-            writeBitsInternal(ValueType{}, (details::BITS_SIZE<ValueType> - _scratchBits) % 8);
+            writeBitsInternal(ValueType{}, (details::BITS_SIZE<ValueType>::value - _scratchBits) % 8);
         }
 
         void flush() {
@@ -164,7 +165,7 @@ namespace bitsery {
             _session.flushSessions(*this);
         }
 
-        BufferRange<typename BufferType::iterator> getWrittenRange() const {
+        BufferRange<typename details::BufferContainerTraits<BufferType>::TIterator> getWrittenRange() const {
             return _bufferContext.getWrittenRange();
         }
 
@@ -202,7 +203,7 @@ namespace bitsery {
 
         template<typename T>
         void writeBitsInternal(const T &v, size_t size) {
-            constexpr size_t valueSize = details::BITS_SIZE<ValueType>;
+            constexpr size_t valueSize = details::BITS_SIZE<ValueType>::value;
             auto value = v;
             auto bitsLeft = size;
             while (bitsLeft > 0) {
@@ -226,11 +227,11 @@ namespace bitsery {
             if (size > 0) {
                 _scratch |= static_cast<ScratchType>( v ) << _scratchBits;
                 _scratchBits += size;
-                if (_scratchBits >= details::BITS_SIZE<ValueType>) {
+                if (_scratchBits >= details::BITS_SIZE<ValueType>::value) {
                     auto tmp = static_cast<ValueType>(_scratch & _MASK);
                     directWrite(&tmp, 1);
-                    _scratch >>= details::BITS_SIZE<ValueType>;
-                    _scratchBits -= details::BITS_SIZE<ValueType>;
+                    _scratch >>= details::BITS_SIZE<ValueType>::value;
+                    _scratchBits -= details::BITS_SIZE<ValueType>::value;
                 }
             }
         }

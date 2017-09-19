@@ -2,19 +2,23 @@
 
 ### Features
 
+* now works with C++11 compiler.
 * new function **growable**, that allows to have forward/backward compatability within this functions serialization flow. It only allows to append new data at the end of to existing flow without breaking old consumers.
   * old consumer: correctly read old interfce and ignore new data.
   * new consumer: get defaults (zero values) for new fields, when reading old data.
-* new **SERIALIZE_FRIEND** macro that enables to serialize private object fields.
+* added new extension for associative *map* containers **containerMap**.
 * friendly static_assert message when serializing **object**, that doesn't have **serialize** function defined.
 * added **object** overload, that invokes user function/lambda with object. It is the same as calling user function directly, but makes more consistent API.
 * Serializer/Deserializer now have optional *context* parameter, that might be required in some specific serialization cases.
-* improved serialization performance: added support for fixed size buffer for best performance.
+* added traits for custom types specialization, in *details/traits.h*
+* improved serialization performance: added support for fixed size buffer for BufferWriter for best performance.
 * improved performance for reading/writing container sizes.
 * added new method to BufferReader **getError** which returns on of three values: NO_ERROR, BUFFER_OVERFLOW, INVALID_BUFFER_DATA, also added setError method, that is only used by Deserializer.
 
+
 ### Breaking changes
 
+* removed **SERIALIZE** macro, and changed interface for all functions that use custom lambdas, to work with C++11. Now lambda function must capture serializer/deserializer.
 * container and text sizes representation changed, to allow much faster size reads/writes for small values.
 * renamed functions:
   * **ext** to **extend** and changed its interface, to make it more easy to extend.
@@ -23,7 +27,7 @@
 * now all serializer/deserializer functions return void, to avoid undefined behaviour for functions parameters evaluation when using method chaining. There was no benefits apart from *nicer* syntax, but could have undefined behaviour when building complex serialization flows.
 * removed **array** and added fixed sizes overloads for **container**.
 * changed BufferWriter/Reader behaviour:
-  * added *FixedBufferSize* config bool parameter for *BufferWriter* for better serializer performance (more than 50% improvement). Default config is resizable buffer (*std::vector<uint8_t>*).
+  * added support for fixed size buffers for better serializer performance (more than 50% improvement). Default config is resizable buffer (*std::vector<uint8_t>*).
   * after serialization, call *getWrittenRange* to get valid range written to buffer, because BufferWritter for resizable buffer now always resize to *capacity* to avoid using *back_insert_iterator* for better performance.
   * BufferReader has constructor with iterators (range), and raw value type pointers (begin, end).
 * removed **isValid** method from Deserializer, only BufferReader/Writer store states.
@@ -32,8 +36,7 @@
 ### Bug fixes
 
 * **readBytes** was reading in aligned mode, when scratch value from previous bit operations was zero.
-
-
+* **writeBits** had incorrect assert when writing negative int64_t.
 
 <a name="2.0.1"></a>
 # [2.0.1](https://github.com/fraillt/bitsery/compare/v2.0.0...v2.0.1) (2017-08-12)

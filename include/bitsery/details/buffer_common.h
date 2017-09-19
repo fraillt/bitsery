@@ -23,7 +23,6 @@
 #ifndef BITSERY_DETAILS_BUFFER_COMMON_H
 #define BITSERY_DETAILS_BUFFER_COMMON_H
 
-#include <type_traits>
 #include <algorithm>
 #include <utility>
 #include <cassert>
@@ -31,6 +30,7 @@
 #include <stack>
 #include <cstring>
 #include "both_common.h"
+#include "traits.h"
 
 namespace bitsery {
 
@@ -56,8 +56,11 @@ namespace bitsery {
     };
 
     namespace details {
+
         template<typename T>
-        constexpr size_t BITS_SIZE = sizeof(T) << 3;
+        struct BITS_SIZE:public std::integral_constant<size_t, sizeof(T) << 3> {
+
+        };
 
         //add swap functions to class, to avoid compilation warning about unused functions
         struct swapImpl {
@@ -297,7 +300,6 @@ namespace bitsery {
                 auto sessionsIt = std::back_inserter(_sessions);
                 _pos = std::next(_end, -sessionsOffset);
                 while (std::distance(_pos, endSessionsSizesIt) > 0) {
-                    //todo try to read into iterator directly
                     size_t size;
                     details::readSize(_reader, size);
                     *sessionsIt++ = size;
@@ -310,16 +312,17 @@ namespace bitsery {
             }
         };
 
-        template<typename Buffer, bool isFixed>
+        template<typename Buffer, bool isResizable>
         class WriteBufferContext {
 
         };
 
         template<typename Buffer>
-        class WriteBufferContext<Buffer, true>{
+        class WriteBufferContext<Buffer, false>{
         public:
-            using ValueType = typename Buffer::value_type;
-            using IteratorType = typename Buffer::iterator;
+            using ValueType = typename BufferContainerTraits<Buffer>::TValue;
+            using IteratorType = typename BufferContainerTraits<Buffer>::TIterator;
+            using DifferenceType = typename BufferContainerTraits<Buffer>::TDifference;
 
             explicit WriteBufferContext(Buffer &buffer)
                     : _buffer{buffer},
@@ -329,7 +332,7 @@ namespace bitsery {
             }
 
             void write(const ValueType *data, size_t size) {
-                assert(std::distance(_outIt, _end) >= static_cast<typename Buffer::difference_type>(size));
+                assert(std::distance(_outIt, _end) >= static_cast<DifferenceType>(size));
                 memcpy(_outIt, data, size);
                 _outIt += size;
             }
@@ -346,48 +349,47 @@ namespace bitsery {
         };
 
         template<typename Buffer>
-        class WriteBufferContext<Buffer, false> {
+        class WriteBufferContext<Buffer, true> {
         public:
-            using ValueType = typename Buffer::value_type;
-            using IteratorType = typename Buffer::iterator;
+            using TValue = typename BufferContainerTraits<Buffer>::TValue;
+            using TIterator = typename BufferContainerTraits<Buffer>::TIterator;
+            using TDifference = typename BufferContainerTraits<Buffer>::TDifference;
 
             explicit WriteBufferContext(Buffer &buffer)
                     : _buffer{buffer}
             {
-                resizeToCapacity(0);
+                getIterators(0);
             }
 
-            void write(const ValueType *data, size_t size) {
-                if ((_end - _outIt) >= static_cast<typename Buffer::difference_type>(size)) {
+            void write(const TValue *data, size_t size) {
+                if ((_end - _outIt) >= static_cast< TDifference >(size)) {
                     std::memcpy(_outIt, data, size);
                     _outIt += size;
                 } else {
                     //get current position before invalidating iterators
                     auto pos = std::distance(std::addressof(*std::begin(_buffer)), _outIt);
-                    //make dummy call to back insert iterator to resize buffer
-                    *(std::back_insert_iterator<Buffer>(_buffer)) = {};
-                    resizeToCapacity(pos);
+                    //increase container size
+                    BufferContainerTraits<Buffer>::increaseBufferSize(_buffer);
+                    //restore iterators
+                    getIterators(pos);
                     write(data, size);
                 }
             }
 
-            BufferRange<IteratorType> getWrittenRange() const {
+            BufferRange<TIterator> getWrittenRange() const {
                 auto begin = std::begin(_buffer);
-                return BufferRange<IteratorType>{begin, std::next(begin, _outIt - std::addressof(*begin))};
+                return BufferRange<TIterator>{begin, std::next(begin, _outIt - std::addressof(*begin))};
             }
 
         private:
 
-            void resizeToCapacity(typename Buffer::difference_type writePos) {
-                if (_buffer.capacity() != _buffer.size()) {
-                    _buffer.resize(_buffer.capacity());
-                }
+            void getIterators(TDifference  writePos) {
                 _end = std::addressof(*std::end(_buffer));
                 _outIt = std::addressof(*std::next(std::begin(_buffer), writePos));
             }
             Buffer &_buffer;
-            ValueType* _outIt;
-            ValueType* _end;
+            TValue* _outIt;
+            TValue* _end;
         };
 
     }

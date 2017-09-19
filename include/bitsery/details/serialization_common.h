@@ -33,17 +33,17 @@ namespace bitsery {
 
         template<typename T, typename Enable = void>
         struct SAME_SIZE_UNSIGNED_TYPE {
-            typedef std::make_unsigned_t<T> type;
+            using type = typename std::make_unsigned<T>::type;
         };
 
         template<typename T>
         struct SAME_SIZE_UNSIGNED_TYPE<T, typename std::enable_if<std::is_enum<T>::value>::type> {
-            typedef std::make_unsigned_t<std::underlying_type_t<T>> type;
+            using type = typename std::make_unsigned<typename std::underlying_type<T>::type>::type;
         };
 
         template<typename T>
         struct SAME_SIZE_UNSIGNED_TYPE<T, typename std::enable_if<std::is_floating_point<T>::value>::type> {
-            typedef std::conditional_t<std::is_same<T, float>::value, uint32_t, uint64_t> type;
+            using type = typename std::conditional<std::is_same<T, float>::value, uint32_t, uint64_t>::type;
         };
 
         template<typename T>
@@ -60,19 +60,7 @@ namespace bitsery {
             return getSize(max - min, 0);
         }
 
-        template <typename T, typename = int>
-        struct IsResizable : std::false_type {};
-
-        template <typename T>
-        struct IsResizable <T, decltype((void)std::declval<T>().resize(1u), 0)> : std::true_type {};
     }
-
-    /*
-     * serialization/deserialization context
-     */
-    struct Context {
-        void* getCustomPtr();
-    };
 
 /*
  * range functions in bitsery namespace because these are used by user
@@ -100,8 +88,8 @@ namespace bitsery {
                 min{minValue},
                 max{maxValue},
                 bitsRequired{details::calcRequiredBits(
-                        static_cast<std::underlying_type_t<T>>(min),
-                        static_cast<std::underlying_type_t<T>>(max))} {
+                        static_cast<typename std::underlying_type<T>::type>(min),
+                        static_cast<typename std::underlying_type<T>::type>(max))} {
         }
 
         const T min;
@@ -144,18 +132,18 @@ namespace bitsery {
  */
 
         template<typename T, typename std::enable_if<std::is_integral<T>::value>::type * = nullptr>
-        auto getRangeValue(const T &v, const RangeSpec<T> &r) {
+        SAME_SIZE_UNSIGNED<T> getRangeValue(const T &v, const RangeSpec<T> &r) {
             return static_cast<SAME_SIZE_UNSIGNED<T>>(v - r.min);
         };
 
         template<typename T, typename std::enable_if<std::is_enum<T>::value>::type * = nullptr>
-        auto getRangeValue(const T &v, const RangeSpec<T> &r) {
+        SAME_SIZE_UNSIGNED<T> getRangeValue(const T &v, const RangeSpec<T> &r) {
             using VT = SAME_SIZE_UNSIGNED<T>;
             return static_cast<VT>(static_cast<VT>(v) - static_cast<VT>(r.min));
         };
 
         template<typename T, typename std::enable_if<std::is_floating_point<T>::value>::type * = nullptr>
-        auto getRangeValue(const T &v, const RangeSpec<T> &r) {
+        SAME_SIZE_UNSIGNED<T> getRangeValue(const T &v, const RangeSpec<T> &r) {
             using VT = SAME_SIZE_UNSIGNED<T>;
             const VT maxUint = (static_cast<VT>(1) << r.bitsRequired) - 1;
             const auto ratio = (v - r.min) / (r.max - r.min);
@@ -169,7 +157,7 @@ namespace bitsery {
 
         template<typename T, typename std::enable_if<std::is_enum<T>::value>::type * = nullptr>
         void setRangeValue(T &v, const RangeSpec<T> &r) {
-            using VT = std::underlying_type_t<T>;
+            using VT = typename std::underlying_type<T>::type;
             reinterpret_cast<VT &>(v) += static_cast<VT>(r.min);
         };
 
@@ -188,7 +176,7 @@ namespace bitsery {
 
         template<typename T, typename std::enable_if<std::is_enum<T>::value>::type * = nullptr>
         bool isRangeValid(const T &v, const RangeSpec<T> &r) {
-            using VT = std::underlying_type_t<T>;
+            using VT = typename std::underlying_type<T>::type;
             return !(static_cast<VT>(r.min) > static_cast<VT>(v)
                      || static_cast<VT>(v) > static_cast<VT>(r.max));
         }
@@ -215,7 +203,13 @@ namespace bitsery {
         template<typename S, typename T, typename Enabled = void>
         struct SerializeFunction {
             static void invoke(S &s, T &v) {
-                static_assert(!std::is_void<Enabled>::value, "please define 'serialize' function.");
+                static_assert(!std::is_void<Enabled>::value,
+                                      "\nPlease define 'serialize' function for your type:\n"
+                                      "  template<typename S>\n"
+                                      "  void serialize(S& s, <YourType>& o)\n"
+                                      "  {\n"
+                                      "    ...\n"
+                                      "  }\n");
             }
         };
 
@@ -226,6 +220,20 @@ namespace bitsery {
             static void invoke(S &s, T &v) {
                 serialize(s, v);
             }
+        };
+
+/**
+ * used to check if extension supports overloads with `object` and `value<N>`
+ */
+        template <typename T, typename Enable = void>
+        struct HasTValue:public std::false_type {
+        };
+
+        template <typename T>
+        struct HasTValue<T, typename std::enable_if<
+                //only works when TValue is defined, and is not void
+                !std::is_same<void, typename T::TValue>::value
+        >::type>: public std::true_type {
         };
 
 

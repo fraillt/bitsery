@@ -26,7 +26,7 @@
 using namespace testing;
 
 using Buffer = typename bitsery::DefaultConfig::BufferType;
-using DiffType = typename Buffer::difference_type;
+using DiffType = typename bitsery::details::BufferContainerTraits<Buffer>::TDifference;
 
 struct DataV1 {
     int32_t v1;
@@ -46,7 +46,7 @@ struct DataV3 {
 
 TEST(SerializeGrowable, WriteSessionsDataAtBufferEndAfterFlush) {
     SerializationContext ctx;
-    ctx.createSerializer().growable(int8_t{}, [] (auto& s, auto& v) { });
+    ctx.createSerializer().growable(int8_t{}, [] (int8_t& v) { });
     EXPECT_THAT(ctx.getBufferSize(), Eq(0));
     ctx.bw->flush();
     EXPECT_THAT(ctx.getBufferSize(), Gt(0));
@@ -60,7 +60,8 @@ TEST(SerializeGrowable, SessionDataConsistOfSessionsEndPosAnd2BytesSessionsDataO
     constexpr size_t DATA_SIZE = 4;
     int32_t data{};
 
-    ctx.createSerializer().growable(data, [](auto&s, auto& v) { s.value4b(v);});
+    auto ser = ctx.createSerializer();
+    ser.growable(data, [&ser](int32_t & v) { ser.value4b(v);});
     ctx.createDeserializer();//to flush data and create buffer reader
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(3 + DATA_SIZE));

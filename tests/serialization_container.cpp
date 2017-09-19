@@ -101,22 +101,21 @@ TYPED_TEST(SerializeContainerDynamicSizeArthmeticTypes, Values) {
 
 TYPED_TEST(SerializeContainerDynamicSizeArthmeticTypes, CustomFunctionIncrements) {
     SerializationContext ctx{};
+    using TValue = typename TestFixture::TValue;
 
     auto ser = ctx.createSerializer();
-    ser.container(this->src, 1000, [](auto &s, auto v) {
-        //increment by 1 before writing
-        v++;
-        s.template value<sizeof(v)>(v);
+    ser.container(this->src, 1000, [&ser](TValue& v) {
+        ser.template value<sizeof(v)>(v);
     });
     auto des = ctx.createDeserializer();
-    des.container(this->res, 1000, [](auto &s, auto &v) {
-        s.template value<sizeof(v)>(v);
+    des.container(this->res, 1000, [&des](TValue &v) {
+        des.template value<sizeof(v)>(v);
         //increment by 1 after reading
         v++;
     });
-    //decrement result by 2, before comparing for eq
+    //decrement result by 1, before comparing for eq
     for (auto &v:this->res)
-        v -= 2;
+        v -= 1;
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(this->getExpectedBufSize(ctx)));
     EXPECT_THAT(this->res, ContainerEq(this->src));
@@ -157,9 +156,9 @@ TYPED_TEST(SerializeContainerDynamicSizeCompositeTypes, DefaultSerializeFunction
 
 TYPED_TEST(SerializeContainerDynamicSizeCompositeTypes, CustomFunctionThatDoNothing) {
     SerializationContext ctx{};
+    using TValue = typename TestFixture::TValue;
 
-
-    auto emptyFnc = [](auto &s, auto &v) {};
+    auto emptyFnc = [](TValue &v) {};
     ctx.createSerializer().container(this->src, 1000, emptyFnc);
     ctx.createDeserializer().container(this->res, 1000, emptyFnc);
 
@@ -204,8 +203,7 @@ class SerializeContainerFixedSizeCompositeTypes : public SerializeContainerFixed
 };
 
 using StaticContainersWithCompositeTypes = ::testing::Types<
-        std::array<MyStruct1, 4>,
-        MyStruct1[4]>;
+        std::array<MyStruct1, 4>, MyStruct1[4]>;
 
 TYPED_TEST_CASE(SerializeContainerFixedSizeCompositeTypes, StaticContainersWithCompositeTypes);
 
@@ -227,23 +225,24 @@ TYPED_TEST(SerializeContainerFixedSizeCompositeTypes, CustomFunctionThatSerializ
     Container src{MyStruct1{0, 1}, MyStruct1{2, 3}, MyStruct1{4, 5}, MyStruct1{5134, 1532}};
     Container res{};
 
+    using TValue = decltype(*std::begin(res));
+
     SerializationContext ctx;
     auto ser = ctx.createSerializer();
-    ser.container(src, [](auto &s, auto &v) {
+    ser.container(src, [&ser](TValue &v) {
         char tmp{};
-        s.object(v);
-        s.value1b(tmp);
+        ser.object(v);
+        ser.value1b(tmp);
     });
     auto des = ctx.createDeserializer();
-    des.container(res, [](auto &s, auto &v) {
+    des.container(res, [&des](TValue &v) {
         char tmp{};
-        s.object(v);
-        s.value1b(tmp);
+        des.object(v);
+        des.value1b(tmp);
     });
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(this->getContainerSize() * (MyStruct1::SIZE + sizeof(char))));
     EXPECT_THAT(res, ContainerEq(src));
 }
-
 
 
