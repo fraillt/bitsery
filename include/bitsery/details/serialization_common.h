@@ -24,7 +24,6 @@
 #define BITSERY_DETAILS_SERIALIZATION_COMMON_H
 
 #include <type_traits>
-#include <array>
 #include "both_common.h"
 
 namespace bitsery {
@@ -48,153 +47,6 @@ namespace bitsery {
 
         template<typename T>
         using SAME_SIZE_UNSIGNED = typename SAME_SIZE_UNSIGNED_TYPE<T>::type;
-
-        template<typename T>
-        constexpr size_t getSize(T v, size_t s) {
-            return v > 0 ? getSize(v / 2, s + 1) : s;
-        }
-
-        template<typename T>
-        constexpr size_t calcRequiredBits(T min, T max) {
-            //call recursive function, because some compilers only support constexpr functions with return-only body
-            return getSize(max - min, 0);
-        }
-
-    }
-
-/*
- * range functions in bitsery namespace because these are used by user
- */
-
-    template<typename T, typename Enable = void>
-    struct RangeSpec {
-
-        constexpr RangeSpec(T minValue, T maxValue)
-                : min{minValue},
-                  max{maxValue},
-                  bitsRequired{details::calcRequiredBits(min, max)} {
-        }
-
-        const T min;
-        const T max;
-        const size_t bitsRequired;
-    };
-
-
-    template<typename T>
-    struct RangeSpec<T, typename std::enable_if<std::is_enum<T>::value>::type> {
-
-        constexpr RangeSpec(T minValue, T maxValue) :
-                min{minValue},
-                max{maxValue},
-                bitsRequired{details::calcRequiredBits(
-                        static_cast<typename std::underlying_type<T>::type>(min),
-                        static_cast<typename std::underlying_type<T>::type>(max))} {
-        }
-
-        const T min;
-        const T max;
-        const size_t bitsRequired;
-    };
-
-//this class is used to make default RangeSpec float specialization always prefer constructor with precision
-    struct BitsConstraint {
-        explicit constexpr BitsConstraint(size_t bits) : value{bits} {}
-
-        const size_t value;
-    };
-
-    template<typename T>
-    struct RangeSpec<T, typename std::enable_if<std::is_floating_point<T>::value>::type> {
-
-        constexpr RangeSpec(T minValue, T maxValue, BitsConstraint bits) :
-                min{minValue},
-                max{maxValue},
-                bitsRequired{bits.value} {
-        }
-
-        constexpr RangeSpec(T minValue, T maxValue, T precision) :
-                min{minValue},
-                max{maxValue},
-                bitsRequired{details::calcRequiredBits<details::SAME_SIZE_UNSIGNED<T>>({}, ((max - min) / precision))} {
-
-        }
-
-        const T min;
-        const T max;
-        const size_t bitsRequired;
-    };
-
-    namespace details {
-
-/*
- * functions for range
- */
-
-        template<typename T, typename std::enable_if<std::is_integral<T>::value>::type * = nullptr>
-        SAME_SIZE_UNSIGNED<T> getRangeValue(const T &v, const RangeSpec<T> &r) {
-            return static_cast<SAME_SIZE_UNSIGNED<T>>(v - r.min);
-        };
-
-        template<typename T, typename std::enable_if<std::is_enum<T>::value>::type * = nullptr>
-        SAME_SIZE_UNSIGNED<T> getRangeValue(const T &v, const RangeSpec<T> &r) {
-            using VT = SAME_SIZE_UNSIGNED<T>;
-            return static_cast<VT>(static_cast<VT>(v) - static_cast<VT>(r.min));
-        };
-
-        template<typename T, typename std::enable_if<std::is_floating_point<T>::value>::type * = nullptr>
-        SAME_SIZE_UNSIGNED<T> getRangeValue(const T &v, const RangeSpec<T> &r) {
-            using VT = SAME_SIZE_UNSIGNED<T>;
-            const VT maxUint = (static_cast<VT>(1) << r.bitsRequired) - 1;
-            const auto ratio = (v - r.min) / (r.max - r.min);
-            return static_cast<VT>(ratio * maxUint);
-        };
-
-        template<typename T, typename std::enable_if<std::is_integral<T>::value>::type * = nullptr>
-        void setRangeValue(T &v, const RangeSpec<T> &r) {
-            v += r.min;
-        };
-
-        template<typename T, typename std::enable_if<std::is_enum<T>::value>::type * = nullptr>
-        void setRangeValue(T &v, const RangeSpec<T> &r) {
-            using VT = typename std::underlying_type<T>::type;
-            reinterpret_cast<VT &>(v) += static_cast<VT>(r.min);
-        };
-
-        template<typename T, typename std::enable_if<std::is_floating_point<T>::value>::type * = nullptr>
-        void setRangeValue(T &v, const RangeSpec<T> &r) {
-            using UIT = SAME_SIZE_UNSIGNED<T>;
-            const auto intRep = reinterpret_cast<UIT &>(v);
-            const UIT maxUint = (static_cast<UIT>(1) << r.bitsRequired) - 1;
-            v = r.min + (static_cast<T>(intRep) / maxUint) * (r.max - r.min);
-        };
-
-        template<typename T, typename std::enable_if<std::is_arithmetic<T>::value>::type * = nullptr>
-        bool isRangeValid(const T &v, const RangeSpec<T> &r) {
-            return !(r.min > v || v > r.max);
-        }
-
-        template<typename T, typename std::enable_if<std::is_enum<T>::value>::type * = nullptr>
-        bool isRangeValid(const T &v, const RangeSpec<T> &r) {
-            using VT = typename std::underlying_type<T>::type;
-            return !(static_cast<VT>(r.min) > static_cast<VT>(v)
-                     || static_cast<VT>(v) > static_cast<VT>(r.max));
-        }
-
-/*
- * functions for entropy encoding
- */
-
-        template<typename T, size_t N>
-        size_t findEntropyIndex(const T &v, const T (&defValues)[N]) {
-            auto index{1u};
-            for (auto &d:defValues) {
-                if (d == v)
-                    return index;
-                ++index;
-            }
-            return 0u;
-        };
 
 /*
  * functions for object serialization
@@ -222,20 +74,9 @@ namespace bitsery {
             }
         };
 
-/**
- * used to check if extension supports overloads with `object` and `value<N>`
- */
-        template <typename T, typename Enable = void>
-        struct HasTValue:public std::false_type {
+        //used for extensions, when extension TValue = void
+        struct DummyType {
         };
-
-        template <typename T>
-        struct HasTValue<T, typename std::enable_if<
-                //only works when TValue is defined, and is not void
-                !std::is_same<void, typename T::TValue>::value
-        >::type>: public std::true_type {
-        };
-
 
 /*
  * delta functions

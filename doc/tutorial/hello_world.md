@@ -1,167 +1,128 @@
-# The problem
+# Quick Start
 
-You want to serialize *Player* structure efficiently into buffer.
+This is a quick guide to get **bitsery** up and running in a matter of minutes.
+The only prerequisite for running bitsery is a modern C++11 compliant compiler, such as GCC 4.9.4, clang 3.4, MSVC 2015, or newer.
+Older versions might work, but it is not tested.
+
+## Get bitsery
+
+bitsery can be directly included in your project or installed anywhere you can access header files.
+Grab the latest version, and include directory `bitsery_base_dir/include/` to your project.
+There's nothing to build or make - **bitsery** is header only.
+
+## Add serialization methods for your types
+
+**bitsery** needs to know which data members to serialize in your classes.
+Let it know by implementing a serialize method for your type:
 
 ```cpp
-struct Vector3f {
-  float x;
-  float y;
-  float z;
-};
-struct Player {
-  Vector3f pos;
-  char name[50];
+struct MyStruct {
+    uint32_t i;
+    char str[6];
+    std::vector<float> fs;
 };
 
+template <typename S>
+void serialize(S& s, MyStruct& o) {
+    s.value4b(o.i);
+    s.text1b(o.str);
+    s.container4b(o.fs, 100);
+};
 ```
 
-# Poor man's implementation
+**bitsery** also can serialize private class members, just move *serialize* function inside structure, and make it *friend* (*fiend void serialize(.....)*).
 
-Since you don't want to waste any space using any text serialization library like json or xml, the one of the most easiest and obvious solution is to simply write memory representation of the structure directly to buffer.
+**bitsery** has verbose syntax, because it is cross-platform compatible by default and has full control over how to serialize data (read more about it in [motivation](../design/README.md))
 
+This example contains core functionality that you'll use all the time, so lets get through it:
+* **s.value4b(o.i);** serialize fundamental types (ints, floats, enums) value**4b** means, that data type is 4 bytes. If you use same code on different machines, if it compiles it means it is compatible.
+* **s.text1b(o.str);** serialize text (null-terminated) of char type, if you use *wchar* then you would write *text2b*.
+* **s.container4b(o.fs, 100);** serializes any container of fundamental types of size 4bytes, **100** is max size of container.
+**Bitsery** is designed to be save with untrusted (malicious) data from network, so for dynamic containers you always need to provide max possible size available, to avoid buffer-overflow attacks.
+**text** didn't had this max size specified, because it was serializing fixed size container.
 
-Possible implementation could look like this.
+External serialization functions should be placed either in the same namespace as the types they serialize or in the **bitsery** namespace so that the compiler can find them properly.
+
+## Serialization and deserialization
+
+### Create serializer
+Create a serializer and send the data you want to serialize to it.
+
 ```cpp
-#include <iostream>
-#include <vector>
-#include <cassert>
-#include <cstdint>
-#include <algorithm>
-
-struct Vector3f {
-  float x;
-  float y;
-  float z;
-};
-struct Player {
-  Vector3f pos;
-  char name[50];
-};
-
-void serialize(std::vector<uint8_t>& buf, const Player& data) {
-  auto ptr = reinterpret_cast<const uint8_t*>(&data);
-  std::copy_n(ptr, sizeof(data), std::back_inserter(buf));
-}
-
-int main() {
-  Player data;
-  std::vector<uint8_t> buf;
-  serialize(buf, data);
-  assert(buf.size() == sizeof(data));
-  std::cout << "size: " << buf.size() << std::endl;
-  return 0;
-}
+std::vector<uint8_t> buffer;
+BufferWriter bw{buffer};
+Serializer ser{bw};
 ```
 
-```bash
-size: 64
-```
+Serialization process consists of three independant parts.
+* **std::vector<uint8_t> buffer;** core object, that will store the data for serialization and deserialization.
+* **BufferWriter bw{buffer};** writer knows how to write bytes to buffer, and how to resize buffer, or how to use fixed-size buffer. It also applies endianess transformations if nesessary.
+* **Serializer ser{bw};** serializer is a high level wrapper that knows how to convert object to stream of bytes, and write then to buffer.
 
-Although it is simple and fast (it could be faster if we reserve buffer before writing) it has a lot of limitations.
-* char[50] always writes to atleast 50 bytes in buffer, even if player name is *Yolo*.
-* you can't replace char[50] with std::string.
-* you can't use this solution if you need to support different endianness systems, and you should be extra careful if different systems has different size for fundamental types like int, long int, etc...
-* you pay for structure field alignment hence size is equal to 64, not 62(3*4+50).
+Serializer doesn't store any state, it only has reference to buffer, so it is safe to create many of those if nesessary.
 
-You can improve your name serialization in various ways, but then your serialization and deserialization code gets compllicated and error prone. We can do better than this.
+BufferWriter also doesn't own buffer, but it stores state about writing position and container size.
 
-# Bitsery solution
+One important note that when using bit-level operations, dont forget to flush buffer writer **bw.flush()** otherwise, some data might not be written to buffer.
 
-Let's solve the same problem with the library.
+
+### Serialize object
+
 ```cpp
-#include <vector>
+MyStruct data{8941, "hello", {15.0f, -8.5f, 0.045f}};
+ser.object(data); // serializes data
+```
+
+**ser.object(data)** is a final core function along with **value, text, container**.
+
+This function is actually equivalent to calling *serialize(ser, data)* directly, but it displays friendly static assert message if it cannot find *serialize* function for your type.
+
+### Deserialize object
+
+```cpp
+BufferReader br{bw.getWrittenRange()};
+Deserializer des{br};
+
+MyStruct res{};
+des.object(res); //deserializes data
+```
+
+Deserialization process is equivalent to serialization, except that *BufferReader* reader has getError() method that returns deserialization state.
+
+## Full example code
+
+```cpp
 #include <bitsery/bitsery.h>
-#include <cstring>
-#include <iostream>
-
-struct Vector3f {
-  float x;
-  float y;
-  float z;
-};
-
-struct Player {
-  Vector3f pos;
-  char name[50];
-};
 
 using namespace bitsery;
 
-void serialize(Serializer<BufferWriter>& s, const Player& data) {
-  s.value4b(data.pos.x);
-  s.value4b(data.pos.y);
-  s.value4b(data.pos.z);
-  s.text1b(data.name);
-}
+struct MyStruct {
+    uint32_t i;
+    char str[6];
+    std::vector<float> fs;
+};
+
+template <typename S>
+void serialize(S& s, MyStruct& o) {
+    s.value4b(o.i);
+    s.text1b(o.str);
+    s.container4b(o.fs, 100);
+};
 
 int main() {
-  Player data;
-  strcpy(data.name,"Yolo");
+    std::vector<uint8_t> buffer;
+    BufferWriter bw{buffer};
+    Serializer ser{bw};
 
-  std::vector<uint8_t> buf;
-  BufferWriter bw{buf};
-  Serializer<BufferWriter> ser{bw};
+    MyStruct data{8941, "hello", {15.0f, -8.5f, 0.045f}};
+    ser.object(data); // serializes data
 
-  serialize(ser, data);
+    BufferReader br{bw.getWrittenRange()};
+    Deserializer des{br};
 
-  bw.flush();
-  auto range = bw.getWrittenRange();
-  std::cout << "size: " << std::distance(range.begin(), range.end()) << std::endl;
-  return 0;
+    MyStruct res{};
+    des.object(res); //deserializes data
 }
 ```
 
-```bash
-size: 17
-```
-
-First of all, buffer size dropped from 64 down to 17bytes: 12 bytes (3*4) for floats and only 5bytes for the name "Yolo".
-In the process you also lost all limitations that had naive solution. You even gain some features for free:
-* endianess support.
-* more readable serialization code.
-
-
-Let's look at the code, how we did this.
-
-
-There are three distinct parts that participate in serialization process.
-* Buffer - container that we store our serialized data, in our case vector<uint8_t>.
-* BufferWriter - resposible for writing bytes and bits to *Buffer*, it also makes sure that it is portable across Little and Big endian systems.
-* Serializer - extendable interface that converts any type to bytes or bits, and use *BufferWriter* to write them. Serializer object does not store any state, it only forwards all calls to BufferWritter, further more it ensures that code is portable at compile time. This means, that if your serialization code compiles on other platform, it will be 100% correct.
-```cpp
-  std::vector<uint8_t> buf;
-  BufferWriter bw{buf};
-  Serializer<BufferWriter> ser{bw};
-```
-
-Serialization function is very readable, and explicitly express intent what and how to serialize:
-* *value4b* serialize [fundamental type](../design/fundamental_types.md) (ints, floats, chars, enums) of 4 bytes.
-* *text1b* effectively serialize text, and underlying text type is 1byte per letter.
-
-```cpp
-  s.value4b(data.pos.x);
-  s.value4b(data.pos.y);
-  s.value4b(data.pos.z);
-  s.text1b(data.name);
-```
-
-> learn more about why you need to write [value4b instead of value](../design/function_n.md).
-
-
-Finally, before getting serialized data you must *flush* BufferWriter, it writes any remaining bits to buffer and additional data for types that require forward/backward compatibility. In our case it is not required, because we only worked with whole bytes, but it is good practice to always use it after finishing serialization.
-
-To actually get written data you must call *getWrittenRange*, it return begin/end iterators to our buffer (*std::vector<uint8_t> buf*), for performance reasons BufferWritter always resizes underlying buffer to *capacity* so it could use containers iterator to update data, instead of back_insert_iterator to insert data.
-
-```cpp
-  bw.flush();
-  auto range = bw.getWrittenRange();
-```
-
-# Summary
-
-You have learned how to serialize simple structure to buffer that occupies no unnecessary bytes, and is portable across any system. You also learned that serialization process consist of three independant parts: buffer, buffer writer, and serializer. You used serializer to explicitly declare what and how to serialize and learned that you should always call BufferWriter.flush() before using buffer data.
-
-In [next chapter](two_in_one.md) you'll learn how to use this expressive, declarative serialization function and use it to deserialize buffer to object, and in the process gain runtime error checking for free!
-
-
-
+**currently documentation and tutorial is progress, but for more usage examples see examples folder**

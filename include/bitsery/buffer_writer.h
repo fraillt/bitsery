@@ -25,7 +25,7 @@
 #ifndef BITSERY_BUFFER_WRITER_H
 #define BITSERY_BUFFER_WRITER_H
 
-#include "common.h"
+#include "details/buffer_common.h"
 #include <cassert>
 #include <utility>
 
@@ -171,13 +171,12 @@ namespace bitsery {
 
         void beginSession() {
             align();
-            _session.begin();
+            _session.begin(*this);
         }
 
         void endSession() {
             align();
-            auto range = _bufferContext.getWrittenRange();
-            _session.end(static_cast<size_t>(std::distance(range.begin(), range.end())));
+            _session.end(*this);
         }
 
     private:
@@ -241,7 +240,10 @@ namespace bitsery {
         BufferContext _bufferContext;
         ScratchType _scratch{};
         size_t _scratchBits{};
-        details::BufferSessionsWriter _session{};
+        typename std::conditional<Config::BufferSessionsEnabled,
+                details::BufferSessionsWriter<BasicBufferWriter<Config>>,
+                details::DisabledBufferSessionsWriter<Config>>::type
+                _session{};
     };
 
     //helper type

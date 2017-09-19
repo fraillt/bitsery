@@ -23,11 +23,12 @@
 
 
 #include <gmock/gmock.h>
-#include "serialization_test_utils.h"
 #include <algorithm>
 #include <numeric>
 #include <deque>
 #include <list>
+#include "serialization_test_utils.h"
+
 
 using testing::ContainerEq;
 using testing::Eq;

@@ -1,1 +1,1 @@
-int char (except bool)
+ints chars floats (except bool)

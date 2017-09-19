@@ -24,7 +24,7 @@
 #include <gmock/gmock.h>
 #include <bitsery/buffer_writer.h>
 #include <bitsery/buffer_reader.h>
-#include <bitsery/details/serialization_common.h>
+#include <bitsery/ext/value_range.h>
 
 using testing::Eq;
 using testing::ContainerEq;

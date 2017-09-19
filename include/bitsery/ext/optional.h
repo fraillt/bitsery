@@ -40,7 +40,7 @@ namespace bitsery {
         template<typename T>
         using std_optional = ::std::optional<T>;
 
-        class optional {
+        class Optional {
         public:
 
             template<typename T>
@@ -56,11 +56,11 @@ namespace bitsery {
                 assertType<T>();
                 ser.boolByte(static_cast<bool>(obj));
                 if (obj)
-                    fnc(const_cast<typename T::value_type& >(*obj));
+                    fnc(const_cast<typename T::value_type & >(*obj));
             }
 
             template<typename Des, typename Reader, typename T, typename Fnc>
-            void deserialize(Des &des, Reader& , T &obj, Fnc &&fnc) const {
+            void deserialize(Des &des, Reader &, T &obj, Fnc &&fnc) const {
                 assertType<T>();
                 bool exists{};
                 des.boolByte(exists);
@@ -77,9 +77,12 @@ namespace bitsery {
     }
 
     namespace details {
-        template <typename T>
-        struct ExtensionTraits<ext::optional, T> {
+        template<typename T>
+        struct ExtensionTraits<ext::Optional, T> {
             using TValue = typename T::value_type;
+            static constexpr bool SupportValueOverload = true;
+            static constexpr bool SupportObjectOverload = true;
+            static constexpr bool SupportLambdaOverload = true;
         };
     }
 

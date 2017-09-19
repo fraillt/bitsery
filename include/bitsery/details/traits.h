@@ -48,13 +48,22 @@ namespace bitsery {
             //this type is used, when using extesion without custom lambda
             // eg.: extension4b>(obj, myextension{}) will call s.value4b(obj) for TValue
             // or extesion(obj, myextension{})  will call s.object(obj) for TValue
-            //if this is not defined, then these functions are disabled
+            //when this is void, it will compile, but value and object overloads will do nothing.
             using TValue = void;
+
+            //does extension support ext<N>(...) syntax, by calling value<N> with TValue
+            static constexpr bool SupportValueOverload = true;
+            //does extension support ext(...) syntax, by calling object with TValue
+            static constexpr bool SupportObjectOverload = true;
+            //does extension support ext(..., lambda)
+            static constexpr bool SupportLambdaOverload = true;
         };
 
-        //traits for containers
+        //primary traits for containers
         template<typename T>
         struct ContainerTraits {
+
+            using TValue = typename T::value_type;
 
             //default behaviour is resizable if container has method T::resize(size_t)
             static constexpr bool isResizable = IsResizable<T>::value;
@@ -70,6 +79,19 @@ namespace bitsery {
             }
 
         };
+
+        //specialization for C style array
+        template<typename T, size_t N>
+        struct ContainerTraits<T[N]> {
+            using TValue = T;
+            static constexpr bool isResizable = IsResizable<T>::value;
+            static void resize(T (&container)[N], size_t size) {
+            }
+            static size_t size(const T (&container)[N]) {
+                return N;
+            }
+        };
+
 
         //traits for text
         template<typename T>
@@ -133,7 +155,6 @@ namespace bitsery {
                 container.resize(container.capacity());
             }
 
-            using TValue = typename T::value_type;
             using TDifference = typename T::difference_type;
             using TIterator = typename T::iterator;
         };

@@ -27,7 +27,6 @@
 #include "common.h"
 #include "details/serialization_common.h"
 #include <cassert>
-#include <array>
 
 namespace bitsery {
 
@@ -81,37 +80,35 @@ namespace bitsery {
         }
 
         /*
-         * growable function
-         */
-
-        template<typename T, typename Fnc>
-        void growable(const T &obj, Fnc &&fnc) {
-            _writter.beginSession();
-            fnc(const_cast<T&>(obj));
-            _writter.endSession();
-        };
-
-        /*
-         * extend functions
+         * extension functions
          */
 
         template<typename T, typename Ext, typename Fnc>
-        void extend(const T &obj, Ext &&ext, Fnc &&fnc) {
-            ext.serialize(*this, _writter, obj, std::forward<Fnc>(fnc));
+        void ext(const T &obj, Ext &&extension, Fnc &&fnc) {
+            using ExtType = typename std::decay<Ext>::type;
+            static_assert(details::ExtensionTraits<ExtType,T>::SupportLambdaOverload,
+                          "extension doesn't support overload with lambda");
+            extension.serialize(*this, _writter, obj, std::forward<Fnc>(fnc));
         };
 
         template<size_t VSIZE, typename T, typename Ext>
-        void extend(const T &obj, Ext &&ext) {
-            static_assert(details::HasTValue<details::ExtensionTraits<Ext, T>>::value,
-                          "this extension only supports overload with lambda");
-            ext.serialize(*this, _writter, obj, [this](typename details::ExtensionTraits<Ext, T>::TValue &v) { value<VSIZE>(v); });
+        void ext(const T &obj, Ext &&extension) {
+            using ExtType = typename std::decay<Ext>::type;
+            static_assert(details::ExtensionTraits<ExtType,T>::SupportValueOverload,
+                          "extension doesn't support overload with `value<N>`");
+            using ExtVType = typename details::ExtensionTraits<ExtType, T>::TValue;
+            using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
+            extension.serialize(*this, _writter, obj, [this](VType &v) { value<VSIZE>(v); });
         };
 
         template<typename T, typename Ext>
-        void extend(const T &obj, Ext &&ext) {
-            static_assert(details::HasTValue<details::ExtensionTraits<Ext, T>>::value,
-                          "this extension only supports overload with lambda");
-            ext.serialize(*this, _writter, obj, [this](typename details::ExtensionTraits<Ext, T>::TValue &v) { object(v); });
+        void ext(const T &obj, Ext &&extension) {
+            using ExtType = typename std::decay<Ext>::type;
+            static_assert(details::ExtensionTraits<ExtType,T>::SupportObjectOverload,
+                          "extension doesn't support overload with `object`");
+            using ExtVType = typename details::ExtensionTraits<ExtType, T>::TValue;
+            using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
+            extension.serialize(*this, _writter, obj, [this](VType &v) { object(v); });
         };
 
         /*
@@ -125,44 +122,6 @@ namespace bitsery {
         void boolByte(bool v) {
             _writter.template writeBytes<1>(static_cast<unsigned char>(v ? 1 : 0));
         }
-
-        /*
-         * range
-         */
-
-        template<typename T>
-        void range(const T &v, const RangeSpec<T> &range) {
-            assert(details::isRangeValid(v, range));
-            using BT = decltype(details::getRangeValue(v, range));
-            _writter.template writeBits<BT>(details::getRangeValue(v, range), range.bitsRequired);
-        }
-
-        /*
-         * entropy overloads
-         */
-        template<typename T, size_t N, typename Fnc>
-        void entropy(const T &obj, const T (&expectedValues)[N], Fnc &&fnc) {
-            auto index = details::findEntropyIndex(obj, expectedValues);
-            range(index, {{}, N + 1});
-            if (!index)
-                fnc(const_cast<T&>(obj));
-        };
-
-        template<size_t VSIZE, typename T, size_t N>
-        void entropy(const T &v, const T (&expectedValues)[N]) {
-            auto index = details::findEntropyIndex(v, expectedValues);
-            range(index, {{}, N + 1});
-            if (!index)
-                value<VSIZE>(v);
-        };
-
-        template<typename T, size_t N>
-        void entropy(const T &obj, const T (&expectedValues)[N]) {
-            auto index = details::findEntropyIndex(obj, expectedValues);
-            range(index, {{}, N + 1});
-            if (!index)
-                object(obj);
-        };
 
         /*
          * text overloads
@@ -304,36 +263,16 @@ namespace bitsery {
         void value8b(T &&v) { value<8>(std::forward<T>(v)); }
 
         template<typename T, typename Ext>
-        void extend1b(const T &v, Ext &&ext) { extend<1>(v, std::forward<Ext>(ext)); };
+        void ext1b(const T &v, Ext &&extension) { ext<1, T, Ext>(v, std::forward<Ext>(extension)); };
 
         template<typename T, typename Ext>
-        void extend2b(const T &v, Ext &&ext) { extend<2>(v, std::forward<Ext>(ext)); };
+        void ext2b(const T &v, Ext &&extension) { ext<2, T, Ext>(v, std::forward<Ext>(extension)); };
 
         template<typename T, typename Ext>
-        void extend4b(const T &v, Ext &&ext) { extend<4>(v, std::forward<Ext>(ext)); };
+        void ext4b(const T &v, Ext &&extension) { ext<4, T, Ext>(v, std::forward<Ext>(extension)); };
 
         template<typename T, typename Ext>
-        void extend8b(const T &v, Ext &&ext) { extend<8>(v, std::forward<Ext>(ext)); };
-
-        template<typename T, size_t N>
-        void entropy1b(const T &v, const T (&expectedValues)[N]) {
-            entropy<1, T, N>(v, expectedValues);
-        };
-
-        template<typename T, size_t N>
-        void entropy2b(const T &v, const T (&expectedValues)[N]) {
-            entropy<2, T, N>(v, expectedValues);
-        };
-
-        template<typename T, size_t N>
-        void entropy4b(const T &v, const T (&expectedValues)[N]) {
-            entropy<4, T, N>(v, expectedValues);
-        };
-
-        template<typename T, size_t N>
-        void entropy8b(const T &v, const T (&expectedValues)[N]) {
-            entropy<8, T, N>(v, expectedValues);
-        };
+        void ext8b(const T &v, Ext &&extension) { ext<8, T, Ext>(v, std::forward<Ext>(extension)); };
 
         template<typename T>
         void text1b(const T &str, size_t maxSize) { text<1>(str, maxSize); }
@@ -423,6 +362,16 @@ namespace bitsery {
             for (; first != last; ++first)
                 object(*first);
         };
+
+        //these are dummy functions for extensions that have TValue = void
+        void object(const details::DummyType&) {
+
+        }
+
+        template <size_t VSIZE>
+        void value(const details::DummyType&) {
+
+        }
 
     };
 

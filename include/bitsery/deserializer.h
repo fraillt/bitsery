@@ -27,7 +27,6 @@
 #include "common.h"
 #include "details/serialization_common.h"
 #include <utility>
-#include <string>
 
 namespace bitsery {
 
@@ -81,37 +80,35 @@ namespace bitsery {
         }
 
         /*
-         * growable function
-         */
-
-        template <typename T, typename Fnc>
-        void growable(T&& obj, Fnc&& fnc) {
-            _reader.beginSession();
-            fnc(std::forward<T>(obj));
-            _reader.endSession();
-        };
-
-        /*
-         * extend functions
+         * extension functions
          */
 
         template<typename T, typename Ext, typename Fnc>
-        void extend(T &obj, Ext &&ext, Fnc &&fnc) {
-            ext.deserialize(*this, _reader, obj, std::forward<Fnc>(fnc));
+        void ext(T &obj, Ext &&extension, Fnc &&fnc) {
+            using ExtType = typename std::decay<Ext>::type;
+            static_assert(details::ExtensionTraits<ExtType,T>::SupportLambdaOverload,
+                          "extension doesn't support overload with lambda");
+            extension.deserialize(*this, _reader, obj, std::forward<Fnc>(fnc));
         };
 
         template<size_t VSIZE, typename T, typename Ext>
-        void extend(T &obj, Ext &&ext) {
-            static_assert(details::HasTValue<details::ExtensionTraits<Ext, T>>::value,
-                          "this extension only supports overload with lambda");
-            ext.deserialize(*this, _reader, obj, [this](typename details::ExtensionTraits<Ext, T>::TValue &v) { value<VSIZE>(v); });
+        void ext(T &obj, Ext &&extension) {
+            using ExtType = typename std::decay<Ext>::type;
+            static_assert(details::ExtensionTraits<ExtType,T>::SupportValueOverload,
+                          "extension doesn't support overload with `value<N>`");
+            using ExtVType = typename details::ExtensionTraits<ExtType, T>::TValue;
+            using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
+            extension.deserialize(*this, _reader, obj, [this](VType &v) { value<VSIZE>(v); });
         };
 
         template<typename T, typename Ext>
-        void extend(T &obj, Ext &&ext) {
-            static_assert(details::HasTValue<details::ExtensionTraits<Ext, T>>::value,
-                          "this extension only supports overload with lambda");
-            ext.deserialize(*this, _reader, obj, [this](typename details::ExtensionTraits<Ext, T>::TValue &v) { object(v); });
+        void ext(T &obj, Ext &&extension) {
+            using ExtType = typename std::decay<Ext>::type;
+            static_assert(details::ExtensionTraits<ExtType,T>::SupportObjectOverload,
+                          "extension doesn't support overload with `object`");
+            using ExtVType = typename details::ExtensionTraits<ExtType, T>::TValue;
+            using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
+            extension.deserialize(*this, _reader, obj, [this](VType &v) { object(v); });
         };
 
         /*
@@ -133,53 +130,6 @@ namespace bitsery {
         }
 
         /*
-         * range
-         */
-
-        template<typename T>
-        void range(T &v, const RangeSpec<T> &range) {
-            _reader.readBits(reinterpret_cast<details::SAME_SIZE_UNSIGNED<T> &>(v), range.bitsRequired);
-            details::setRangeValue(v, range);
-            if (!details::isRangeValid(v, range)) {
-                _reader.setError(BufferReaderError::INVALID_BUFFER_DATA);
-                v = range.min;
-            }
-        }
-
-        /*
-         * entropy overloads
-         */
-        template<typename T, size_t N, typename Fnc>
-        void entropy(T &obj, const T (&expectedValues)[N], Fnc &&fnc) {
-            size_t index;
-            range(index, {{}, N + 1});
-            if (index)
-                obj = expectedValues[index - 1];
-            else
-                fnc(obj);
-        };
-
-        template<size_t VSIZE, typename T, size_t N>
-        void entropy(T &v, const T (&expectedValues)[N]) {
-            size_t index;
-            range(index, {{}, N + 1});
-            if (index)
-                v = expectedValues[index - 1];
-            else
-                value<VSIZE>(v);
-        };
-
-        template<typename T, size_t N>
-        void entropy(T &obj, const T (&expectedValues)[N]) {
-            size_t index;
-            range(index, {{}, N + 1});
-            if (index)
-                obj = expectedValues[index - 1];
-            else
-                object(obj);
-        };
-
-        /*
          * text overloads
          */
 
@@ -188,7 +138,7 @@ namespace bitsery {
             static_assert(details::TextTraits<T>::isResizable,
                           "use text(T&) overload without `maxSize` for static containers");
             size_t size;
-            readSize(size, maxSize);
+            details::readSize(_reader, size, maxSize);
             details::TextTraits<T>::resize(str, size);
             auto begin = std::begin(str);
             auto end = std::next(begin, size);
@@ -205,7 +155,7 @@ namespace bitsery {
             auto begin = std::begin(str);
             auto containerEnd = std::end(str);
             assert(begin != containerEnd);
-            readSize(size, static_cast<size_t>(std::distance(begin, containerEnd) - 1));
+            details::readSize(_reader, size, static_cast<size_t>(std::distance(begin, containerEnd) - 1));
             //end of string, not en
             auto end = std::next(begin, size);
             procContainer<VSIZE>(std::begin(str), std::end(str), std::true_type{});
@@ -216,7 +166,7 @@ namespace bitsery {
         template<size_t VSIZE, typename T, size_t N>
         void text(T (&str)[N]) {
             size_t size;
-            readSize(size, N - 1);
+            details::readSize(_reader, size, N - 1);
             auto first = std::begin(str);
             procContainer<VSIZE>(first, std::next(first, size), std::true_type{});
             //null-terminated string
@@ -230,11 +180,12 @@ namespace bitsery {
         //dynamic size containers
 
         template<typename T, typename Fnc>
-        void container(T &&obj, size_t maxSize, Fnc &&fnc) {
+        void container(T &obj, size_t maxSize, Fnc &&fnc) {
+
             static_assert(details::ContainerTraits<T>::isResizable,
                           "use container(T&) overload without `maxSize` for static containers");
             size_t size{};
-            readSize(size, maxSize);
+            details::readSize(_reader, size, maxSize);
             details::ContainerTraits<T>::resize(obj, size);
             procContainer(std::begin(obj), std::end(obj), std::forward<Fnc>(fnc));
         }
@@ -244,7 +195,7 @@ namespace bitsery {
             static_assert(details::ContainerTraits<T>::isResizable,
                           "use container(T&) overload without `maxSize` for static containers");
             size_t size{};
-            readSize(size, maxSize);
+            details::readSize(_reader, size, maxSize);
             details::ContainerTraits<T>::resize(obj, size);
             procContainer<VSIZE>(std::begin(obj), std::end(obj), std::false_type{});
         }
@@ -254,14 +205,14 @@ namespace bitsery {
             static_assert(details::ContainerTraits<T>::isResizable,
                           "use container(T&) overload without `maxSize` for static containers");
             size_t size{};
-            readSize(size, maxSize);
+            details::readSize(_reader, size, maxSize);
             details::ContainerTraits<T>::resize(obj, size);
             procContainer(std::begin(obj), std::end(obj));
         }
         //fixed size containers
 
         template<typename T, typename Fnc, typename std::enable_if<!std::is_integral<Fnc>::value>::type * = nullptr>
-        void container(T &&obj, Fnc &&fnc) {
+        void container(T &obj, Fnc &&fnc) {
             static_assert(!details::ContainerTraits<T>::isResizable,
                           "use container(T&, size_t, Fnc) overload with `maxSize` for dynamic containers");
             procContainer(std::begin(obj), std::end(obj), std::forward<Fnc>(fnc));
@@ -271,7 +222,7 @@ namespace bitsery {
         void container(T &obj) {
             static_assert(!details::ContainerTraits<T>::isResizable,
                           "use container(T&, size_t) overload with `maxSize` for dynamic containers");
-            static_assert(VSIZE > 0);
+            static_assert(VSIZE > 0, "");
             procContainer<VSIZE>(std::begin(obj), std::end(obj), std::false_type{});
         }
 
@@ -318,28 +269,16 @@ namespace bitsery {
         void value8b(T &&v) { value<8>(std::forward<T>(v)); }
 
         template<typename T, typename Ext>
-        void extend1b(T &v, Ext &&ext) { extend<1>(v, std::forward<Ext>(ext)); };
+        void ext1b(T &v, Ext &&extension) { ext<1, T, Ext>(v, std::forward<Ext>(extension)); };
 
         template<typename T, typename Ext>
-        void extend2b(T &v, Ext &&ext) { extend<2>(v, std::forward<Ext>(ext)); };
+        void ext2b(T &v, Ext &&extension) { ext<2, T, Ext>(v, std::forward<Ext>(extension)); };
 
         template<typename T, typename Ext>
-        void extend4b(T &v, Ext &&ext) { extend<4>(v, std::forward<Ext>(ext)); };
+        void ext4b(T &v, Ext &&extension) { ext<4, T, Ext>(v, std::forward<Ext>(extension)); };
 
         template<typename T, typename Ext>
-        void extend8b(T &v, Ext &&ext) { extend<8>(v, std::forward<Ext>(ext)); };
-
-        template<typename T, size_t N>
-        void entropy1b(T &v, const T (&expectedValues)[N]) { entropy<1, T, N>(v, expectedValues); };
-
-        template<typename T, size_t N>
-        void entropy2b(T &v, const T (&expectedValues)[N]) { entropy<2, T, N>(v, expectedValues); };
-
-        template<typename T, size_t N>
-        void entropy4b(T &v, const T (&expectedValues)[N]) { entropy<4, T, N>(v, expectedValues); };
-
-        template<typename T, size_t N>
-        void entropy8b(T &v, const T (&expectedValues)[N]) { entropy<8, T, N>(v, expectedValues); };
+        void ext8b(T &v, Ext &&extension) { ext<8, T, Ext>(v, std::forward<Ext>(extension)); };
 
         template<typename T>
         void text1b(T &str, size_t maxSize) { text<1>(str, maxSize); }
@@ -400,14 +339,6 @@ namespace bitsery {
         BasicBufferReader<Config> &_reader;
         void* _context;
 
-        void readSize(size_t &size, size_t maxSize) {
-            details::readSize(_reader, size);
-            if (size > maxSize) {
-                _reader.setError(BufferReaderError::INVALID_BUFFER_DATA);
-                size = {};
-            }
-        }
-
         //process value types
         //false_type means that we must process all elements individually
         template<size_t VSIZE, typename It>
@@ -437,6 +368,16 @@ namespace bitsery {
             for (; first != last; ++first)
                 object(*first);
         };
+
+        //these are dummy functions for extensions that have TValue = void
+        void object(details::DummyType&) {
+
+        }
+
+        template <size_t VSIZE>
+        void value(details::DummyType&) {
+
+        }
 
     };
 

@@ -1,6 +1,7 @@
 # Contributing to Bitsery
 
-So you want to contribute something to Bitsery? That's great! Contributions are always very much appreciated, whether it's a bug fix, a new feature - or just a fix to the documentation.
+So you want to contribute something to Bitsery? That's great!
+Contributions are always very much appreciated, whether it's a bug fix, a new feature or documentation.
 However, to make sure the process of accepting patches goes smoothly, you should try to follow these few simple guidelines when
 you contribute:
 

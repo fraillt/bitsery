@@ -7,22 +7,25 @@ Library design:
 * `serializer/deserializer functions overloads`
 * `extending library functionality`
 * `errors handling`
-* `forward/backward compatibility via growable`
+* `forward/backward compatibility via Growable extension`
 
 Core Serializer/Deserializer functions (alphabetical order):
+* `align`
 * `boolByte`
+* `boolBit`
 * `container`
+* `extend`
+* `getContext`
 * `object`
 * `text`
 * `value`
 
-Advanced Serializer/Deserializer functions (alphabetical order):
-* `align`
-* `boolBit`
-* `entropy`
-* `extend`
-* `growable`
-* `range`
+Serializer/Deserializer extensions via `extend` method (alphabetical order):
+* `ContainerMap`
+* `Entropy`
+* `Growable`
+* `Optional`
+* `ValueRange`
 
 BasicBufferWriter/Reader functions:
 * `writeBits/readBits`
@@ -35,14 +38,12 @@ BasicBufferWriter/Reader functions:
 * `getError (reader only)`
 * `isCompletedSuccessfully (reader only)`
 
-
-
 Tips and tricks:
 * if you're getting static assert "please define 'serialize' function", most likely it is because your SERIALIZE function is not defined in same namespace as object.
 
 Limitations:
 * max **text** or **container** size can be 2^(n-2) (where n = sizeof(std::size_t) * 8) for 32-bit systems it is 1073741823 (0x3FFFFFF).
-* when using **growable** serialized buffer cannot be greater than 2^(n-2) (where n = sizeof(std::size_t) * 8).
+* when using **Growable** extension, serialized buffer size in bytes, cannot be greater than 2^(n-2) (where n = sizeof(std::size_t) * 8).
 
 Other:
 * [Contributing](../CONTRIBUTING.md)

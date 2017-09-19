@@ -24,7 +24,7 @@
 #include <gmock/gmock.h>
 #include <bitsery/buffer_writer.h>
 #include <bitsery/buffer_reader.h>
-#include <bitsery/details/serialization_common.h>
+#include <bitsery/ext/value_range.h>
 
 using testing::Eq;
 using testing::ContainerEq;
@@ -38,9 +38,8 @@ constexpr EndiannessType getInverseEndianness(EndiannessType e) {
            : EndiannessType::LittleEndian;
 }
 
-struct InverseEndiannessConfig {
+struct InverseEndiannessConfig:public DefaultConfig {
     static constexpr bitsery::EndiannessType NetworkEndianness = getInverseEndianness(DefaultConfig::NetworkEndianness);
-    using BufferType = DefaultConfig::BufferType;
 };
 
 struct IntegralTypes {

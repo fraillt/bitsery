@@ -24,10 +24,11 @@
 #include "serialization_test_utils.h"
 
 #include <bitsery/ext/container_map.h>
+#include <bitsery/ext/entropy.h>
 #include <unordered_map>
 #include <map>
 
-using containerMap = bitsery::ext::containerMap;
+using ContainerMap = bitsery::ext::ContainerMap;
 
 using testing::Eq;
 
@@ -96,7 +97,7 @@ namespace bitsery {
 
     template <typename S>
     void serialize(S& s, std::unordered_map<std::string, MyStruct1>& o) {
-        s.extend(o, containerMap{}, [&s](std::string& key, MyStruct1& value) {
+        s.ext(o, ContainerMap{10}, [&s](std::string& key, MyStruct1& value) {
             s.text1b(key, 100);
             s.object(value);
         });
@@ -104,7 +105,7 @@ namespace bitsery {
 
     template <typename S>
     void serialize(S& s, std::unordered_map<int32_t, float>& o) {
-        s.extend(o, containerMap{}, [&s](int32_t& key, float& value) {
+        s.ext(o, ContainerMap{10}, [&s](int32_t& key, float& value) {
             s.value4b(key);
             s.value4b(value);
         });
@@ -112,7 +113,7 @@ namespace bitsery {
 
     template <typename S>
     void serialize(S& s, std::map<MyEnumClass , MyStruct1>& o) {
-        s.extend(o, containerMap{}, [&s](MyEnumClass& key, MyStruct1& value) {
+        s.ext(o, ContainerMap{10}, [&s](MyEnumClass& key, MyStruct1& value) {
             s.value4b(key);
             s.object(value);
         });
@@ -120,10 +121,11 @@ namespace bitsery {
 
     template <typename S>
     void serialize(S& s, std::map<int32_t ,int64_t>& o) {
-        s.extend(o, containerMap{}, [&s](int32_t& key, int64_t& value) {
-            s.range(key, bitsery::RangeSpec<int32_t>{-100,100});
-            constexpr int64_t ev[3]{1ll, 2ll, 3ll};
-            s.entropy8b(value, ev);
+        s.ext(o, ContainerMap{10}, [&s](int32_t& key, int64_t& value) {
+            int64_t values[3]{1ll, 2ll, 3ll};
+
+            s.ext(key, bitsery::ext::ValueRange<int32_t>{-100,100});
+            s.ext8b(value, bitsery::ext::Entropy<int64_t[3]>{values});
         });
     }
 

@@ -31,13 +31,11 @@ using bitsery::EndiannessType;
 using bitsery::DefaultConfig;
 using Buffer = bitsery::DefaultConfig::BufferType;
 
-struct FixedBufferConfig {
-    static constexpr bitsery::EndiannessType NetworkEndianness = DefaultConfig::NetworkEndianness;
+struct FixedBufferConfig: public DefaultConfig {
     using BufferType = std::array<uint8_t, 100>;
 };
 
-struct NonFixedBufferConfig {
-    static constexpr bitsery::EndiannessType NetworkEndianness = DefaultConfig::NetworkEndianness;
+struct NonFixedBufferConfig: public DefaultConfig  {
     using BufferType = std::vector<uint8_t>;
 };
 

@@ -20,57 +20,41 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-#ifndef BITSERY_EXT_CONTAINER_MAP_H
-#define BITSERY_EXT_CONTAINER_MAP_H
+#ifndef BITSERY_EXT_GROWABLE_H
+#define BITSERY_EXT_GROWABLE_H
 
 namespace bitsery {
+
     namespace ext {
 
-        class ContainerMap {
+        /*
+         * enables to add additional serialization methods at the end of method, without breaking existing older code
+         */
+        class Growable {
         public:
 
-            constexpr explicit ContainerMap(size_t maxSize):_maxSize{maxSize} {}
-
             template<typename Ser, typename Writer, typename T, typename Fnc>
-            void serialize(Ser &, Writer &writer, const T &obj, Fnc &&fnc) const {
-                using TKey = typename T::key_type;
-                using TValue = typename T::mapped_type;
-                auto size = obj.size();
-                assert(size <= _maxSize);
-                details::writeSize(writer, size);
-
-                for (auto &v:obj)
-                    fnc(const_cast<TKey &>(v.first), const_cast<TValue &>(v.second));
+            void serialize(Ser &s, Writer &writer, const T &obj, Fnc &&fnc) const {
+                writer.beginSession();
+                fnc(const_cast<T&>(obj));
+                writer.endSession();
             }
 
             template<typename Des, typename Reader, typename T, typename Fnc>
-            void deserialize(Des &, Reader &reader, T &obj, Fnc &&fnc) const {
-                using TKey = typename T::key_type;
-                using TValue = typename T::mapped_type;
-
-                size_t size{};
-                details::readSize(reader, size, _maxSize);
-                auto hint = obj.begin();
-                obj.clear();
-
-                for (auto i = 0u; i < size; ++i) {
-                    TKey key;
-                    TValue value;
-                    fnc(key, value);
-                    hint = obj.emplace_hint(hint, std::move(key), std::move(value));
-                }
+            void deserialize(Des &d, Reader &reader, T &obj, Fnc &&fnc) const {
+                reader.beginSession();
+                fnc(obj);
+                reader.endSession();
             }
-        private:
-            size_t _maxSize;
         };
     }
 
     namespace details {
         template<typename T>
-        struct ExtensionTraits<ext::ContainerMap, T> {
-            using TValue = void;
+        struct ExtensionTraits<ext::Growable, T> {
+            using TValue = T;
             static constexpr bool SupportValueOverload = false;
-            static constexpr bool SupportObjectOverload = false;
+            static constexpr bool SupportObjectOverload = true;
             static constexpr bool SupportLambdaOverload = true;
         };
     }
@@ -78,4 +62,4 @@ namespace bitsery {
 }
 
 
-#endif //BITSERY_EXT_CONTAINER_MAP_H
+#endif //BITSERY_EXT_GROWABLE_H

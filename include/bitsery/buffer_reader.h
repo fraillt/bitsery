@@ -25,7 +25,7 @@
 #ifndef BITSERY_BUFFER_READER_H
 #define BITSERY_BUFFER_READER_H
 
-#include "common.h"
+#include "details/buffer_common.h"
 #include <algorithm>
 #include <cstring>
 
@@ -151,9 +151,12 @@ namespace bitsery {
     private:
         ValueType* _pos;
         ValueType* _end;
-        details::BufferSessionsReader<BasicBufferReader<Config>, ValueType*> _session;
         ScratchType m_scratch{};
-        size_t m_scratchBits{};                                    ///< Number of bits currently in the scratch buffer. If the user wants to read more bits than this, we have to go fetch another dword from memory.
+        size_t m_scratchBits{};
+        typename std::conditional<Config::BufferSessionsEnabled,
+                details::BufferSessionsReader<BasicBufferReader<Config>, ValueType*>,
+                details::DisabledBufferSessionsReader<Config>>::type
+                _session;
 
         template<typename T>
         void directRead(T *v, size_t count) {

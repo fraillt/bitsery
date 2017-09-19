@@ -23,112 +23,120 @@
 
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
+#include <bitsery/ext/entropy.h>
+#include <vector>
+#include <list>
+
 using namespace testing;
 
-TEST(SerializeEntropyEncoding, WhenEntropyEncodedThenOnlyWriteIndexUsingMinRequiredBits) {
+using bitsery::ext::Entropy;
+
+TEST(SerializeExtensionEntropy, WhenEntropyEncodedThenOnlyWriteIndexUsingMinRequiredBits) {
     int32_t v = 4849;
     int32_t res;
     constexpr size_t N = 3;
-    int32_t entropyValues[3]{485,4849,89};
+    int32_t values[3] = {485,4849,89};
     SerializationContext ctx;
-    ctx.createSerializer().entropy<4>(v, entropyValues);
-    ctx.createDeserializer().entropy<4>(res, entropyValues);
+    ctx.createSerializer().ext4b(v, Entropy<int32_t[3]>{values});
+    ctx.createDeserializer().ext4b(res, Entropy<int32_t[3]>{values});
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
 
     SerializationContext ctx1;
-    ctx1.createSerializer().entropy<4>(v, entropyValues);
+    ctx1.createSerializer().ext4b(v, Entropy<int32_t[3]>{values});
     auto des = ctx1.createDeserializer();
-    des.range(res, {0, N + 1});
+    des.ext(res, bitsery::ext::ValueRange<int32_t>{0, static_cast<int32_t>(N + 1)});
     EXPECT_THAT(res, Eq(2));
 }
 
-TEST(SerializeEntropyEncoding, WhenNoEntropyEncodedThenWriteZeroBitsAndValueOrObject) {
+TEST(SerializeExtensionEntropy, WhenNoEntropyEncodedThenWriteZeroBitsAndValueOrObject) {
     int16_t v = 8945;
     int16_t res;
-    int16_t entropyValues[3]{485,4849,89};
+    std::initializer_list<int> values{485,4849,89};
     SerializationContext ctx;
-    ctx.createSerializer().entropy<2>(v, entropyValues);
-    ctx.createDeserializer().entropy<2>(res, entropyValues);
+    ctx.createSerializer().ext2b(v, Entropy<std::initializer_list<int>>{values});
+    ctx.createDeserializer().ext2b(res, Entropy<std::initializer_list<int>>{values});
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(sizeof(int16_t)+1));
 }
 
-TEST(SerializeEntropyEncoding, CustomTypeEntropyEncoded) {
+TEST(SerializeExtensionEntropy, CustomTypeEntropyEncoded) {
     MyStruct1 v = {12,10};
     MyStruct1 res;
     constexpr size_t N = 4;
-    MyStruct1 entropyValues[N]{
-            MyStruct1{12,10}, MyStruct1{485, 454},
-            MyStruct1{4849,89}, MyStruct1{0,1}};
+
+    MyStruct1 values[N]{
+                    MyStruct1{12, 10}, MyStruct1{485, 454},
+                    MyStruct1{4849, 89}, MyStruct1{0, 1}};
     SerializationContext ctx;
-    ctx.createSerializer().entropy(v, entropyValues);
-    ctx.createDeserializer().entropy(res, entropyValues);
+    ctx.createSerializer().ext(v, Entropy<MyStruct1[N]>{values});
+    ctx.createDeserializer().ext(res, Entropy<MyStruct1[N]>{values});
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
 }
 
-TEST(SerializeEntropyEncoding, CustomTypeNotEntropyEncoded) {
+TEST(SerializeExtensionEntropy, CustomTypeNotEntropyEncoded) {
     MyStruct1 v = {8945,4456};
     MyStruct1 res;
-    constexpr size_t N = 4;
-    MyStruct1 entropyValues[N] {
+
+    std::initializer_list<MyStruct1> values {
             MyStruct1{12,10}, MyStruct1{485, 454},
             MyStruct1{4849,89}, MyStruct1{0,1}};
     SerializationContext ctx;
-    ctx.createSerializer().entropy(v, entropyValues);
-    ctx.createDeserializer().entropy(res, entropyValues);
+
+    ctx.createSerializer().ext(v, Entropy<std::initializer_list<MyStruct1>>{values});
+    ctx.createDeserializer().ext(res, Entropy<std::initializer_list<MyStruct1>>{values});
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(MyStruct1::SIZE + 1));
 }
 
-TEST(SerializeEntropyEncoding, CustomFunctionNotEntropyEncoded) {
+TEST(SerializeExtensionEntropy, CustomFunctionNotEntropyEncoded) {
     MyStruct1 v = {8945,4456};
     MyStruct1 res;
     constexpr size_t N = 4;
-    MyStruct1 entropyValues[N] {
+
+    std::vector<MyStruct1> values{
             MyStruct1{12,10}, MyStruct1{485, 454},
             MyStruct1{4849,89}, MyStruct1{0,1}};
 
-    auto rangeForValue = bitsery::RangeSpec<int>(0, 10000);
-    auto rangeForIndex = bitsery::RangeSpec<size_t>{0, N+1};
+    auto rangeForValue = bitsery::ext::ValueRange<int>{0, 10000};
+    auto rangeForIndex = bitsery::ext::ValueRange<size_t>{0u, N+1};
 
     SerializationContext ctx;
     auto ser = ctx.createSerializer();
 
     //lambdas differ only in capture clauses, it would make sense to use std::bind, but debugger crashes when it sees std::bind...
-    auto serLambda = [&ser, rangeForValue](MyStruct1& v) {
-        ser.range(v.i1, rangeForValue);
-        ser.range(v.i2, rangeForValue);
+    auto serLambda = [&ser, &rangeForValue](MyStruct1& v) {
+        ser.ext(v.i1, rangeForValue);
+        ser.ext(v.i2, rangeForValue);
     };
-    ser.entropy(v, entropyValues, serLambda);
+    ser.ext(v, Entropy<std::vector<MyStruct1>>(values), serLambda);
 
     auto des = ctx.createDeserializer();
-    auto desLambda = [&des, rangeForValue](MyStruct1& v) {
-        des.range(v.i1, rangeForValue);
-        des.range(v.i2, rangeForValue);
+    auto desLambda = [&des, &rangeForValue](MyStruct1& v) {
+        des.ext(v.i1, rangeForValue);
+        des.ext(v.i2, rangeForValue);
     };
-    des.entropy(res, entropyValues, desLambda);
+    des.ext(res, Entropy<std::vector<MyStruct1>>(values), desLambda);
 
     EXPECT_THAT(res, Eq(v));
-    EXPECT_THAT(ctx.getBufferSize(), Eq((rangeForIndex.bitsRequired + rangeForValue.bitsRequired * 2 - 1) / 8 + 1 ));
+    EXPECT_THAT(ctx.getBufferSize(), Eq((rangeForIndex.getRequiredBits() + rangeForValue.getRequiredBits() * 2 - 1) / 8 + 1 ));
 }
 
-TEST(SerializeEntropyEncoding, WhenEntropyEncodedThenCustomFunctionNotInvoked) {
+TEST(SerializeExtensionEntropy, WhenEntropyEncodedThenCustomFunctionNotInvoked) {
     MyStruct1 v = {4849,89};
     MyStruct1 res;
-    constexpr size_t N = 4;
-    MyStruct1 entropyValues[N] {
-            MyStruct1{12,10}, MyStruct1{485, 454},
-            MyStruct1{4849,89}, MyStruct1{0,1}};
+
+    std::list<MyStruct1> values {MyStruct1{12,10}, MyStruct1{485, 454},
+                                 MyStruct1{4849,89}, MyStruct1{0,1}};
 
     SerializationContext ctx;
-    ctx.createSerializer().entropy(v, entropyValues, [](MyStruct1& ) {});
-    ctx.createDeserializer().entropy(res, entropyValues, []( MyStruct1& ) {});
+    ctx.createSerializer().ext(v, Entropy<std::list<MyStruct1>>{values}, [](MyStruct1& ) {});
+    ctx.createDeserializer().ext(res, Entropy<std::list<MyStruct1>>{values}, []( MyStruct1& ) {});
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));

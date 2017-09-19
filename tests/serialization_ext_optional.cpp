@@ -24,27 +24,25 @@
 #include "serialization_test_utils.h"
 
 #if __cplusplus > 201402L
-#  include<optional>
-#else
-#  include <experimental/optional>
-    namespace std {
-        template <typename T>
-        using optional = experimental::optional<T>;
-    }
-#endif
+
+
+
+
+
+#include<optional>
 
 #include <bitsery/ext/optional.h>
 
 
-using extoptional = bitsery::ext::optional;
+using Optional = bitsery::ext::Optional;
 
 using testing::Eq;
 
 
 template <typename T>
 void test(SerializationContext& ctx, const T& v, T& r) {
-    ctx.createSerializer().extend4b(v, extoptional{});
-    ctx.createDeserializer().extend4b(r, extoptional{});
+    ctx.createSerializer().ext4b(v, Optional{});
+    ctx.createDeserializer().ext4b(r, Optional{});
 }
 
 TEST(SerializeExtensionOptional, EmptyOptional) {
@@ -80,3 +78,5 @@ TEST(SerializeExtensionOptional, OptionalHasValue) {
     EXPECT_THAT(t1.value(), Eq(r1.value()));
 
 }
+
+#endif

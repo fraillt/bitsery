@@ -32,27 +32,15 @@
 #include "both_common.h"
 #include "traits.h"
 
-namespace bitsery {
+#include "../common.h"
 
-/*
- * endianess
- */
-    enum class EndiannessType {
-        LittleEndian,
-        BigEndian
-    };
+namespace bitsery {
 
     template<typename I>
     struct BufferRange : std::pair<I, I> {
         using std::pair<I, I>::pair;
         I begin() const { return this->first; }
         I end() const { return this->second; }
-    };
-
-    enum class BufferReaderError {
-        NO_ERROR,
-        BUFFER_OVERFLOW,
-        INVALID_BUFFER_DATA
     };
 
     namespace details {
@@ -63,7 +51,7 @@ namespace bitsery {
         };
 
         //add swap functions to class, to avoid compilation warning about unused functions
-        struct swapImpl {
+        struct SwapImpl {
             static uint64_t exec(uint64_t value) {
 #ifdef __GNUC__
                 return __builtin_bswap64(value);
@@ -98,7 +86,7 @@ namespace bitsery {
             using UT = typename std::conditional<TSize == 1, uint8_t,
                     typename std::conditional<TSize == 2, uint16_t,
                             typename std::conditional<TSize == 4, uint32_t, uint64_t>::type>::type>::type;
-            return swapImpl::exec(static_cast<UT>(value));
+            return SwapImpl::exec(static_cast<UT>(value));
         }
 
         //add test data in separate struct, because some compilers only support constexpr functions with return-only body
@@ -134,26 +122,60 @@ namespace bitsery {
             using type = uint64_t;
         };
 
-//        struct BufferSessionInfo {
-//            size_t depth;
-//            size_t offset;
-//        };
+        template <typename Config>
+        struct DisabledBufferSessionsWriter {
+            template <typename TWriter>
+            void begin(TWriter& ) {
+                static_assert(Config::BufferSessionsEnabled, "Buffer sessions is disabled, enable it via configuration");
+            }
+            template <typename TWriter>
+            void end(TWriter& ) {
+                static_assert(Config::BufferSessionsEnabled, "Buffer sessions is disabled, enable it via configuration");
+            }
+            template <typename TWriter>
+            void flushSessions(TWriter& ) {
+            }
+        };
 
+
+        template <typename Config>
+        struct DisabledBufferSessionsReader {
+            template <typename TReader, typename TIterator>
+            DisabledBufferSessionsReader(TReader& , TIterator& , TIterator& ) {
+            }
+
+            void begin() {
+                static_assert(Config::BufferSessionsEnabled, "Buffer sessions is disabled, enable it via configuration");
+            }
+
+            void end() {
+                static_assert(Config::BufferSessionsEnabled, "Buffer sessions is disabled, enable it via configuration");
+            }
+
+            bool hasActiveSessions() const {
+                return false;
+            }
+        };
+
+        template <typename TWriter>
         class BufferSessionsWriter {
         public:
-            void begin() {
+
+            void begin(TWriter& ) {
                 //write position
                 _sessionIndex.push(_sessions.size());
                 _sessions.emplace_back(0);
             }
-            void end(size_t pos) {
+
+            void end(TWriter& writer) {
                 assert(!_sessionIndex.empty());
                 //change position to session end
                 auto sessionIt = std::next(std::begin(_sessions), _sessionIndex.top());
                 _sessionIndex.pop();
-                *sessionIt = pos;
+                auto range = writer.getWrittenRange();
+                *sessionIt = static_cast<size_t>(std::distance(range.begin(), range.end()));
             }
-            template <typename TWriter>
+
             void flushSessions(TWriter& writer) {
                 if (_sessions.size()) {
                     assert(_sessionIndex.empty());
@@ -188,13 +210,12 @@ namespace bitsery {
 
         template <typename TReader, typename TIterator>
         struct BufferSessionsReader {
-            TIterator _bufBegin;
             BufferSessionsReader(TReader& r, TIterator& begin, TIterator& end)
                     :_reader{r},
+                     _begin{begin},
                      _pos{begin},
                      _end{end}
             {
-                _bufBegin = begin;
             }
             void begin() {
                 if (_sessions.empty())
@@ -204,7 +225,7 @@ namespace bitsery {
                 if (_nextSessionIt != std::end(_sessions)) {
                     if (std::distance(_pos, _end) > 0) {
                         //set end position for new session
-                        auto newEnd = std::next(_bufBegin, *_nextSessionIt);
+                        auto newEnd = std::next(_begin, *_nextSessionIt);
                         if (std::distance(newEnd, _end) < 0)
                         {
                             //new session cannot end further than current end
@@ -234,7 +255,7 @@ namespace bitsery {
                     auto dist = std::distance(_pos, _end);
                     if (dist > 0) {
                         //newer version might have some inner sessions, try to find the one after current ends
-                        auto currPos = static_cast<size_t>(std::distance(_bufBegin, _end));
+                        auto currPos = static_cast<size_t>(std::distance(_begin, _end));
                         for (; _nextSessionIt != std::end(_sessions); ++_nextSessionIt) {
                             if (*_nextSessionIt > currPos)
                                 break;
@@ -253,6 +274,7 @@ namespace bitsery {
 
         private:
             TReader& _reader;
+            TIterator _begin;
             TIterator& _pos;
             TIterator& _end;
 
@@ -263,9 +285,8 @@ namespace bitsery {
             void initializeSessions() {
                 //save current position
                 auto currPos = _pos;
-                auto bufferSizeLeft = std::distance(_pos, _end);
                 //read size
-                if (bufferSizeLeft < 2) {
+                if (std::distance(_pos, _end) < 2) {
                     _reader.setError(BufferReaderError::INVALID_BUFFER_DATA);
                     return;
                 }
@@ -277,12 +298,12 @@ namespace bitsery {
 
 
                 if (high >= 0x8000u) {
-                    if (bufferSizeLeft < 4) {
+                    endSessionsSizesIt = std::next(endSessionsSizesIt, -2);
+                    _pos = endSessionsSizesIt;
+                    if (std::distance(_begin, _pos) < 0) {
                         _reader.setError(BufferReaderError::INVALID_BUFFER_DATA);
                         return;
                     }
-                    endSessionsSizesIt = std::next(endSessionsSizesIt, -2);
-                    _pos = endSessionsSizesIt;
                     uint16_t low;
                     _reader.template readBytes<2>(low);
                     //mask out last bit
@@ -291,7 +312,9 @@ namespace bitsery {
 
                 } else
                     sessionsOffset = high;
-                if (static_cast<size_t>(bufferSizeLeft) < sessionsOffset) {
+
+                auto bufferSize = std::distance(_begin, _end);
+                if (static_cast<size_t>(bufferSize) < sessionsOffset) {
                     _reader.setError(BufferReaderError::INVALID_BUFFER_DATA);
                     return;
                 }
@@ -301,7 +324,7 @@ namespace bitsery {
                 _pos = std::next(_end, -sessionsOffset);
                 while (std::distance(_pos, endSessionsSizesIt) > 0) {
                     size_t size;
-                    details::readSize(_reader, size);
+                    details::readSize(_reader, size, bufferSize);
                     *sessionsIt++ = size;
                 }
                 _sessions.shrink_to_fit();
@@ -312,17 +335,19 @@ namespace bitsery {
             }
         };
 
+        //this class writes bytes and bits to underlying buffer, it has specializations for resizable and non-resizable buffers
         template<typename Buffer, bool isResizable>
         class WriteBufferContext {
 
         };
 
         template<typename Buffer>
-        class WriteBufferContext<Buffer, false>{
+        class WriteBufferContext<Buffer, false> {
         public:
-            using ValueType = typename BufferContainerTraits<Buffer>::TValue;
-            using IteratorType = typename BufferContainerTraits<Buffer>::TIterator;
-            using DifferenceType = typename BufferContainerTraits<Buffer>::TDifference;
+            using TValue = typename BufferContainerTraits<Buffer>::TValue;
+            using TIterator = typename BufferContainerTraits<Buffer>::TIterator;
+            using TDifference = typename BufferContainerTraits<Buffer>::TDifference;
+
 
             explicit WriteBufferContext(Buffer &buffer)
                     : _buffer{buffer},
@@ -331,21 +356,21 @@ namespace bitsery {
             {
             }
 
-            void write(const ValueType *data, size_t size) {
-                assert(std::distance(_outIt, _end) >= static_cast<DifferenceType>(size));
+            void write(const TValue *data, size_t size) {
+                assert(std::distance(_outIt, _end) >= static_cast<TDifference>(size));
                 memcpy(_outIt, data, size);
                 _outIt += size;
             }
 
-            BufferRange<IteratorType> getWrittenRange() const {
+            BufferRange<TIterator> getWrittenRange() const {
                 auto begin = std::begin(_buffer);
-                return BufferRange<IteratorType>{begin, std::next(begin, _outIt - std::addressof(*begin))};
+                return BufferRange<TIterator>{begin, std::next(begin, _outIt - std::addressof(*begin))};
             }
 
         private:
             Buffer &_buffer;
-            ValueType* _outIt;
-            ValueType* _end;
+            TValue* _outIt;
+            TValue* _end;
         };
 
         template<typename Buffer>

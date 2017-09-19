@@ -27,12 +27,19 @@
 #include <cstddef>
 
 namespace bitsery {
+
+    enum class BufferReaderError {
+        NO_ERROR,
+        BUFFER_OVERFLOW,
+        INVALID_BUFFER_DATA
+    };
+
     namespace details {
 /*
  * size read/write functions
  */
         template <typename Reader>
-        void readSize(Reader& r, size_t& size) {
+        void readSize(Reader& r, size_t& size, size_t maxSize) {
             uint8_t hb{};
             r.template readBytes<1>(hb);
             if (hb < 0x80u) {
@@ -47,6 +54,10 @@ namespace bitsery {
                 } else {
                     size = ((hb & 0x7Fu) << 8) | lb;
                 }
+            }
+            if (size > maxSize) {
+                r.setError(BufferReaderError::INVALID_BUFFER_DATA);
+                size = {};
             }
         }
 

@@ -23,11 +23,15 @@
 
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
+#include <bitsery/ext/value_range.h>
 using namespace testing;
-using bitsery::RangeSpec;
-using bitsery::BitsConstraint;
+using bitsery::details::RangeSpec;
+using bitsery::ext::BitsConstraint;
+using bitsery::ext::ValueRange;
 
-TEST(SerializeRange, RequiredBitsIsConstexpr) {
+#if __cplusplus > 201402L
+
+TEST(SerializeExtensionValueRange, RequiredBitsIsConstexpr) {
     constexpr RangeSpec<int> r1{0, 31};
     static_assert(r1.bitsRequired == 5, "r1.bitsRequired == 5");
 
@@ -43,123 +47,125 @@ TEST(SerializeRange, RequiredBitsIsConstexpr) {
 
 }
 
-TEST(SerializeRange, IntegerNegative) {
+#endif
+
+TEST(SerializeExtensionValueRange, IntegerNegative) {
     SerializationContext ctx;
-    constexpr RangeSpec<int> r1{-50, 50};
+    ValueRange<int> r1{-50, 50};
     int t1{-8};
     int res1;
 
-    ctx.createSerializer().range(t1, r1);
-    ctx.createDeserializer().range(res1, r1);
+    ctx.createSerializer().ext(t1, r1);
+    ctx.createDeserializer().ext(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, Eq(t1));
 
 }
 
-TEST(SerializeRange, IntegerPositive) {
+TEST(SerializeExtensionValueRange, IntegerPositive) {
     SerializationContext ctx;
-    constexpr RangeSpec<unsigned> r1{4, 10};
+    ValueRange<unsigned> r1{4u, 10u};
     unsigned t1{8};
     unsigned res1;
 
-    ctx.createSerializer().range(t1, r1);
-    ctx.createDeserializer().range(res1, r1);
+    ctx.createSerializer().ext(t1, r1);
+    ctx.createDeserializer().ext(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, Eq(t1));
 
 }
 
-TEST(SerializeRange, EnumTypes) {
+TEST(SerializeExtensionValueRange, EnumTypes) {
     SerializationContext ctx;
-    constexpr RangeSpec<MyEnumClass> r1{MyEnumClass::E2, MyEnumClass::E4};
+    ValueRange<MyEnumClass> r1{MyEnumClass::E2, MyEnumClass::E4};
     MyEnumClass t1{MyEnumClass::E2};
     MyEnumClass res1;
 
-    ctx.createSerializer().range(t1, r1);
-    ctx.createDeserializer().range(res1, r1);
+    ctx.createSerializer().ext(t1, r1);
+    ctx.createDeserializer().ext(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, Eq(t1));
 
 }
 
-TEST(SerializeRange, FloatUsingPrecisionConstraint1) {
+TEST(SerializeExtensionValueRange, FloatUsingPrecisionConstraint1) {
     SerializationContext ctx;
     constexpr float precision{0.01f};
     constexpr float min{-1.0f};
     constexpr float max{1.0f};
     float t1{0.5f};
-    constexpr RangeSpec<float> r1{min, max, precision};
+    ValueRange<float> r1{min, max, precision};
 
     float res1;
 
-    ctx.createSerializer().range(t1, r1);
-    ctx.createDeserializer().range(res1, r1);
+    ctx.createSerializer().ext(t1, r1);
+    ctx.createDeserializer().ext(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, ::testing::FloatNear(t1, (max - min) * precision));
 }
 
-TEST(SerializeRange, DoubleUsingPrecisionConstraint2) {
+TEST(SerializeExtensionValueRange, DoubleUsingPrecisionConstraint2) {
     SerializationContext ctx;
     constexpr double precision{0.000002};
     constexpr double min{50.0};
     constexpr double max{100000.0};
     double t1{38741.0};
-    constexpr RangeSpec<double> r1{min, max, precision};
+    ValueRange<double> r1{min, max, precision};
 
     double res1;
 
-    ctx.createSerializer().range(t1, r1);
-    ctx.createDeserializer().range(res1, r1);
+    ctx.createSerializer().ext(t1, r1);
+    ctx.createDeserializer().ext(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(5));
     EXPECT_THAT(res1, ::testing::DoubleNear(t1, (max - min) * precision));
 }
 
-TEST(SerializeRange, FloatUsingBitsSizeConstraint1) {
+TEST(SerializeExtensionValueRange, FloatUsingBitsSizeConstraint1) {
     SerializationContext ctx;
     constexpr size_t bits = 8;
     constexpr float min{-1.0f};
     constexpr float max{1.0f};
     float t1{0.5f};
-    constexpr RangeSpec<float> r1{min, max, BitsConstraint(bits)};
+    ValueRange<float> r1{min, max, BitsConstraint(bits)};
 
     float res1;
 
-    ctx.createSerializer().range(t1, r1);
-    ctx.createDeserializer().range(res1, r1);
+    ctx.createSerializer().ext(t1, r1);
+    ctx.createDeserializer().ext(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, ::testing::FloatNear(t1, (max - min) / (static_cast<bitsery::details::SAME_SIZE_UNSIGNED<float>>(1) << bits)));
 }
 
-TEST(SerializeRange, DoubleUsingBitsSizeConstraint2) {
+TEST(SerializeExtensionValueRange, DoubleUsingBitsSizeConstraint2) {
     SerializationContext ctx;
     constexpr size_t bits = 50;
     constexpr double min{50.0};
     constexpr double max{100000.0};
     double t1{38741};
-    constexpr RangeSpec<double> r1{min, max, BitsConstraint(bits)};
+    ValueRange<double> r1{min, max, BitsConstraint(bits)};
 
     double res1;
 
-    ctx.createSerializer().range(t1, r1);
-    ctx.createDeserializer().range(res1, r1);
+    ctx.createSerializer().ext(t1, r1);
+    ctx.createDeserializer().ext(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(7));
     EXPECT_THAT(res1, ::testing::DoubleNear(t1, (max - min) / (static_cast<bitsery::details::SAME_SIZE_UNSIGNED<double>>(1) << bits)));
 }
 
-TEST(SerializeRange, WhenDataIsInvalidThenReturnMinimumRangeValue) {
+TEST(SerializeExtensionValueRange, WhenDataIsInvalidThenReturnMinimumRangeValue) {
     SerializationContext ctx;
-    constexpr RangeSpec<int> r1{4, 10};//6 is max, but 3bits required
+    ValueRange<int> r1{4, 10};//6 is max, but 3bits required
     int res1;
     uint8_t tmp{0xFF};//write all 1 so when reading 3 bits we get 7
     ctx.createSerializer().value1b(tmp);
-    ctx.createDeserializer().range(res1, r1);
+    ctx.createDeserializer().ext(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, Eq(4));

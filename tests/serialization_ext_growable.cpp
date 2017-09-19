@@ -22,8 +22,11 @@
 
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
+#include <bitsery/ext/growable.h>
 
 using namespace testing;
+
+using bitsery::ext::Growable;
 
 using Buffer = typename bitsery::DefaultConfig::BufferType;
 using DiffType = typename bitsery::details::BufferContainerTraits<Buffer>::TDifference;
@@ -44,16 +47,16 @@ struct DataV3 {
 };
 
 
-TEST(SerializeGrowable, WriteSessionsDataAtBufferEndAfterFlush) {
+TEST(SerializeExtensionGrowable, WriteSessionsDataAtBufferEndAfterFlush) {
     SerializationContext ctx;
-    ctx.createSerializer().growable(int8_t{}, [] (int8_t& v) { });
+    ctx.createSerializer().ext(int8_t{}, Growable{}, [] (int8_t& v) { });
     EXPECT_THAT(ctx.getBufferSize(), Eq(0));
     ctx.bw->flush();
     EXPECT_THAT(ctx.getBufferSize(), Gt(0));
 }
 
 
-TEST(SerializeGrowable, SessionDataConsistOfSessionsEndPosAnd2BytesSessionsDataOffset) {
+TEST(SerializeExtensionGrowable, SessionDataConsistOfSessionsEndPosAnd2BytesSessionsDataOffset) {
     SerializationContext ctx;
 
 
@@ -61,7 +64,7 @@ TEST(SerializeGrowable, SessionDataConsistOfSessionsEndPosAnd2BytesSessionsDataO
     int32_t data{};
 
     auto ser = ctx.createSerializer();
-    ser.growable(data, [&ser](int32_t & v) { ser.value4b(v);});
+    ser.ext(data, Growable{}, [&ser](int32_t & v) { ser.value4b(v);});
     ctx.createDeserializer();//to flush data and create buffer reader
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(3 + DATA_SIZE));
@@ -72,7 +75,7 @@ TEST(SerializeGrowable, SessionDataConsistOfSessionsEndPosAnd2BytesSessionsDataO
 
     size_t sessionEnd{};
     //there should start session data with first size of session
-    bitsery::details::readSize(br, sessionEnd);
+    bitsery::details::readSize(br, sessionEnd, 1000000u);
     EXPECT_THAT(sessionEnd, Eq(DATA_SIZE));
     //this is the the offset from the end of buffer where actual data ends
     uint16_t sessionsOffset{};//bufferEnd - sessionsOffset = dataEnd
@@ -83,7 +86,7 @@ TEST(SerializeGrowable, SessionDataConsistOfSessionsEndPosAnd2BytesSessionsDataO
     EXPECT_THAT(dSize, Eq(DATA_SIZE));
 }
 
-TEST(SerializeGrowable, WhenNestedSessionsThenStoreEachDepthAndSize) {
+TEST(SerializeExtensionGrowable, WhenNestedSessionsThenStoreEachDepthAndSize) {
     SerializationContext ctx;
     DataV3 data{19457,846, 498418};
     ctx.createSerializer();
@@ -107,15 +110,15 @@ TEST(SerializeGrowable, WhenNestedSessionsThenStoreEachDepthAndSize) {
     EXPECT_THAT(res.v3, Eq(data.v3));
     size_t sessionEnd[3];
     //read sessions sizes
-    bitsery::details::readSize(*(ctx.br), sessionEnd[0]);
-    bitsery::details::readSize(*(ctx.br),sessionEnd[1]);
-    bitsery::details::readSize(*(ctx.br), sessionEnd[2]);
+    bitsery::details::readSize(*(ctx.br), sessionEnd[0],10000000u);
+    bitsery::details::readSize(*(ctx.br), sessionEnd[1],10000000u);
+    bitsery::details::readSize(*(ctx.br), sessionEnd[2],10000000u);
     EXPECT_THAT(sessionEnd[0], Eq(12));
     EXPECT_THAT(sessionEnd[1], Eq(8));
     EXPECT_THAT(sessionEnd[2], Eq(12));
 }
 
-TEST(SerializeGrowable, WhenSessionsDataIsMoreThan0x7FFFThenWrite4BytesForSessionsOffset) {
+TEST(SerializeExtensionGrowable, WhenSessionsDataIsMoreThan0x7FFFThenWrite4BytesForSessionsOffset) {
     SerializationContext ctx;
     ctx.createSerializer();
     //create more sessions that can fit in 2 bytes
@@ -136,7 +139,7 @@ TEST(SerializeGrowable, WhenSessionsDataIsMoreThan0x7FFFThenWrite4BytesForSessio
     EXPECT_THAT(ctx.br->getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));
 }
 
-TEST(SerializeGrowable, MultipleSessionsReadSameVersionData) {
+TEST(SerializeExtensionGrowable, MultipleSessionsReadSameVersionData) {
     SerializationContext ctx;
     DataV2 data{8454,987451};
     ctx.createSerializer();
@@ -162,7 +165,7 @@ TEST(SerializeGrowable, MultipleSessionsReadSameVersionData) {
     EXPECT_THAT(ctx.br->isCompletedSuccessfully(), Eq(true));
 }
 
-TEST(SerializeGrowable, MultipleSessionsReadNewerVersionData) {
+TEST(SerializeExtensionGrowable, MultipleSessionsReadNewerVersionData) {
     SerializationContext ctx;
     DataV3 data{8454,987451,54};
     ctx.createSerializer();
@@ -189,7 +192,7 @@ TEST(SerializeGrowable, MultipleSessionsReadNewerVersionData) {
     EXPECT_THAT(br.isCompletedSuccessfully(), Eq(true));
 }
 
-TEST(SerializeGrowable, MultipleSessionsReadOlderVersionData) {
+TEST(SerializeExtensionGrowable, MultipleSessionsReadOlderVersionData) {
     SerializationContext ctx;
     DataV2 data{8454,987451};
     ctx.createSerializer();
@@ -217,7 +220,7 @@ TEST(SerializeGrowable, MultipleSessionsReadOlderVersionData) {
     EXPECT_THAT(ctx.br->isCompletedSuccessfully(), Eq(true));
 }
 
-TEST(SerializeGrowable, MultipleNestedSessionsReadSameVersionData) {
+TEST(SerializeExtensionGrowable, MultipleNestedSessionsReadSameVersionData) {
     SerializationContext ctx;
     DataV2 data{8454,987451};
     ctx.createSerializer();
@@ -253,7 +256,7 @@ TEST(SerializeGrowable, MultipleNestedSessionsReadSameVersionData) {
     EXPECT_THAT(ctx.br->isCompletedSuccessfully(), Eq(true));
 }
 
-TEST(SerializeGrowable, MultipleNestedSessionsReadOlderVersionData) {
+TEST(SerializeExtensionGrowable, MultipleNestedSessionsReadOlderVersionData) {
     SerializationContext ctx;
     DataV2 data{8454,987451};
     ctx.createSerializer();
@@ -293,7 +296,7 @@ TEST(SerializeGrowable, MultipleNestedSessionsReadOlderVersionData) {
     EXPECT_THAT(ctx.br->isCompletedSuccessfully(), Eq(true));
 }
 
-TEST(SerializeGrowable, MultipleNestedSessionsReadNewerVersionData1) {
+TEST(SerializeExtensionGrowable, MultipleNestedSessionsReadNewerVersionData1) {
     SerializationContext ctx;
     DataV3 data{8454,987451,54};
     ctx.createSerializer();
@@ -349,7 +352,7 @@ TEST(SerializeGrowable, MultipleNestedSessionsReadNewerVersionData1) {
     EXPECT_THAT(ctx.br->isCompletedSuccessfully(), Eq(true));
 }
 
-TEST(SerializeGrowable, MultipleNestedSessionsReadNewerVersionData2) {
+TEST(SerializeExtensionGrowable, MultipleNestedSessionsReadNewerVersionData2) {
     SerializationContext ctx;
     DataV3 data{8454,987451,54};
     ctx.createSerializer();
@@ -411,3 +414,32 @@ TEST(SerializeGrowable, MultipleNestedSessionsReadNewerVersionData2) {
     EXPECT_THAT(ctx.br->isCompletedSuccessfully(), Eq(true));
 }
 
+TEST(SerializeExtensionGrowable, SessionsStartsAtEndOfSerialization) {
+    SerializationContext ctx;
+    DataV2 data{8454,987451};
+    ctx.createSerializer();
+    auto& bw = (*ctx.bw);
+    for (auto i = 0; i < 100; ++i)
+        bw.writeBytes<4>(data.v1);
+    for (auto i = 0; i < 10; ++i) {
+        bw.beginSession();
+        bw.writeBytes<4>(data.v1);
+        bw.writeBytes<4>(data.v2);
+        bw.endSession();
+    }
+    //create more sessions that can fit in 2 bytes
+    ctx.createDeserializer();//to flush data and create buffer reader
+    DataV2 res{};
+    auto& br = (*ctx.br);
+    for (auto i = 0; i < 100; ++i)
+        br.readBytes<4>(res.v1);
+    for (auto i = 0; i < 10; ++i) {
+        br.beginSession();
+        br.readBytes<4>(res.v1);
+        br.readBytes<4>(res.v2);
+        br.endSession();
+        EXPECT_THAT(res.v1, Eq(data.v1));
+        EXPECT_THAT(res.v2, Eq(data.v2));
+    }
+    EXPECT_THAT(ctx.br->isCompletedSuccessfully(), Eq(true));
+}

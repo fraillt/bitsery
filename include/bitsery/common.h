@@ -24,15 +24,28 @@
 #ifndef BITSERY_COMMON_H
 #define BITSERY_COMMON_H
 
-#include "details/buffer_common.h"
 #include <vector>
 
 namespace bitsery {
 
+/*
+ * endianess
+ */
+    enum class EndiannessType {
+        LittleEndian,
+        BigEndian
+    };
+
     //default configuration for buffer writing/reading operations
     struct DefaultConfig {
         static constexpr EndiannessType NetworkEndianness = EndiannessType::LittleEndian;
-        using BufferType = std::vector<uint8_t>;//buffer value type must be unsigned, currently only uint8_t supported
+        //this functionality allows to support backward/forward compatibility for any type
+        //disabling it, saves 100+bytes per BufferReader/Writer and also reduces executable size
+        static constexpr bool BufferSessionsEnabled = true;
+        //buffer value type must be unsigned, currently only uint8_t supported
+        //fixed size buffer type also supported, for faster serialization performance
+        using BufferType = std::vector<uint8_t>;
+
     };
 
 }

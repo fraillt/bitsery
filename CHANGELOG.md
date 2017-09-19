@@ -1,12 +1,12 @@
-# [3.0.0](https://github.com/fraillt/bitsery/compare/v2.0.1...v3.0.0) (2017-09-02)
+# [3.0.0](https://github.com/fraillt/bitsery/compare/v2.0.1...v3.0.0) (2017-09-21)
 
 ### Features
 
-* now works with C++11 compiler.
-* new function **growable**, that allows to have forward/backward compatability within this functions serialization flow. It only allows to append new data at the end of to existing flow without breaking old consumers.
+* refactored interface, now works with C++11 compiler.
+* new new extension **Growable**, that allows to have forward/backward compatability within this functions serialization flow. It only allows to append new data at the end of to existing flow without breaking old consumers.
   * old consumer: correctly read old interfce and ignore new data.
   * new consumer: get defaults (zero values) for new fields, when reading old data.
-* added new extension for associative *map* containers **containerMap**.
+* added new extension for associative *map* containers **ContainerMap**.
 * friendly static_assert message when serializing **object**, that doesn't have **serialize** function defined.
 * added **object** overload, that invokes user function/lambda with object. It is the same as calling user function directly, but makes more consistent API.
 * Serializer/Deserializer now have optional *context* parameter, that might be required in some specific serialization cases.
@@ -18,19 +18,21 @@
 
 ### Breaking changes
 
+* now all serializer/deserializer functions return void, to avoid undefined behaviour for functions parameters evaluation when using method chaining. There was no benefits apart from *nicer* syntax, but could have undefined behaviour when building complex serialization flows.
 * removed **SERIALIZE** macro, and changed interface for all functions that use custom lambdas, to work with C++11. Now lambda function must capture serializer/deserializer.
+* to make serializer a little bit *lighter* removed advanced features and made available as extensions via **extend** method
+  * removed **range** method, instead added **ValueRange** extension.
+  * removed **substitution** method, instead added **Entropy** extension, to sound more familiar to *entropy encoding* term.
+* removed **array**, instead added fixed sizes overloads for **container**.
+* removed **isValid** method from Deserializer, only BufferReader/Writer store states.
 * container and text sizes representation changed, to allow much faster size reads/writes for small values.
 * renamed functions:
   * **ext** to **extend** and changed its interface, to make it more easy to extend.
   * alias functions that write bytes directly no has *b* (meaning bytes) at the end of the name eg. *value4* now is *value4b*.
-  * **substitution** changed to **entropy**, to sound more familiar to *entropy encoding* term.
-* now all serializer/deserializer functions return void, to avoid undefined behaviour for functions parameters evaluation when using method chaining. There was no benefits apart from *nicer* syntax, but could have undefined behaviour when building complex serialization flows.
-* removed **array** and added fixed sizes overloads for **container**.
 * changed BufferWriter/Reader behaviour:
   * added support for fixed size buffers for better serializer performance (more than 50% improvement). Default config is resizable buffer (*std::vector<uint8_t>*).
   * after serialization, call *getWrittenRange* to get valid range written to buffer, because BufferWritter for resizable buffer now always resize to *capacity* to avoid using *back_insert_iterator* for better performance.
   * BufferReader has constructor with iterators (range), and raw value type pointers (begin, end).
-* removed **isValid** method from Deserializer, only BufferReader/Writer store states.
 * renamed BufferReader **isCompleted** to  **isCompletedSuccessfully**, that returns true only when there is no errors and buffer is fully read.
 
 ### Bug fixes
