@@ -24,6 +24,8 @@
 #include <bitsery/buffer_writer.h>
 #include <bitsery/buffer_reader.h>
 #include <bitsery/details/serialization_common.h>
+#include <bitsery/traits/array.h>
+#include <bitsery/traits/vector.h>
 
 using testing::Eq;
 using testing::ContainerEq;

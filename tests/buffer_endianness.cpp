@@ -145,7 +145,7 @@ struct IntegralUnsignedTypes {
 
 TEST(BufferEndianness, WhenBufferValueTypeIs1ByteThenBitOperationsIsNotAffectedByEndianness) {
     //fill initial values
-    static_assert(sizeof(bitsery::details::BufferContainerTraits<DefaultConfig::BufferType>::TValue) == 1, "currently only 1 byte size, value size is supported");
+    static_assert(sizeof(bitsery::details::ContainerTraits<DefaultConfig::BufferType>::TValue) == 1, "currently only 1 byte size, value size is supported");
     //fill initial values
     constexpr IntegralUnsignedTypes src {
             0x0000334455667788,//bits 19

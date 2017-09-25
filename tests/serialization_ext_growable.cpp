@@ -29,7 +29,6 @@ using namespace testing;
 using bitsery::ext::Growable;
 
 using Buffer = typename bitsery::DefaultConfig::BufferType;
-using DiffType = typename bitsery::details::BufferContainerTraits<Buffer>::TDifference;
 
 struct DataV1 {
     int32_t v1;

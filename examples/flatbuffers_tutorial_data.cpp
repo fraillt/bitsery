@@ -1,6 +1,7 @@
 #include <bitsery/bitsery.h>
 #include <bitsery/ext/growable.h>
-#include <array>
+#include <bitsery/traits/string.h>
+#include <bitsery/traits/array.h>
 
 namespace MyTypes {
 
@@ -62,10 +63,11 @@ namespace MyTypes {
 
 using namespace bitsery;
 
+using Buffer =std::array<uint8_t, 1000000>;
 //change configuration
 struct NonDefaultConfig: public bitsery::DefaultConfig {
     //change underlying buffer
-    using BufferType = std::array<uint8_t, 1000000>;
+    using BufferType = Buffer;
 };
 
 
@@ -76,7 +78,7 @@ int main() {
 
     //create serializer
     //1) create buffer to store data
-    std::array<uint8_t, 1000000> buffer{};
+    Buffer buffer{};
     //2) create buffer writer that is able to write bytes or bits to buffer
     BasicBufferWriter<NonDefaultConfig> bw{buffer};
     //3) create serializer

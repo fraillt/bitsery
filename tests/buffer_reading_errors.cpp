@@ -22,6 +22,7 @@
 
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
+#include <bitsery/traits/string.h>
 
 using testing::Eq;
 using bitsery::BufferWriter;

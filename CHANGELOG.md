@@ -1,5 +1,18 @@
 # [3.0.0](https://github.com/fraillt/bitsery/compare/v2.0.1...v3.0.0) (2017-09-21)
 
+new flexible syntax
+traits changed,
+    container get isContiguous
+    text is separate from container, only has length, and addNUL
+    buffer traits removed difference type
+improved reading, writing performance (because of isContiguous and difference_type)
+
+todo write tests:
+bufferreader accepts const data
+
+
+# [3.0.0](https://github.com/fraillt/bitsery/compare/v2.0.1...v3.0.0) (2017-09-21)
+
 ### Features
 
 * refactored interface, now works with C++11 compiler.

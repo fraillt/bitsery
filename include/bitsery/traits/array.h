@@ -21,34 +21,24 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_COMMON_H
-#define BITSERY_COMMON_H
+#ifndef BITSERY_TRAITS_ARRAY_H
+#define BITSERY_TRAITS_ARRAY_H
 
-#include <vector>
-#include "traits/vector.h"
+#include "helper/std_defaults.h"
+#include <array>
 
 namespace bitsery {
 
-/*
- * endianess
- */
-    enum class EndiannessType {
-        LittleEndian,
-        BigEndian
-    };
+    namespace details {
+        template<typename T, size_t N>
+        struct ContainerTraits<std::array<T, N>>
+                :public StdContainer<std::array<T, N>, false, true> {};
 
-    //default configuration for buffer writing/reading operations
-    struct DefaultConfig {
-        static constexpr EndiannessType NetworkEndianness = EndiannessType::LittleEndian;
-        //this functionality allows to support backward/forward compatibility for any type
-        //disabling it, saves 100+bytes per BufferReader/Writer and also reduces executable size
-        static constexpr bool BufferSessionsEnabled = true;
-        //buffer value type must be unsigned, currently only uint8_t supported
-        //fixed size buffer type also supported, for faster serialization performance
-        using BufferType = std::vector<uint8_t>;
-
-    };
+        template<typename T, size_t N>
+        struct BufferContainerTraits<std::array<T, N>>
+                :public StdContainerForBuffer<std::array<T, N>> {};
+    }
 
 }
 
-#endif //BITSERY_COMMON_H
+#endif //BITSERY_TYPE_TRAITS_ARRAY_H

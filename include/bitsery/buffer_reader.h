@@ -35,14 +35,13 @@ namespace bitsery {
     struct BasicBufferReader {
 
         using BufferType = typename Config::BufferType;
-        using ValueType = typename details::BufferContainerTraits<BufferType>::TValue;
+        using ValueType = typename details::ContainerTraits<BufferType>::TValue;
         using BufferIteratorType = typename details::BufferContainerTraits<BufferType>::TIterator;
         using ScratchType = typename details::SCRATCH_TYPE<ValueType>::type;
 
-        BasicBufferReader(ValueType* begin, ValueType* end)
-                :_pos{begin},
-                 _end{end},
-                 _session{*this, _pos, _end}
+        BasicBufferReader(BufferIteratorType data, BufferIteratorType end)
+                : _bufferContext{data, end},
+                  _session{*this, _bufferContext}
         {
             static_assert(std::is_unsigned<ValueType>(), "Config::BufferValueType must be unsigned");
             static_assert(std::is_unsigned<ScratchType>(), "Config::BufferScrathType must be unsigned");
@@ -52,7 +51,7 @@ namespace bitsery {
         }
 
         BasicBufferReader(BufferRange<BufferIteratorType> range)
-                :BasicBufferReader(std::addressof(*range.begin()), std::addressof(*range.end())) {
+                :BasicBufferReader(range.begin(), range.end()) {
             static_assert(std::is_same<
                                   typename std::iterator_traits<BufferIteratorType>::iterator_category,
                                   std::random_access_iterator_tag>::value,
@@ -114,24 +113,18 @@ namespace bitsery {
         }
 
         bool isCompletedSuccessfully() const {
-            return _pos == _end && !_session.hasActiveSessions();
+            return _bufferContext.isCompletedSuccessfully() && !_session.hasActiveSessions();
         }
 
         BufferReaderError getError() const {
-            auto res = std::distance(_end, _pos);
-            if (res > 0) {
-                auto err = static_cast<BufferReaderError>(res);
-                if (_session.hasActiveSessions() && err == BufferReaderError::BUFFER_OVERFLOW)
-                    return BufferReaderError::NO_ERROR;
-                return err;
-            }
-            return BufferReaderError::NO_ERROR;
+            auto err = _bufferContext.getError();
+            if (_session.hasActiveSessions() && err == BufferReaderError::BUFFER_OVERFLOW)
+                return BufferReaderError::NO_ERROR;
+            return err;
         }
 
         void setError(BufferReaderError error) {
-            _end = _pos;
-            //to avoid creating temporary for error state, mark an error by passing _pos after the _end
-            std::advance(_pos, static_cast<size_t>(error));
+            return _bufferContext.setError(error);
         }
 
         void beginSession() {
@@ -149,35 +142,21 @@ namespace bitsery {
         }
 
     private:
-        ValueType* _pos;
-        ValueType* _end;
+        details::ReadBufferContext<BufferType> _bufferContext;
         ScratchType m_scratch{};
         size_t m_scratchBits{};
         typename std::conditional<Config::BufferSessionsEnabled,
-                details::BufferSessionsReader<BasicBufferReader<Config>, ValueType*>,
+                details::BufferSessionsReader<BasicBufferReader<Config>, details::ReadBufferContext<BufferType>>,
                 details::DisabledBufferSessionsReader<Config>>::type
                 _session;
 
         template<typename T>
         void directRead(T *v, size_t count) {
             static_assert(!std::is_const<T>::value, "");
-            const auto bytesCount = sizeof(T) * count;
-
-            if (std::distance(_pos, _end) >= static_cast<typename details::BufferContainerTraits<BufferType>::TDifference>(bytesCount)) {
-
-                std::memcpy(reinterpret_cast<ValueType *>(v), _pos, bytesCount);
-                _pos += bytesCount;
-
-                //swap each byte if nessesarry
-                _swapDataBits(v, count, std::integral_constant<bool,
-                        Config::NetworkEndianness != details::getSystemEndianness()>{});
-            } else {
-                //set everything to zeros
-                std::memset(v, 0, bytesCount);
-
-                if (getError() == BufferReaderError::NO_ERROR)
-                    setError(BufferReaderError::BUFFER_OVERFLOW);
-            }
+            _bufferContext.read(reinterpret_cast<ValueType *>(v), sizeof(T) * count);
+            //swap each byte if nessesarry
+            _swapDataBits(v, count, std::integral_constant<bool,
+                    Config::NetworkEndianness != details::getSystemEndianness()>{});
         }
 
         template<typename T>

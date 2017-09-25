@@ -24,19 +24,9 @@
 #define BITSERY_DETAILS_TRAITS_H
 
 #include <type_traits>
-#include <string>
 
 namespace bitsery {
     namespace details {
-
-        /*
-         * helper traits that is used internaly, or by other traits
-         */
-        template <typename T, typename = int>
-        struct IsResizable : std::false_type {};
-
-        template <typename T>
-        struct IsResizable <T, decltype((void)std::declval<T>().resize(1u), 0)> : std::true_type {};
 
         /*
          * core library traits, used to extend library for custom types
@@ -63,100 +53,88 @@ namespace bitsery {
         template<typename T>
         struct ContainerTraits {
 
-            using TValue = typename T::value_type;
+            using TValue = void;
 
-            //default behaviour is resizable if container has method T::resize(size_t)
-            static constexpr bool isResizable = IsResizable<T>::value;
-
+            static constexpr bool isResizable = false;
+            //contiguous arrays has oppurtunity to memcpy whole buffer directly when using funtamental types
+            //contiguous doesn't nesessary equal to random access iterator.
+            //contiguous hopefully will be available in c++20
+            static constexpr bool isContiguous = false;
             //resize function, called only if container is resizable
             static void resize(T& container, size_t size) {
-                container.resize(size);
+                static_assert(std::is_void<T>::value,
+                              "Define ContainerTraits or include from <bitsery/traits/...> to use as container");
             }
-
             //get container size
             static size_t size(const T& container) {
-                return container.size();
+                static_assert(std::is_void<T>::value,
+                              "Define ContainerTraits or include from <bitsery/traits/...> to use as container");
+                return 0u;
             }
-
         };
 
         //specialization for C style array
         template<typename T, size_t N>
         struct ContainerTraits<T[N]> {
             using TValue = T;
-            static constexpr bool isResizable = IsResizable<T>::value;
-            static void resize(T (&container)[N], size_t size) {
-            }
+            static constexpr bool isResizable = false;
+            static constexpr bool isContiguous = true;
             static size_t size(const T (&container)[N]) {
                 return N;
             }
         };
 
-
-        //traits for text
+        //specialization for initializer list, even though it cannot be deserialized to.
         template<typename T>
-        struct TextTraits {
-
-            static constexpr bool isResizable = true;
-
-            //resize is without null-terminated character as with std::string,
-            //but null terminated character will always be written
-            //if you container doesn't add null-terminated character automaticaly, resize it to size+1;
-            static void resize(T& container, size_t size) {
-                container.resize(size);
-            }
-
-            //used for serialization to get text length
-            //length is until null-terminated character, size and length might not be equal
-            static size_t length(const T& container) {
-                auto begin = std::begin(container);
-                using TValue = typename std::decay<decltype(*begin)>::type;
-                return std::char_traits<TValue>::length(std::addressof(*begin));
-            }
-        };
-
-        //text traits specialization for std::string
-        //for std::string return length as size(), for faster performance, so we don't need to traverse string to find null-terminated characeter
-        //although it is not correct behaviour, meaning that string might have null-terminated characters in the middle,
-        //but in this case it your decision if you store buffer in string and serialize it as a text.
-        template<typename ... Args>
-        struct TextTraits<std::basic_string<Args...>> {
-
-            static constexpr bool isResizable = true;
-
-            //resize is without null-terminated character as with std::string,
-            //but null terminated character will always be written
-            //if you container doesn't add null-terminated character automaticaly, resize it to size+1;
-            static void resize(std::basic_string<Args...>& container, size_t size) {
-                container.resize(size);
-            }
-
-            //used for serialization to get text length
-            //length is until null-terminated character, size and length might not be equal
-            static size_t length(const std::basic_string<Args...>& container) {
+        struct ContainerTraits<std::initializer_list<T>> {
+            using TValue = T;
+            static constexpr bool isResizable = false;
+            static constexpr bool isContiguous = true;
+            static size_t size(const std::initializer_list<T>& container) {
                 return container.size();
             }
         };
 
 
+
+        //traits for text, default adds null-terminated character at the end
+        template<typename T>
+        struct TextTraits {
+
+            //if container is not null-terminated by default, add NUL at the end
+            static constexpr bool addNUL = true;
+
+            //get length of null terminated container
+            static size_t length(const T& container) {
+                static_assert(std::is_void<T>::value,
+                              "Define TextTraits or include from <bitsery/traits/...> to use as text");
+                return 0u;
+            }
+        };
+
         //traits only for buffer reader/writer
         template <typename T>
-        struct BufferContainerTraits: public ContainerTraits<T> {
+        struct BufferContainerTraits {
+            //this function is only applies to resizable containers
+
             //this function is only used by BufferWriter, when writing data to buffer,
             //it is called only current buffer size is not enough to write.
             //it is used to dramaticaly improve performance by updating buffer directly
             //instead of using back_insert_iterator to append each byte to buffer.
             //thats why BufferWriter return range iterators
+
             static void increaseBufferSize(T& container) {
-                //use default implementation behaviour;
-                //call push_back to use default resize strategy
-                container.push_back({});
-                //after allocation resize to take all capacity
-                container.resize(container.capacity());
+                static_assert(std::is_void<T>::value,
+                              "Define BufferContainerTraits or include from <bitsery/traits/...> to use as buffer");
             }
 
-            using TDifference = typename T::difference_type;
-            using TIterator = typename T::iterator;
+            using TIterator = void;
+        };
+
+        //specialization for c-style buffer
+        template <typename T, size_t N>
+        struct BufferContainerTraits<T[N]> {
+            using TIterator = T*;
         };
 
     }

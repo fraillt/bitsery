@@ -26,7 +26,7 @@
 #include <bitsery/ext/container_map.h>
 #include <bitsery/ext/entropy.h>
 #include <unordered_map>
-#include <map>
+#include <bitsery/traits/string.h>
 
 using ContainerMap = bitsery::ext::ContainerMap;
 

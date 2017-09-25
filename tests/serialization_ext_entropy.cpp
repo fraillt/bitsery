@@ -24,8 +24,7 @@
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
 #include <bitsery/ext/entropy.h>
-#include <vector>
-#include <list>
+#include <bitsery/traits/list.h>
 
 using namespace testing;
 

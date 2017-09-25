@@ -95,9 +95,9 @@ namespace bitsery {
     template<typename Config>
     struct BasicBufferWriter {
         using BufferType = typename Config::BufferType;
-        using ValueType = typename details::BufferContainerTraits<BufferType>::TValue;
+        using ValueType = typename details::ContainerTraits<BufferType>::TValue;
         using ScratchType = typename details::SCRATCH_TYPE<ValueType>::type;
-        using BufferContext = details::WriteBufferContext<BufferType, details::BufferContainerTraits<BufferType>::isResizable>;
+        using BufferContext = details::WriteBufferContext<BufferType, details::ContainerTraits<BufferType>::isResizable>;
 
         explicit BasicBufferWriter(BufferType &buffer)
                 : _bufferContext{buffer}

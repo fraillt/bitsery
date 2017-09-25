@@ -23,6 +23,8 @@
 
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
+#include <bitsery/traits/string.h>
+
 using namespace testing;
 
 TEST(SerializeText, BasicString) {
@@ -113,6 +115,5 @@ TEST(SerializeText, WhenCArrayNotNullterminatedThenAssert) {
     char16_t t1[CARR_LENGTH]{u"some text"};
     //make last character not nullterminated
     t1[CARR_LENGTH-1] = 'x';
-
     EXPECT_DEATH(ctx.createSerializer().text<2>(t1), "");
 }

@@ -23,6 +23,8 @@
 
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
+#include <bitsery/traits/string.h>
+#include <bitsery/traits/array.h>
 
 using testing::Eq;
 using testing::StrEq;

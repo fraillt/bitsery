@@ -28,25 +28,54 @@
 
 namespace bitsery {
 
+    //this allows to call private serialize method for the class
+    //just make friend it to that class
+    struct Access {
+        template<typename S, typename T>
+        static auto serialize(S &s, T &obj) -> decltype(obj.serialize(s)) {
+            obj.serialize(s);
+        }
+    };
+
     namespace details {
 
-        template<typename T, typename Enable = void>
-        struct SAME_SIZE_UNSIGNED_TYPE {
-            using type = typename std::make_unsigned<T>::type;
+        //used for extensions, when extension TValue = void
+        struct DummyType {
+        };
+
+/*
+ * this includes all integral types floats and enums(except bool)
+ */
+        template<typename T>
+        struct IsFundamentalType : std::integral_constant<bool,
+                std::is_enum<T>::value
+                || std::is_floating_point<T>::value
+                || std::is_integral<T>::value> {
+        };
+
+        template<typename T, typename Integral = void>
+        struct IntegralFromFundamental {
+            using TValue = T;
         };
 
         template<typename T>
-        struct SAME_SIZE_UNSIGNED_TYPE<T, typename std::enable_if<std::is_enum<T>::value>::type> {
-            using type = typename std::make_unsigned<typename std::underlying_type<T>::type>::type;
+        struct IntegralFromFundamental<T, typename std::enable_if<std::is_enum<T>::value>::type> {
+            using TValue = typename std::underlying_type<T>::type;
         };
 
         template<typename T>
-        struct SAME_SIZE_UNSIGNED_TYPE<T, typename std::enable_if<std::is_floating_point<T>::value>::type> {
-            using type = typename std::conditional<std::is_same<T, float>::value, uint32_t, uint64_t>::type;
+        struct IntegralFromFundamental<T, typename std::enable_if<std::is_floating_point<T>::value>::type> {
+            using TValue = typename std::conditional<std::is_same<T, float>::value, uint32_t, uint64_t>::type;
         };
 
         template<typename T>
-        using SAME_SIZE_UNSIGNED = typename SAME_SIZE_UNSIGNED_TYPE<T>::type;
+        struct UnsignedFromFundamental {
+            using type = typename std::make_unsigned<typename IntegralFromFundamental<T>::TValue>::type;
+        };
+
+        template<typename T>
+        using SAME_SIZE_UNSIGNED = typename UnsignedFromFundamental<T>::type;
+
 
 /*
  * functions for object serialization
@@ -54,28 +83,62 @@ namespace bitsery {
 
         template<typename S, typename T, typename Enabled = void>
         struct SerializeFunction {
+
             static void invoke(S &s, T &v) {
                 static_assert(!std::is_void<Enabled>::value,
-                                      "\nPlease define 'serialize' function for your type:\n"
+                              "\nPlease define 'serialize' function for your type (inside or outside of class):\n"
                                       "  template<typename S>\n"
-                                      "  void serialize(S& s, <YourType>& o)\n"
+                                      "  void serialize(S& s)\n"
                                       "  {\n"
                                       "    ...\n"
                                       "  }\n");
             }
         };
 
+        //check for serialize(s,o) support
         template<typename S, typename T>
         struct SerializeFunction<S, T, typename std::enable_if<
-                std::is_same<void, decltype(serialize(std::declval<S &>(), std::declval<T &>()))>::value
+                std::is_same<void, decltype((void) serialize(std::declval<S &>(), std::declval<T &>()))>::value
         >::type> {
+
             static void invoke(S &s, T &v) {
                 serialize(s, v);
             }
         };
 
-        //used for extensions, when extension TValue = void
-        struct DummyType {
+        //check for o.serialize(s) support through static class Access
+        template<typename S, typename T>
+        struct SerializeFunction<S, T, typename std::enable_if<
+                std::is_same<void, decltype(Access::serialize(std::declval<S &>(), std::declval<T &>()))>::value
+        >::type> {
+
+            static void invoke(S &s, T &v) {
+                Access::serialize(s, v);
+            }
+        };
+
+
+/*
+ * functions for object serialization
+ */
+
+        template<typename S, typename T, typename Enabled = void>
+        struct ArchiveFunction {
+
+            static void invoke(S &s, T &v) {
+                static_assert(!std::is_void<Enabled>::value,
+                              "\nPlease include 'flexible.h' to use 'archive' function:\n");
+            }
+        };
+
+        template<typename S, typename T>
+        struct ArchiveFunction<S, T, typename std::enable_if<
+                std::is_same<void, decltype((void)archiveProcess(std::declval<S &>(), std::declval<T &&>()))>::value
+        >::type> {
+
+            static void invoke(S &s, T &&obj) {
+                archiveProcess(s, std::forward<T>(obj));
+            }
         };
 
 /*
