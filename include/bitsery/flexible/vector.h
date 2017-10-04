@@ -21,8 +21,8 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_VECTOR_H
-#define BITSERY_FLEXIBLE_TYPE_VECTOR_H
+#ifndef BITSERY_FLEXIBLE_TYPE_STD_VECTOR_H
+#define BITSERY_FLEXIBLE_TYPE_STD_VECTOR_H
 
 #include "../traits/vector.h"
 #include "../details/flexible_common.h"
@@ -34,4 +34,4 @@ namespace bitsery {
     }
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_VECTOR_H
+#endif //BITSERY_FLEXIBLE_TYPE_STD_VECTOR_H

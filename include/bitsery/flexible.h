@@ -73,7 +73,7 @@ namespace bitsery {
 //define serialize function for fundamental types
     template<typename S>
     void serialize(S &s, bool &v) {
-        s.boolByte(v);
+        s.boolValue(v);
     }
 
     template<typename S, typename T, typename std::enable_if<details::IsFundamentalType<T>::value>::type * = nullptr>
@@ -85,14 +85,14 @@ namespace bitsery {
 
     //if array is integral type, specify explicitly how to process: as text or container
     template<typename S, typename T, size_t N, typename std::enable_if<std::is_integral<T>::value>::type * = nullptr>
-    void serialize(S &s, T (&v)[N]) {
+    void serialize(S &s, T (&obj)[N]) {
         static_assert(N == 0,
                       "\nPlease use 'asText(obj)' or 'asContainer(obj)' when using c-style array with integral types\n");
     };
 
     template<typename S, typename T, size_t N, typename std::enable_if<!std::is_integral<T>::value>::type * = nullptr>
     void serialize(S &s, T (&obj)[N]) {
-        s.container(obj);
+        flexible::processContainer(s, obj);
     };
 
 }

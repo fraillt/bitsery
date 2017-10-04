@@ -37,6 +37,7 @@ namespace bitsery {
         }
     };
 
+
     namespace details {
 
         //used for extensions, when extension TValue = void

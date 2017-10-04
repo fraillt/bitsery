@@ -161,18 +161,20 @@ TEST(BufferEndianness, WhenBufferValueTypeIs1ByteThenBitOperationsIsNotAffectedB
     //create and write to buffer
     Buffer buf{};
     bitsery::BasicBufferWriter<DefaultConfig> bw{buf};
-    bw.writeBits(src.a, aBITS);
-    bw.writeBits(src.b, bBITS);
-    bw.writeBits(src.c, cBITS);
-    bw.writeBits(src.d, dBITS);
-    bw.flush();
+    bitsery::BitPackingWriter<DefaultConfig> bpw{bw};
+    bpw.writeBits(src.a, aBITS);
+    bpw.writeBits(src.b, bBITS);
+    bpw.writeBits(src.c, cBITS);
+    bpw.writeBits(src.d, dBITS);
+    bpw.flush();
     //read from buffer using inverse endianness config
-    bitsery::BasicBufferReader<InverseEndiannessConfig> br{bw.getWrittenRange()};
+    bitsery::BasicBufferReader<InverseEndiannessConfig> br{bpw.getWrittenRange()};
+    bitsery::BitPackingReader<InverseEndiannessConfig> bpr{br};
     IntegralUnsignedTypes res{};
-    br.readBits(res.a, aBITS);
-    br.readBits(res.b, bBITS);
-    br.readBits(res.c, cBITS);
-    br.readBits(res.d, dBITS);
+    bpr.readBits(res.a, aBITS);
+    bpr.readBits(res.b, bBITS);
+    bpr.readBits(res.c, cBITS);
+    bpr.readBits(res.d, dBITS);
     //check results
     EXPECT_THAT(res.a, Eq(src.a));
     EXPECT_THAT(res.b, Eq(src.b));

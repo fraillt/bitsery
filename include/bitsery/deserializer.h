@@ -31,10 +31,23 @@
 namespace bitsery {
 
 
-    template<typename Config>
+    template<typename Config, bool BitPackingEnabled>
     class BasicDeserializer {
     public:
-        explicit BasicDeserializer(BasicBufferReader<Config> &r, void* context = nullptr) : _reader{r}, _context{context} {};
+        using BPEnabledType = BasicDeserializer<Config, true>;
+
+        explicit BasicDeserializer(BasicBufferReader<Config> &r, void* context = nullptr)
+                : _reader{r},
+                  _context{context}
+        {};
+
+        //copying disabled
+        BasicDeserializer(const BasicDeserializer&) = delete;
+        BasicDeserializer& operator = (const BasicDeserializer&) = delete;
+
+        //move enabled
+        BasicDeserializer(BasicDeserializer&& ) noexcept = default;
+        BasicDeserializer& operator = (BasicDeserializer&& ) noexcept = default;
 
         /*
          * get serialization context.
@@ -50,8 +63,7 @@ namespace bitsery {
 
         template<typename T>
         void object(T &&obj) {
-            using TValue = typename std::decay<T>::type;
-            details::SerializeFunction<BasicDeserializer, TValue>::invoke(*this, std::forward<T>(obj));
+            details::SerializeFunction<BasicDeserializer, T>::invoke(*this, std::forward<T>(obj));
         }
 
         template<typename T, typename Fnc>
@@ -71,13 +83,21 @@ namespace bitsery {
         }
 
         /*
-         * value overloads
+         * value
          */
 
         template<size_t VSIZE, typename T, typename std::enable_if<details::IsFundamentalType<T>::value>::type * = nullptr>
         void value(T &v) {
             using TValue = typename details::IntegralFromFundamental<T>::TValue;
             _reader.template readBytes<VSIZE>(reinterpret_cast<TValue &>(v));
+        }
+
+        /*
+         * enable bit-packing
+         */
+        template <typename Fnc>
+        void enableBitPacking(Fnc&& fnc) {
+            procEnableBitPacking(std::forward<Fnc>(fnc), std::integral_constant<bool, !BitPackingEnabled>{});
         }
 
         /*
@@ -88,6 +108,8 @@ namespace bitsery {
         void ext(T &obj, const Ext &extension, Fnc &&fnc) {
             static_assert(details::ExtensionTraits<Ext,T>::SupportLambdaOverload,
                           "extension doesn't support overload with lambda");
+            static_assert(BitPackingEnabled || !details::ExtensionTraits<Ext,T>::BitPackingRequired,
+                          "Extension requires bit-packing to be enabled, (call `enableBitPacking`)");
             extension.deserialize(*this, _reader, obj, std::forward<Fnc>(fnc));
         };
 
@@ -97,7 +119,9 @@ namespace bitsery {
                           "extension doesn't support overload with `value<N>`");
             using ExtVType = typename details::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
-            extension.deserialize(*this, _reader, obj, [this](VType &v) { value<VSIZE>(v); });
+            static_assert(BitPackingEnabled || !details::ExtensionTraits<Ext,T>::BitPackingRequired,
+                    "Extension requires bit-packing to be enabled, (call `enableBitPacking`)");
+            extension.deserialize(*this, _reader, obj, [this](VType &v) { value<VSIZE>(v);});
         };
 
         template<typename T, typename Ext>
@@ -106,25 +130,16 @@ namespace bitsery {
                           "extension doesn't support overload with `object`");
             using ExtVType = typename details::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
+            static_assert(BitPackingEnabled || !details::ExtensionTraits<Ext,T>::BitPackingRequired,
+                          "Extension requires bit-packing to be enabled, (call `enableBitPacking`)");
             extension.deserialize(*this, _reader, obj, [this](VType &v) { object(v); });
         };
 
         /*
-         * bool
+         * boolValue
          */
-
-        void boolBit(bool &v) {
-            uint8_t tmp{};
-            _reader.readBits(tmp, 1);
-            v = tmp == 1;
-        }
-
-        void boolByte(bool &v) {
-            unsigned char tmp;
-            _reader.template readBytes<1>(tmp);
-            if (tmp > 1)
-                _reader.setError(BufferReaderError::INVALID_BUFFER_DATA);
-            v = tmp == 1;
+        void boolValue(bool &v) {
+            procBoolValue(v, std::integral_constant<bool, BitPackingEnabled>{});
         }
 
         /*
@@ -283,7 +298,11 @@ namespace bitsery {
         void container8b(T &&obj) { container<8>(std::forward<T>(obj)); }
 
     private:
-        BasicBufferReader<Config> &_reader;
+
+        typename std::conditional<BitPackingEnabled,
+                BitPackingReader<Config>,//by value
+                BasicBufferReader<Config>&//by reference
+            >::type _reader;
         void* _context;
 
         //process value types
@@ -329,6 +348,34 @@ namespace bitsery {
                 *end = {};
         }
 
+        //proc bool writing bit or byte, depending on if BitPackingEnabled or not
+        void procBoolValue(bool &v, std::true_type) {
+            uint8_t tmp{};
+            _reader.readBits(tmp, 1);
+            v = tmp == 1;
+        }
+
+        void procBoolValue(bool &v, std::false_type) {
+            unsigned char tmp;
+            _reader.template readBytes<1>(tmp);
+            if (tmp > 1)
+                _reader.setError(BufferReaderError::INVALID_BUFFER_DATA);
+            v = tmp == 1;
+        }
+
+
+        //enable bit-packing or do nothing if it is already enabled
+        template <typename Fnc>
+        void procEnableBitPacking(const Fnc& fnc, std::true_type) {
+            BPEnabledType tmp{_reader, _context};
+            fnc(tmp);
+        }
+
+        template <typename Fnc>
+        void procEnableBitPacking(const Fnc& fnc, std::false_type) {
+            fnc(*this);
+        }
+
         //these are dummy functions for extensions that have TValue = void
         void object(details::DummyType&) {
 
@@ -346,7 +393,7 @@ namespace bitsery {
     };
 
     //helper type
-    using Deserializer = BasicDeserializer<DefaultConfig>;
+    using Deserializer = BasicDeserializer<DefaultConfig, false>;
 
 }
 

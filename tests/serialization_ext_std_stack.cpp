@@ -20,18 +20,39 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
+#include <gmock/gmock.h>
+#include "serialization_test_utils.h"
+#include <bitsery/ext/std_stack.h>
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_STRING_H
-#define BITSERY_FLEXIBLE_TYPE_STD_STRING_H
+using StdStack = bitsery::ext::StdStack;
 
-#include "../traits/string.h"
-#include "../details/flexible_common.h"
+using testing::Eq;
 
-namespace bitsery {
-    template<typename S, typename T, typename ... TArgs>
-    void serialize(S &s, std::basic_string<T, TArgs...> &str) {
-        flexible::processContainer(s, str);
-    }
+
+template <typename T>
+void test(SerializationContext& ctx, const T& v, T& r) {
+    ctx.createSerializer().ext4b(v, StdStack{10});
+    ctx.createDeserializer().ext4b(r, StdStack{10});
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_STRING_H
+TEST(SerializeExtensionStdStack, DefaultContainer) {
+    std::stack<int32_t> t1{};
+    t1.push(3);
+    t1.push(-4854);
+    std::stack<int32_t> r1{};
+
+    SerializationContext ctx1;
+    test(ctx1,t1, r1);
+    EXPECT_THAT(t1, Eq(r1));
+}
+
+TEST(SerializeExtensionStdStack, VectorContainer) {
+    std::stack<int32_t, std::vector<int32_t>> t1{};
+    t1.push(3);
+    t1.push(-4854);
+    std::stack<int32_t, std::vector<int32_t>> r1{};
+
+    SerializationContext ctx1;
+    test(ctx1,t1, r1);
+    EXPECT_THAT(t1, Eq(r1));
+}

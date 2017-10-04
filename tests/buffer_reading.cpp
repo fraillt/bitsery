@@ -140,17 +140,18 @@ TEST(BufferReading, WhenReaderHasErrorsAllOperationsReadsReturnZero) {
     bw.flush();
     //read from buffer
     BufferReader br{bw.getWrittenRange()};
+    bitsery::BitPackingReader<bitsery::DefaultConfig> bpr{br};
     int32_t c;
-    br.readBytes<4>(c);
+    bpr.readBytes<4>(c);
     EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));
 
     int16_t r1= {-645};
     uint32_t r2[2] = {54898,87854};
     uint8_t r3 = 0xFF;
 
-    br.readBytes<2>(r1);
-    br.readBuffer<4>(r2, 2);
-    br.readBits(r3, 7);
+    bpr.readBytes<2>(r1);
+    bpr.readBuffer<4>(r2, 2);
+    bpr.readBits(r3, 7);
     EXPECT_THAT(r1, Eq(0));
     EXPECT_THAT(r2[0], Eq(0u));
     EXPECT_THAT(r2[1], Eq(0u));

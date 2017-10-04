@@ -21,18 +21,29 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_MAP_H
-#define BITSERY_FLEXIBLE_TYPE_MAP_H
+#ifndef BITSERY_FLEXIBLE_TYPE_STD_MAP_H
+#define BITSERY_FLEXIBLE_TYPE_STD_MAP_H
 
 #include <map>
-#include "../ext/container_map.h"
+#include "bitsery/ext/std_map.h"
 
 namespace bitsery {
     template<typename S, typename ... TArgs>
     void serialize(S &s, std::map<TArgs ... > &obj) {
         using TKey = typename std::map<TArgs...>::key_type;
         using TValue = typename std::map<TArgs...>::mapped_type;
-        s.ext(obj, ext::ContainerMap{std::numeric_limits<size_t>::max()},
+        s.ext(obj, ext::StdMap{std::numeric_limits<size_t>::max()},
+              [&s](TKey& key, TValue& value) {
+                  s.object(key);
+                  s.object(value);
+              });
+    }
+
+    template<typename S, typename ... TArgs>
+    void serialize(S &s, std::multimap<TArgs ... > &obj) {
+        using TKey = typename std::multimap<TArgs...>::key_type;
+        using TValue = typename std::multimap<TArgs...>::mapped_type;
+        s.ext(obj, ext::StdMap{std::numeric_limits<size_t>::max()},
               [&s](TKey& key, TValue& value) {
                   s.object(key);
                   s.object(value);
@@ -40,4 +51,4 @@ namespace bitsery {
     }
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_MAP_H
+#endif //BITSERY_FLEXIBLE_TYPE_STD_MAP_H

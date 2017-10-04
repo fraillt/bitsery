@@ -21,17 +21,29 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_STRING_H
-#define BITSERY_FLEXIBLE_TYPE_STD_STRING_H
+#ifndef BITSERY_TRAITS_STD_FORWARD_LIST_H
+#define BITSERY_TRAITS_STD_FORWARD_LIST_H
 
-#include "../traits/string.h"
-#include "../details/flexible_common.h"
+#include <forward_list>
 
 namespace bitsery {
-    template<typename S, typename T, typename ... TArgs>
-    void serialize(S &s, std::basic_string<T, TArgs...> &str) {
-        flexible::processContainer(s, str);
+
+    namespace details {
+
+        template<typename ... TArgs>
+        struct ContainerTraits<std::forward_list<TArgs...>> {
+            using TValue = typename std::forward_list<TArgs...>::value_type;
+            static constexpr bool isResizable = true;
+            static constexpr bool isContiguous = false;
+            static size_t size(const std::forward_list<TArgs...>& container) {
+                return static_cast<size_t>(std::distance(container.begin(), container.end()));
+            }
+            static void resize(std::forward_list<TArgs...>& container, size_t size) {
+                container.resize(size);
+            }
+        };
     }
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_STRING_H
+
+#endif //BITSERY_TRAITS_STD_FORWARD_LIST_H

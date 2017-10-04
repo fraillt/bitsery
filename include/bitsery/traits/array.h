@@ -21,8 +21,8 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_TRAITS_ARRAY_H
-#define BITSERY_TRAITS_ARRAY_H
+#ifndef BITSERY_TRAITS_STD_ARRAY_H
+#define BITSERY_TRAITS_STD_ARRAY_H
 
 #include "helper/std_defaults.h"
 #include <array>
@@ -41,4 +41,4 @@ namespace bitsery {
 
 }
 
-#endif //BITSERY_TYPE_TRAITS_ARRAY_H
+#endif //BITSERY_TYPE_TRAITS_STD_ARRAY_H

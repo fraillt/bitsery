@@ -21,8 +21,8 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_LIST_H
-#define BITSERY_FLEXIBLE_TYPE_LIST_H
+#ifndef BITSERY_FLEXIBLE_TYPE_STD_LIST_H
+#define BITSERY_FLEXIBLE_TYPE_STD_LIST_H
 
 #include "../traits/list.h"
 #include "../details/flexible_common.h"
@@ -34,4 +34,4 @@ namespace bitsery {
     }
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_LIST_H
+#endif //BITSERY_FLEXIBLE_TYPE_STD_LIST_H

@@ -92,6 +92,10 @@ namespace bitsery {
         size_t _sessionsBytesCount{};
     };
 
+
+    template <typename Config>
+    class BitPackingWriter;
+
     template<typename Config>
     struct BasicBufferWriter {
         using BufferType = typename Config::BufferType;
@@ -122,46 +126,23 @@ namespace bitsery {
         void writeBytes(const T &v) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
+            directWrite(&v, 1);
 
-            if (!_scratchBits) {
-                directWrite(&v, 1);
-            } else {
-                using UT = typename std::make_unsigned<T>::type;
-                writeBits(reinterpret_cast<const UT &>(v), details::BITS_SIZE<T>::value);
-            }
         }
 
         template<size_t SIZE, typename T>
         void writeBuffer(const T *buf, size_t count) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
-            if (!_scratchBits) {
-                directWrite(buf, count);
-            } else {
-                using UT = typename std::make_unsigned<T>::type;
-                //todo improve implementation
-                const auto end = buf + count;
-                for (auto it = buf; it != end; ++it)
-                    writeBits(reinterpret_cast<const UT &>(*it), details::BITS_SIZE<T>::value);
-            }
+            directWrite(buf, count);
         }
 
-        template<typename T>
-        void writeBits(const T &v, size_t bitsCount) {
-            static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
-            assert(0 < bitsCount && bitsCount <= details::BITS_SIZE<T>::value);
-            assert(v <= (bitsCount < 64
-                         ? (1ULL << bitsCount) - 1
-                         : (1ULL << (bitsCount-1)) + ((1ULL << (bitsCount-1)) -1)));
-            writeBitsInternal(v, bitsCount);
-        }
-
+        //to have the same interface as bitpackingwriter
         void align() {
-            writeBitsInternal(ValueType{}, (details::BITS_SIZE<ValueType>::value - _scratchBits) % 8);
+
         }
 
         void flush() {
-            align();
             _session.flushSessions(*this);
         }
 
@@ -170,17 +151,15 @@ namespace bitsery {
         }
 
         void beginSession() {
-            align();
             _session.begin(*this);
         }
 
         void endSession() {
-            align();
             _session.end(*this);
         }
 
     private:
-
+        friend class BitPackingWriter<Config>;
         template<typename T>
         void directWrite(T &&v, size_t count) {
             _directWriteSwapTag(std::forward<T>(v), count, std::integral_constant<bool,
@@ -200,6 +179,100 @@ namespace bitsery {
             _bufferContext.write(reinterpret_cast<const ValueType *>(v), count * sizeof(T));
         }
 
+        BufferContext _bufferContext;
+        typename std::conditional<Config::BufferSessionsEnabled,
+                details::BufferSessionsWriter<BasicBufferWriter<Config>>,
+                details::DisabledBufferSessionsWriter<Config>>::type
+                _session{};
+    };
+
+    template<typename Config>
+    struct BitPackingWriter {
+        using ValueType = typename details::ContainerTraits<typename Config::BufferType>::TValue;
+        using ScratchType = typename details::SCRATCH_TYPE<ValueType>::type;
+
+        explicit BitPackingWriter(BasicBufferWriter<Config> &writer)
+                : _writer{writer}
+        {
+            static_assert(std::is_unsigned<ValueType>(), "Config::BufferType value type must be unsigned");
+            static_assert(sizeof(ValueType) * 2 == sizeof(ScratchType),
+                          "ScratchType must be 2x bigger than value type");
+            static_assert(sizeof(ValueType) == 1, "currently only supported BufferValueType is 1 byte");
+        }
+
+        BitPackingWriter(const BitPackingWriter&) = delete;
+        BitPackingWriter& operator = (const BitPackingWriter&) = delete;
+
+        BitPackingWriter(BitPackingWriter&& ) noexcept = default;
+        BitPackingWriter& operator = (BitPackingWriter&& ) noexcept = default;
+
+        ~BitPackingWriter() {
+            align();
+        }
+
+        template<size_t SIZE, typename T>
+        void writeBytes(const T &v) {
+            static_assert(std::is_integral<T>(), "");
+            static_assert(sizeof(T) == SIZE, "");
+
+            if (!_scratchBits) {
+                _writer.template writeBytes<SIZE,T>(v);
+            } else {
+                using UT = typename std::make_unsigned<T>::type;
+                writeBitsInternal(reinterpret_cast<const UT &>(v), details::BITS_SIZE<T>::value);
+            }
+        }
+
+        template<size_t SIZE, typename T>
+        void writeBuffer(const T *buf, size_t count) {
+            static_assert(std::is_integral<T>(), "");
+            static_assert(sizeof(T) == SIZE, "");
+            if (!_scratchBits) {
+                _writer.template writeBuffer<SIZE,T>(buf, count);
+            } else {
+                using UT = typename std::make_unsigned<T>::type;
+                //todo improve implementation
+                const auto end = buf + count;
+                for (auto it = buf; it != end; ++it)
+                    writeBitsInternal(reinterpret_cast<const UT &>(*it), details::BITS_SIZE<T>::value);
+            }
+        }
+
+        template<typename T>
+        void writeBits(const T &v, size_t bitsCount) {
+            static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
+            assert(0 < bitsCount && bitsCount <= details::BITS_SIZE<T>::value);
+            assert(v <= (bitsCount < 64
+                         ? (1ULL << bitsCount) - 1
+                         : (1ULL << (bitsCount-1)) + ((1ULL << (bitsCount-1)) -1)));
+            writeBitsInternal(v, bitsCount);
+        }
+
+        void align() {
+            writeBitsInternal(ValueType{}, (details::BITS_SIZE<ValueType>::value - _scratchBits) % 8);
+        }
+
+        void flush() {
+            align();
+            _writer._session.flushSessions(_writer);
+        }
+
+        BufferRange<typename details::BufferContainerTraits<typename Config::BufferType>::TIterator> getWrittenRange() const {
+            return _writer.getWrittenRange();
+        }
+
+        void beginSession() {
+            align();
+            _writer._session.begin(_writer);
+        }
+
+        void endSession() {
+            align();
+            _writer._session.end(_writer);
+        }
+
+    private:
+
         template<typename T>
         void writeBitsInternal(const T &v, size_t size) {
             constexpr size_t valueSize = details::BITS_SIZE<ValueType>::value;
@@ -211,7 +284,7 @@ namespace bitsery {
                 _scratchBits += bits;
                 if (_scratchBits >= valueSize) {
                     auto tmp = static_cast<ValueType>(_scratch & _MASK);
-                    directWrite(&tmp, 1);
+                    _writer.template writeBytes<sizeof(ValueType), ValueType >(tmp);
                     _scratch >>= valueSize;
                     _scratchBits -= valueSize;
 
@@ -228,22 +301,18 @@ namespace bitsery {
                 _scratchBits += size;
                 if (_scratchBits >= details::BITS_SIZE<ValueType>::value) {
                     auto tmp = static_cast<ValueType>(_scratch & _MASK);
-                    directWrite(&tmp, 1);
+                    _writer.template writeBytes<sizeof(ValueType), ValueType>(tmp);
                     _scratch >>= details::BITS_SIZE<ValueType>::value;
                     _scratchBits -= details::BITS_SIZE<ValueType>::value;
                 }
             }
         }
 
-
         const ValueType _MASK = std::numeric_limits<ValueType>::max();
-        BufferContext _bufferContext;
         ScratchType _scratch{};
         size_t _scratchBits{};
-        typename std::conditional<Config::BufferSessionsEnabled,
-                details::BufferSessionsWriter<BasicBufferWriter<Config>>,
-                details::DisabledBufferSessionsWriter<Config>>::type
-                _session{};
+        BasicBufferWriter<Config>& _writer;
+
     };
 
     //helper type

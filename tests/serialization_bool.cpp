@@ -26,19 +26,30 @@
 
 using testing::Eq;
 
+template <bool BitPackingEnabled>
+using Serializer = bitsery::BasicSerializer<bitsery::DefaultConfig, BitPackingEnabled>;
+
+template <bool BitPackingEnabled>
+using Deserializer = bitsery::BasicDeserializer<bitsery::DefaultConfig, BitPackingEnabled>;
+
 
 TEST(SerializeBooleans, BoolAsBit) {
+
     SerializationContext ctx;
     bool t1{true};
     bool t2{false};
     bool res1;
     bool res2;
     auto ser = ctx.createSerializer();
-    ser.boolBit(t1);
-    ser.boolBit(t2);
+    ser.enableBitPacking([&t1, &t2](Serializer<true>& sbp) {
+        sbp.boolValue(t1);
+        sbp.boolValue(t2);
+    });
     auto des = ctx.createDeserializer();
-    des.boolBit(res1);
-    des.boolBit(res2);
+    des.enableBitPacking([&res1, &res2](Deserializer <true>& sbp) {
+        sbp.boolValue(res1);
+        sbp.boolValue(res2);
+    });
 
     EXPECT_THAT(res1, Eq(t1));
     EXPECT_THAT(res2, Eq(t2));
@@ -52,11 +63,11 @@ TEST(SerializeBooleans, BoolAsByte) {
     bool res1;
     bool res2;
     auto ser = ctx.createSerializer();
-    ser.boolByte(t1);
-    ser.boolByte(t2);
+    ser.boolValue(t1);
+    ser.boolValue(t2);
     auto des = ctx.createDeserializer();
-    des.boolByte(res1);
-    des.boolByte(res2);
+    des.boolValue(res1);
+    des.boolValue(res2);
 
     EXPECT_THAT(res1, Eq(t1));
     EXPECT_THAT(res2, Eq(t2));

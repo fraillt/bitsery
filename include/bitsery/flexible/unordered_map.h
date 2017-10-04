@@ -21,23 +21,35 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_UNORDERED_MAP_H
-#define BITSERY_FLEXIBLE_TYPE_UNORDERED_MAP_H
+#ifndef BITSERY_FLEXIBLE_TYPE_STD_UNORDERED_MAP_H
+#define BITSERY_FLEXIBLE_TYPE_STD_UNORDERED_MAP_H
 
 #include <unordered_map>
-#include "../ext/container_map.h"
+#include "bitsery/ext/std_map.h"
 
 namespace bitsery {
     template<typename S, typename ... TArgs>
     void serialize(S &s, std::unordered_map<TArgs ... > &obj) {
         using TKey = typename std::unordered_map<TArgs...>::key_type;
         using TValue = typename std::unordered_map<TArgs...>::mapped_type;
-        s.ext(obj, ext::ContainerMap{std::numeric_limits<size_t>::max()},
+        s.ext(obj, ext::StdMap{std::numeric_limits<size_t>::max()},
               [&s](TKey& key, TValue& value) {
                   s.object(key);
                   s.object(value);
               });
     }
+
+    template<typename S, typename ... TArgs>
+    void serialize(S &s, std::unordered_multimap<TArgs ... > &obj) {
+        using TKey = typename std::unordered_multimap<TArgs...>::key_type;
+        using TValue = typename std::unordered_multimap<TArgs...>::mapped_type;
+        s.ext(obj, ext::StdMap{std::numeric_limits<size_t>::max()},
+              [&s](TKey& key, TValue& value) {
+                  s.object(key);
+                  s.object(value);
+              });
+    }
+
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_UNORDERED_MAP_H
+#endif //BITSERY_FLEXIBLE_TYPE_STD_UNORDERED_MAP_H

@@ -1,4 +1,4 @@
-# [3.0.0](https://github.com/fraillt/bitsery/compare/v2.0.1...v3.0.0) (2017-09-21)
+# [4.0.0](https://github.com/fraillt/bitsery/compare/v3.0.0...v4.0.0) (2017-10-02)
 
 new flexible syntax
 traits changed,
@@ -6,6 +6,14 @@ traits changed,
     text is separate from container, only has length, and addNUL
     buffer traits removed difference type
 improved reading, writing performance (because of isContiguous and difference_type)
+BasicBufferWriter/Reader no longer has bit-packing operations by default
+Bit-packing is enabled via template parameter in Serializer/Deserializer, additionally added new method enableBitPacking.
+Additionally Serializer/Deserializer is no longer copyable, because it stores bit-packer state.
+ExtensionTraits gain additional patameter BitPackingRequired, static_asserts if bit-packing is not enabled.
+Removed boolByte, boolBit, and added boolValue and it writes bit or byte, depeding on if bit-packing is enabled or not.
+added missing std containers support: forward_list, deque, stack, queue, priority_queue, set, multiset, unordered_set, unordered_multiset
+Renamed ContainerMap to StdMap, Optional to StdOptional
+
 
 todo write tests:
 bufferreader accepts const data

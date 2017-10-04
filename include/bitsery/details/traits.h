@@ -41,6 +41,12 @@ namespace bitsery {
             //when this is void, it will compile, but value and object overloads will do nothing.
             using TValue = void;
 
+
+            //specify if extension required bitpacking operations
+            //if current serialization instance is not bit-packing enabled,
+            //then new instance will be created with bit-packing enabled,
+            //and bits will be flushed automaticaly after extension finish executing.
+            static constexpr bool BitPackingRequired = false;
             //does extension support ext<N>(...) syntax, by calling value<N> with TValue
             static constexpr bool SupportValueOverload = true;
             //does extension support ext(...) syntax, by calling object with TValue

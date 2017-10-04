@@ -24,6 +24,7 @@
 #define BITSERY_DETAILS_FLEXIBLE_COMMON_H
 
 #include "traits.h"
+#include <limits>
 
 namespace bitsery {
     namespace flexible {

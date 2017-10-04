@@ -21,17 +21,22 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_STRING_H
-#define BITSERY_FLEXIBLE_TYPE_STD_STRING_H
+#ifndef BITSERY_TRAITS_STD_DEQUE_H
+#define BITSERY_TRAITS_STD_DEQUE_H
 
-#include "../traits/string.h"
-#include "../details/flexible_common.h"
+#include "helper/std_defaults.h"
+#include <deque>
 
 namespace bitsery {
-    template<typename S, typename T, typename ... TArgs>
-    void serialize(S &s, std::basic_string<T, TArgs...> &str) {
-        flexible::processContainer(s, str);
+
+    namespace details {
+
+        template<typename ... TArgs>
+        struct ContainerTraits<std::deque<TArgs...>>
+                : public StdContainer<std::deque<TArgs...>, true, false> {};
+
     }
+
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_STRING_H
+#endif //BITSERY_TRAITS_STD_DEQUE_H

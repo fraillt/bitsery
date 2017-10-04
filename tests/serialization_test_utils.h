@@ -43,6 +43,9 @@ struct MyStruct1 {
     bool operator==(const MyStruct1 &rhs) const {
         return i1 == rhs.i1 && i2 == rhs.i2;
     }
+    friend bool operator < (const MyStruct1 &lhs, const MyStruct1 &rhs) {
+        return lhs.i1 < rhs.i1 || (lhs.i1 == rhs.i1 && lhs.i2 < rhs.i2);
+    }
 
     static constexpr size_t SIZE = sizeof(MyStruct1::i1) + sizeof(MyStruct1::i2);
 };
@@ -88,11 +91,20 @@ public:
     bitsery::DefaultConfig::BufferType buf{};
     std::unique_ptr<bitsery::BufferWriter> bw;
     std::unique_ptr<bitsery::BufferReader> br;
+    std::unique_ptr<bitsery::BasicSerializer<bitsery::DefaultConfig, true>> sbp;
 
     bitsery::Serializer createSerializer() {
         //make_unique is not in c++11
         bw = std::unique_ptr<bitsery::BufferWriter>(new bitsery::BufferWriter(buf));
         return bitsery::Serializer{*bw};
+    };
+
+    bitsery::BasicSerializer<bitsery::DefaultConfig, true>& createBPEnabledSerializer() {
+        //make_unique is not in c++11
+        bw = std::unique_ptr<bitsery::BufferWriter>(new bitsery::BufferWriter(buf));
+        sbp = std::unique_ptr<bitsery::BasicSerializer<bitsery::DefaultConfig, true>>(
+                new bitsery::BasicSerializer<bitsery::DefaultConfig, true>{*bw});
+        return *sbp;
     };
 
     size_t getBufferSize() const {
@@ -115,6 +127,13 @@ public:
         //make_unique is not in c++11
         br = std::unique_ptr<bitsery::BufferReader>(new bitsery::BufferReader(bw->getWrittenRange()));
         return bitsery::Deserializer{*br};
+    };
+
+    bitsery::BasicDeserializer<bitsery::DefaultConfig, true> createBPEnabledDeserializer() {
+        sbp.reset(nullptr);
+        //make_unique is not in c++11
+        br = std::unique_ptr<bitsery::BufferReader>(new bitsery::BufferReader(bw->getWrittenRange()));
+        return bitsery::BasicDeserializer<bitsery::DefaultConfig, true>{*br};
     };
 };
 

@@ -21,30 +21,51 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_TRAITS_STD_VECTOR_H
-#define BITSERY_TRAITS_STD_VECTOR_H
+#ifndef BITSERY_TRAITS_STD_STRING_H
+#define BITSERY_TRAITS_STD_STRING_H
 
 #include "helper/std_defaults.h"
-#include <vector>
+#include <string>
 
 namespace bitsery {
 
     namespace details {
-        template<typename ... TArgs>
-        struct ContainerTraits<std::vector<TArgs...>>
-                :public StdContainer<std::vector<TArgs...>, true, true> {};
 
-        //bool vector is not contiguous, do not copy it directly to buffer
-        template<typename Allocator>
-        struct ContainerTraits<std::vector<bool, Allocator>>
-                :public StdContainer<std::vector<bool, Allocator>, true, false> {};
+        // specialization for string, because string is already included for std::char_traits
 
         template<typename ... TArgs>
-        struct BufferContainerTraits<std::vector<TArgs...>>
-                :public StdContainerForBuffer<std::vector<TArgs...>> {};
+        struct ContainerTraits<std::basic_string<TArgs...>>
+            :public StdContainer<std::basic_string<TArgs...>, true, true> {};
+
+        template <typename ... TArgs>
+        struct TextTraits<std::basic_string<TArgs...>> {
+
+            //string is automatically null-terminated
+            static constexpr bool addNUL = false;
+
+            //is is not 100% accurate, but for performance reasons assume that string stores text, not binary data
+            static size_t length(const std::basic_string<TArgs...>& str) {
+                return str.size();
+            }
+        };
+
+        //specialization for c-array
+        template <typename T, size_t N>
+        struct TextTraits<T[N]> {
+
+            static constexpr bool addNUL = true;
+
+            static size_t length(const T (&container)[N]) {
+                return std::char_traits<T>::length(container);
+            }
+        };
+
+        template<typename ... TArgs>
+        struct BufferContainerTraits<std::basic_string<TArgs...>>
+                :public StdContainerForBuffer<std::basic_string<TArgs...>> {};
 
     }
 
 }
 
-#endif //BITSERY_TRAITS_STD_VECTOR_H
+#endif //BITSERY_TRAITS_VECTOR_H

@@ -20,57 +20,74 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-#ifndef BITSERY_EXT_CONTAINER_MAP_H
-#define BITSERY_EXT_CONTAINER_MAP_H
+#ifndef BITSERY_EXT_STD_SET_H
+#define BITSERY_EXT_STD_SET_H
+
+#include <cassert>
+#include "../details/both_common.h"
+//we need this, so we could
+#include <unordered_set>
 
 namespace bitsery {
     namespace ext {
 
-        class ContainerMap {
+        class StdSet {
         public:
 
-            constexpr explicit ContainerMap(size_t maxSize):_maxSize{maxSize} {}
+            constexpr explicit StdSet(size_t maxSize):_maxSize{maxSize} {}
 
             template<typename Ser, typename Writer, typename T, typename Fnc>
             void serialize(Ser &, Writer &writer, const T &obj, Fnc &&fnc) const {
                 using TKey = typename T::key_type;
-                using TValue = typename T::mapped_type;
                 auto size = obj.size();
                 assert(size <= _maxSize);
                 details::writeSize(writer, size);
 
                 for (auto &v:obj)
-                    fnc(const_cast<TKey &>(v.first), const_cast<TValue &>(v.second));
+                    fnc(const_cast<TKey &>(v));
             }
 
             template<typename Des, typename Reader, typename T, typename Fnc>
             void deserialize(Des &, Reader &reader, T &obj, Fnc &&fnc) const {
                 using TKey = typename T::key_type;
-                using TValue = typename T::mapped_type;
 
                 size_t size{};
                 details::readSize(reader, size, _maxSize);
                 auto hint = obj.begin();
                 obj.clear();
+                reserve(obj, size);
 
                 for (auto i = 0u; i < size; ++i) {
                     TKey key;
-                    TValue value;
-                    fnc(key, value);
-                    hint = obj.emplace_hint(hint, std::move(key), std::move(value));
+                    fnc(key);
+                    hint = obj.emplace_hint(hint, std::move(key));
                 }
             }
         private:
+
+            template <typename T>
+            void reserve(std::unordered_set<T>& obj, size_t size) const {
+                obj.reserve(size);
+            }
+            template <typename T>
+            void reserve(std::unordered_multiset<T>& obj, size_t size) const {
+                obj.reserve(size);
+            }
+            template <typename T>
+            void reserve(T obj, size_t size) const {
+                //for ordered container do nothing
+            }
             size_t _maxSize;
         };
     }
 
     namespace details {
         template<typename T>
-        struct ExtensionTraits<ext::ContainerMap, T> {
-            using TValue = void;
-            static constexpr bool SupportValueOverload = false;
-            static constexpr bool SupportObjectOverload = false;
+        struct ExtensionTraits<ext::StdSet, T> {
+            using TValue = typename T::key_type;
+            static constexpr bool BitPackingRequired = false;
+            static constexpr bool SupportValueOverload = true;
+            static constexpr bool SupportObjectOverload = true;
             static constexpr bool SupportLambdaOverload = true;
         };
     }
@@ -78,4 +95,4 @@ namespace bitsery {
 }
 
 
-#endif //BITSERY_EXT_CONTAINER_MAP_H
+#endif //BITSERY_EXT_STD_SET_H

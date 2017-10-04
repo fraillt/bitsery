@@ -21,8 +21,8 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_EXT_OPTIONAL_H
-#define BITSERY_EXT_OPTIONAL_H
+#ifndef BITSERY_EXT_STD_OPTIONAL_H
+#define BITSERY_EXT_STD_OPTIONAL_H
 
 
 //this module do not include optional, but expects it to be declared in std::optional
@@ -40,9 +40,14 @@ namespace bitsery {
         template<typename T>
         using std_optional = ::std::optional<T>;
 
-        class Optional {
+        class StdOptional {
         public:
 
+            /**
+             * Works with std::optional types
+             * @param alignBeforeData only makes sense when bit-packing enabled, by default aligns after writing/reading bool state of optional
+             */
+            explicit StdOptional(bool alignBeforeData=true):_alignBeforeData{alignBeforeData} {}
             template<typename T>
             constexpr void assertType() const {
                 using TOpt = typename std::remove_cv<T>::type;
@@ -54,7 +59,9 @@ namespace bitsery {
             template<typename Ser, typename Writer, typename T, typename Fnc>
             void serialize(Ser &ser, Writer &, const T &obj, Fnc &&fnc) const {
                 assertType<T>();
-                ser.boolByte(static_cast<bool>(obj));
+                ser.boolValue(static_cast<bool>(obj));
+                if (_alignBeforeData)
+                    ser.align();
                 if (obj)
                     fnc(const_cast<typename T::value_type & >(*obj));
             }
@@ -63,7 +70,9 @@ namespace bitsery {
             void deserialize(Des &des, Reader &, T &obj, Fnc &&fnc) const {
                 assertType<T>();
                 bool exists{};
-                des.boolByte(exists);
+                des.boolValue(exists);
+                if (_alignBeforeData)
+                    des.align();
                 if (exists) {
                     typename T::value_type tmp{};
                     fnc(tmp);
@@ -73,13 +82,16 @@ namespace bitsery {
                     obj = T{};
                 }
             }
+        private:
+            bool _alignBeforeData;
         };
     }
 
     namespace details {
         template<typename T>
-        struct ExtensionTraits<ext::Optional, T> {
+        struct ExtensionTraits<ext::StdOptional, T> {
             using TValue = typename T::value_type;
+            static constexpr bool BitPackingRequired = false;
             static constexpr bool SupportValueOverload = true;
             static constexpr bool SupportObjectOverload = true;
             static constexpr bool SupportLambdaOverload = true;
@@ -89,4 +101,4 @@ namespace bitsery {
 }
 
 
-#endif //BITSERY_EXT_OPTIONAL_H
+#endif //BITSERY_EXT_STD_OPTIONAL_H

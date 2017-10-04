@@ -31,6 +31,9 @@
 
 namespace bitsery {
 
+    template <typename Config>
+    class BitPackingReader;
+
     template<typename Config>
     struct BasicBufferReader {
 
@@ -50,12 +53,12 @@ namespace bitsery {
             static_assert(sizeof(ValueType) == 1, "currently only supported BufferValueType is 1 byte");
         }
 
-        BasicBufferReader(BufferRange<BufferIteratorType> range)
+        explicit BasicBufferReader(BufferRange<BufferIteratorType> range)
                 :BasicBufferReader(range.begin(), range.end()) {
             static_assert(std::is_same<
                                   typename std::iterator_traits<BufferIteratorType>::iterator_category,
                                   std::random_access_iterator_tag>::value,
-            "BufferReader only accepts random access iterators");
+                          "BufferReader only accepts random access iterators");
         }
 
         BasicBufferReader(const BasicBufferReader &) = delete;
@@ -73,9 +76,108 @@ namespace bitsery {
         void readBytes(T &v) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
+            directRead(&v, 1);
+        }
+
+        template<size_t SIZE, typename T>
+        void readBuffer(T *buf, size_t count) {
+            static_assert(std::is_integral<T>(), "");
+            static_assert(sizeof(T) == SIZE, "");
+            directRead(buf, count);
+        }
+
+        void align() {
+        }
+
+        bool isCompletedSuccessfully() const {
+            return _bufferContext.isCompletedSuccessfully() && !_session.hasActiveSessions();
+        }
+
+        BufferReaderError getError() const {
+            auto err = _bufferContext.getError();
+            if (_session.hasActiveSessions() && err == BufferReaderError::BUFFER_OVERFLOW)
+                return BufferReaderError::NO_ERROR;
+            return err;
+        }
+
+        void setError(BufferReaderError error) {
+            return _bufferContext.setError(error);
+        }
+
+        void beginSession() {
+            if (getError() != BufferReaderError::INVALID_BUFFER_DATA) {
+                _session.begin();
+            }
+        }
+
+        void endSession() {
+            if (getError() != BufferReaderError::INVALID_BUFFER_DATA) {
+                _session.end();
+            }
+        }
+
+    private:
+        friend class BitPackingReader<Config>;
+
+        details::ReadBufferContext<BufferType> _bufferContext;
+        typename std::conditional<Config::BufferSessionsEnabled,
+                details::BufferSessionsReader<BasicBufferReader<Config>, details::ReadBufferContext<BufferType>>,
+        details::DisabledBufferSessionsReader<Config>>::type
+                _session;
+
+        template<typename T>
+        void directRead(T *v, size_t count) {
+            static_assert(!std::is_const<T>::value, "");
+            _bufferContext.read(reinterpret_cast<ValueType *>(v), sizeof(T) * count);
+            //swap each byte if nessesarry
+            _swapDataBits(v, count, std::integral_constant<bool,
+                    Config::NetworkEndianness != details::getSystemEndianness()>{});
+        }
+
+        template<typename T>
+        void _swapDataBits(T *v, size_t count, std::true_type) {
+            std::for_each(v, std::next(v, count), [this](T &x) { x = details::swap(x); });
+        }
+
+        template<typename T>
+        void _swapDataBits(T *v, size_t count, std::false_type) {
+            //empty function because no swap is required
+        }
+
+    };
+
+    template<typename Config>
+    struct BitPackingReader {
+
+        using ValueType = typename details::ContainerTraits<typename Config::BufferType>::TValue;
+        using ScratchType = typename details::SCRATCH_TYPE<ValueType>::type;
+
+        explicit BitPackingReader(BasicBufferReader<Config>& reader):_reader{reader}
+        {
+            static_assert(std::is_unsigned<ValueType>(), "Config::BufferValueType must be unsigned");
+            static_assert(std::is_unsigned<ScratchType>(), "Config::BufferScrathType must be unsigned");
+            static_assert(sizeof(ValueType) * 2 == sizeof(ScratchType),
+                          "ScratchType must be 2x bigger than value type");
+            static_assert(sizeof(ValueType) == 1, "currently only supported BufferValueType is 1 byte");
+        }
+
+        BitPackingReader(const BitPackingReader&) = delete;
+        BitPackingReader& operator = (const BitPackingReader&) = delete;
+
+        BitPackingReader(BitPackingReader&& ) noexcept = default;
+        BitPackingReader& operator = (BitPackingReader&& ) noexcept = default;
+
+        ~BitPackingReader() {
+            align();
+        }
+
+        template<size_t SIZE, typename T>
+        void readBytes(T &v) {
+            static_assert(std::is_integral<T>(), "");
+            static_assert(sizeof(T) == SIZE, "");
             using UT = typename std::make_unsigned<T>::type;
             if (!m_scratchBits)
-                directRead(&v, 1);
+                _reader.template readBytes<SIZE,T>(v);
             else
                 readBits(reinterpret_cast<UT &>(v), details::BITS_SIZE<T>::value);
         }
@@ -86,7 +188,7 @@ namespace bitsery {
             static_assert(sizeof(T) == SIZE, "");
 
             if (!m_scratchBits) {
-                directRead(buf, count);
+                _reader.template readBuffer<SIZE,T>(buf, count);
             } else {
                 using UT = typename std::make_unsigned<T>::type;
                 //todo improve implementation
@@ -113,61 +215,31 @@ namespace bitsery {
         }
 
         bool isCompletedSuccessfully() const {
-            return _bufferContext.isCompletedSuccessfully() && !_session.hasActiveSessions();
+            return _reader.isCompletedSuccessfully();
         }
 
         BufferReaderError getError() const {
-            auto err = _bufferContext.getError();
-            if (_session.hasActiveSessions() && err == BufferReaderError::BUFFER_OVERFLOW)
-                return BufferReaderError::NO_ERROR;
-            return err;
+            return _reader.getError();
         }
 
         void setError(BufferReaderError error) {
-            return _bufferContext.setError(error);
+            _reader.setError(error);
         }
 
         void beginSession() {
             align();
-            if (getError() != BufferReaderError::INVALID_BUFFER_DATA) {
-                _session.begin();
-            }
+            _reader.beginSession();
         }
 
         void endSession() {
             align();
-            if (getError() != BufferReaderError::INVALID_BUFFER_DATA) {
-                _session.end();
-            }
+            _reader.endSession();
         }
 
     private:
-        details::ReadBufferContext<BufferType> _bufferContext;
+        BasicBufferReader<Config>& _reader;
         ScratchType m_scratch{};
         size_t m_scratchBits{};
-        typename std::conditional<Config::BufferSessionsEnabled,
-                details::BufferSessionsReader<BasicBufferReader<Config>, details::ReadBufferContext<BufferType>>,
-                details::DisabledBufferSessionsReader<Config>>::type
-                _session;
-
-        template<typename T>
-        void directRead(T *v, size_t count) {
-            static_assert(!std::is_const<T>::value, "");
-            _bufferContext.read(reinterpret_cast<ValueType *>(v), sizeof(T) * count);
-            //swap each byte if nessesarry
-            _swapDataBits(v, count, std::integral_constant<bool,
-                    Config::NetworkEndianness != details::getSystemEndianness()>{});
-        }
-
-        template<typename T>
-        void _swapDataBits(T *v, size_t count, std::true_type) {
-            std::for_each(v, std::next(v, count), [this](T &x) { x = details::swap(x); });
-        }
-
-        template<typename T>
-        void _swapDataBits(T *v, size_t count, std::false_type) {
-            //empty function because no swap is required
-        }
 
         template<typename T>
         void readBitsInternal(T &v, size_t size) {
@@ -177,7 +249,7 @@ namespace bitsery {
                 auto bits = std::min(bitsLeft, details::BITS_SIZE<ValueType>::value);
                 if (m_scratchBits < bits) {
                     ValueType tmp;
-                    directRead(&tmp, 1);
+                    _reader.template readBytes<sizeof(ValueType), ValueType>(tmp);
                     m_scratch |= static_cast<ScratchType>(tmp) << m_scratchBits;
                     m_scratchBits += details::BITS_SIZE<ValueType>::value;
                 }

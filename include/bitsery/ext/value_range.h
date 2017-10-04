@@ -194,6 +194,7 @@ namespace bitsery {
         template<typename T>
         struct ExtensionTraits<ext::ValueRange<T>, T> {
             using TValue = void;
+            static constexpr bool BitPackingRequired = true;
             static constexpr bool SupportValueOverload = false;
             static constexpr bool SupportObjectOverload = true;
             static constexpr bool SupportLambdaOverload = false;

@@ -21,17 +21,16 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_STRING_H
-#define BITSERY_FLEXIBLE_TYPE_STD_STRING_H
+#ifndef BITSERY_FLEXIBLE_TYPE_STD_STACK_H
+#define BITSERY_FLEXIBLE_TYPE_STD_STACK_H
 
-#include "../traits/string.h"
-#include "../details/flexible_common.h"
+#include "../ext/std_stack.h"
 
 namespace bitsery {
-    template<typename S, typename T, typename ... TArgs>
-    void serialize(S &s, std::basic_string<T, TArgs...> &str) {
-        flexible::processContainer(s, str);
+    template<typename S, typename T, typename C>
+    void serialize(S &s, std::stack<T, C> &obj) {
+        s.ext(obj, ext::StdStack{std::numeric_limits<size_t>::max()});
     }
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_STRING_H
+#endif //BITSERY_FLEXIBLE_TYPE_STD_STACK_H

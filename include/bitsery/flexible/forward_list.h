@@ -21,17 +21,17 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_STRING_H
-#define BITSERY_FLEXIBLE_TYPE_STD_STRING_H
+#ifndef BITSERY_FLEXIBLE_TYPE_STD_FORWARD_LIST_H
+#define BITSERY_FLEXIBLE_TYPE_STD_FORWARD_LIST_H
 
-#include "../traits/string.h"
+#include "../traits/forward_list.h"
 #include "../details/flexible_common.h"
 
 namespace bitsery {
-    template<typename S, typename T, typename ... TArgs>
-    void serialize(S &s, std::basic_string<T, TArgs...> &str) {
-        flexible::processContainer(s, str);
+    template<typename S, typename ... TArgs>
+    void serialize(S &s, std::forward_list<TArgs... > &obj) {
+        flexible::processContainer(s, obj);
     }
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_STRING_H
+#endif //BITSERY_FLEXIBLE_TYPE_STD_FORWARD_LIST_H

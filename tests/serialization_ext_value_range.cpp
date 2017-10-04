@@ -55,8 +55,8 @@ TEST(SerializeExtensionValueRange, IntegerNegative) {
     int t1{-8};
     int res1;
 
-    ctx.createSerializer().ext(t1, r1);
-    ctx.createDeserializer().ext(res1, r1);
+    ctx.createBPEnabledSerializer().ext(t1, r1);
+    ctx.createBPEnabledDeserializer().ext(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, Eq(t1));
@@ -69,8 +69,8 @@ TEST(SerializeExtensionValueRange, IntegerPositive) {
     unsigned t1{8};
     unsigned res1;
 
-    ctx.createSerializer().ext(t1, r1);
-    ctx.createDeserializer().ext(res1, r1);
+    ctx.createBPEnabledSerializer().ext(t1, r1);
+    ctx.createBPEnabledDeserializer().ext(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, Eq(t1));
@@ -83,8 +83,8 @@ TEST(SerializeExtensionValueRange, EnumTypes) {
     MyEnumClass t1{MyEnumClass::E2};
     MyEnumClass res1;
 
-    ctx.createSerializer().ext(t1, r1);
-    ctx.createDeserializer().ext(res1, r1);
+    ctx.createBPEnabledSerializer().ext(t1, r1);
+    ctx.createBPEnabledDeserializer().ext(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, Eq(t1));
@@ -101,8 +101,8 @@ TEST(SerializeExtensionValueRange, FloatUsingPrecisionConstraint1) {
 
     float res1;
 
-    ctx.createSerializer().ext(t1, r1);
-    ctx.createDeserializer().ext(res1, r1);
+    ctx.createBPEnabledSerializer().ext(t1, r1);
+    ctx.createBPEnabledDeserializer().ext(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, ::testing::FloatNear(t1, (max - min) * precision));
@@ -118,8 +118,8 @@ TEST(SerializeExtensionValueRange, DoubleUsingPrecisionConstraint2) {
 
     double res1;
 
-    ctx.createSerializer().ext(t1, r1);
-    ctx.createDeserializer().ext(res1, r1);
+    ctx.createBPEnabledSerializer().ext(t1, r1);
+    ctx.createBPEnabledDeserializer().ext(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(5));
     EXPECT_THAT(res1, ::testing::DoubleNear(t1, (max - min) * precision));
@@ -135,8 +135,8 @@ TEST(SerializeExtensionValueRange, FloatUsingBitsSizeConstraint1) {
 
     float res1;
 
-    ctx.createSerializer().ext(t1, r1);
-    ctx.createDeserializer().ext(res1, r1);
+    ctx.createBPEnabledSerializer().ext(t1, r1);
+    ctx.createBPEnabledDeserializer().ext(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, ::testing::FloatNear(t1, (max - min) / (static_cast<bitsery::details::SAME_SIZE_UNSIGNED<float>>(1) << bits)));
@@ -152,8 +152,8 @@ TEST(SerializeExtensionValueRange, DoubleUsingBitsSizeConstraint2) {
 
     double res1;
 
-    ctx.createSerializer().ext(t1, r1);
-    ctx.createDeserializer().ext(res1, r1);
+    ctx.createBPEnabledSerializer().ext(t1, r1);
+    ctx.createBPEnabledDeserializer().ext(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(7));
     EXPECT_THAT(res1, ::testing::DoubleNear(t1, (max - min) / (static_cast<bitsery::details::SAME_SIZE_UNSIGNED<double>>(1) << bits)));
@@ -164,8 +164,8 @@ TEST(SerializeExtensionValueRange, WhenDataIsInvalidThenReturnMinimumRangeValue)
     ValueRange<int> r1{4, 10};//6 is max, but 3bits required
     int res1;
     uint8_t tmp{0xFF};//write all 1 so when reading 3 bits we get 7
-    ctx.createSerializer().value1b(tmp);
-    ctx.createDeserializer().ext(res1, r1);
+    ctx.createBPEnabledSerializer().value1b(tmp);
+    ctx.createBPEnabledDeserializer().ext(res1, r1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, Eq(4));

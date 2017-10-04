@@ -25,13 +25,12 @@
 #include <gmock/gmock.h>
 #include <algorithm>
 #include <numeric>
-// #include <deque>
+
 #include "serialization_test_utils.h"
 #include <bitsery/traits/array.h>
 #include <bitsery/traits/list.h>
 #include <bitsery/traits/deque.h>
-
-
+#include <bitsery/traits/forward_list.h>
 
 using testing::ContainerEq;
 using testing::Eq;
@@ -81,13 +80,15 @@ public:
     TContainer res{};
 
     size_t getExpectedBufSize(const SerializationContext &ctx) const {
-        return ctx.containerSizeSerializedBytesCount(src.size()) + src.size() * sizeof(TValue);
+        auto size = bitsery::details::ContainerTraits<TContainer>::size(src);
+        return ctx.containerSizeSerializedBytesCount(size) + size * sizeof(TValue);
     }
 };
 //std::forward_list is not supported, because it doesn't have size() method
 using SequenceContainersWithArthmeticTypes = ::testing::Types<
         std::vector<int>,
         std::list<float>,
+        std::forward_list<int>,
         std::deque<unsigned short>>;
 
 TYPED_TEST_CASE(SerializeContainerDynamicSizeArthmeticTypes, SequenceContainersWithArthmeticTypes);

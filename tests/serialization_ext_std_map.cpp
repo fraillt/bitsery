@@ -23,16 +23,14 @@
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
 
-#include <bitsery/ext/container_map.h>
+#include <bitsery/ext/std_map.h>
 #include <bitsery/ext/entropy.h>
 #include <unordered_map>
 #include <bitsery/traits/string.h>
 
-using ContainerMap = bitsery::ext::ContainerMap;
+using StdMap = bitsery::ext::StdMap;
 
 using testing::Eq;
-
-
 
 template<typename Container>
 Container createData() {
@@ -49,7 +47,7 @@ std::unordered_map<std::string, MyStruct1> createData<std::unordered_map<std::st
 }
 
 template<>
-std::unordered_map<int32_t, float> createData<std::unordered_map<int32_t, float>>() {
+std::unordered_multimap<int32_t, float> createData<std::unordered_multimap<int32_t, float>>() {
     return {
             std::pair<int32_t , float>(545, 45.485f),
             std::pair<int32_t , float>(6748, -7891.5f),
@@ -67,7 +65,7 @@ std::map<MyEnumClass, MyStruct1> createData<std::map<MyEnumClass, MyStruct1>>() 
 }
 
 template<>
-std::map<int32_t ,int64_t> createData<std::map<int32_t ,int64_t>>() {
+std::multimap<int32_t ,int64_t> createData<std::multimap<int32_t ,int64_t>>() {
     return {//these are optimized with range and entropy
             std::pair<int32_t, int64_t>(-45, -984196845ll),
             std::pair<int32_t, int64_t>(54, 1ll),
@@ -76,7 +74,7 @@ std::map<int32_t ,int64_t> createData<std::map<int32_t ,int64_t>>() {
 }
 
 template<typename T>
-class SerializeExtensionContainerMap : public testing::Test {
+class SerializeExtensionStdMap : public testing::Test {
 public:
     using TContainer = T;
 
@@ -84,28 +82,28 @@ public:
     TContainer res{};
 };
 
-using SerializeExtensionContainerMapTypes = ::testing::Types<
+using SerializeExtensionStdMapTypes = ::testing::Types<
         std::unordered_map<std::string, MyStruct1>,
-        std::unordered_map<int32_t, float>,
+        std::unordered_multimap<int32_t, float>,
         std::map<MyEnumClass , MyStruct1>,
-        std::map<int32_t ,int64_t>
+        std::multimap<int32_t ,int64_t>
 >;
 
-TYPED_TEST_CASE(SerializeExtensionContainerMap, SerializeExtensionContainerMapTypes);
+TYPED_TEST_CASE(SerializeExtensionStdMap, SerializeExtensionStdMapTypes);
 
 namespace bitsery {
 
     template <typename S>
     void serialize(S& s, std::unordered_map<std::string, MyStruct1>& o) {
-        s.ext(o, ContainerMap{10}, [&s](std::string& key, MyStruct1& value) {
+        s.ext(o, StdMap{10}, [&s](std::string& key, MyStruct1& value) {
             s.text1b(key, 100);
             s.object(value);
         });
     }
 
     template <typename S>
-    void serialize(S& s, std::unordered_map<int32_t, float>& o) {
-        s.ext(o, ContainerMap{10}, [&s](int32_t& key, float& value) {
+    void serialize(S& s, std::unordered_multimap<int32_t, float>& o) {
+        s.ext(o, StdMap{10}, [&s](int32_t& key, float& value) {
             s.value4b(key);
             s.value4b(value);
         });
@@ -113,26 +111,27 @@ namespace bitsery {
 
     template <typename S>
     void serialize(S& s, std::map<MyEnumClass , MyStruct1>& o) {
-        s.ext(o, ContainerMap{10}, [&s](MyEnumClass& key, MyStruct1& value) {
+        s.ext(o, StdMap{10}, [&s](MyEnumClass& key, MyStruct1& value) {
             s.value4b(key);
             s.object(value);
         });
     }
 
     template <typename S>
-    void serialize(S& s, std::map<int32_t ,int64_t>& o) {
-        s.ext(o, ContainerMap{10}, [&s](int32_t& key, int64_t& value) {
-            int64_t values[3]{1ll, 2ll, 3ll};
-
-            s.ext(key, bitsery::ext::ValueRange<int32_t>{-100,100});
-            s.ext8b(value, bitsery::ext::Entropy<int64_t[3]>{values});
+    void serialize(S& s, std::multimap<int32_t ,int64_t>& o) {
+        s.ext(o, StdMap{10}, [&s](int32_t& key, int64_t& value) {
+            s.enableBitPacking([&key, &value](typename S::BPEnabledType& sbp) {
+                int64_t values[3]{1ll, 2ll, 3ll};
+                sbp.ext(key, bitsery::ext::ValueRange<int32_t>{-100,100});
+                sbp.ext8b(value, bitsery::ext::Entropy<int64_t[3]>{values});
+            });
         });
     }
 
 
 }
 
-TYPED_TEST(SerializeExtensionContainerMap, SerializeAndDeserializeEquals) {
+TYPED_TEST(SerializeExtensionStdMap, SerializeAndDeserializeEquals) {
     SerializationContext ctx1;
     ctx1.createSerializer().object(this->src);
     ctx1.createDeserializer().object(this->res);

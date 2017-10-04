@@ -30,10 +30,23 @@
 
 namespace bitsery {
 
-    template<typename Config>
+    template<typename Config, bool BitPackingEnabled>
     class BasicSerializer {
     public:
-        explicit BasicSerializer(BasicBufferWriter<Config> &w, void* context = nullptr) : _writter{w}, _context{context} {};
+        using BPEnabledType = BasicSerializer<Config, true>;
+
+        explicit BasicSerializer(BasicBufferWriter<Config> &w, void* context = nullptr)
+                : _writer{w},
+                  _context{context}
+        {};
+
+        //copying disabled
+        BasicSerializer(const BasicSerializer&) = delete;
+        BasicSerializer& operator = (const BasicSerializer&) = delete;
+
+        //move enabled
+        BasicSerializer(BasicSerializer&& ) noexcept = default;
+        BasicSerializer& operator = (BasicSerializer&& ) noexcept = default;
 
         /*
          * get serialization context.
@@ -74,7 +87,15 @@ namespace bitsery {
         template<size_t VSIZE, typename T, typename std::enable_if<details::IsFundamentalType<T>::value>::type * = nullptr>
         void value(const T &v) {
             using TValue = typename details::IntegralFromFundamental<T>::TValue;
-            _writter.template writeBytes<VSIZE>(reinterpret_cast<const TValue &>(v));
+            _writer.template writeBytes<VSIZE>(reinterpret_cast<const TValue &>(v));
+        }
+
+        /*
+         * enable bit-packing
+         */
+        template <typename Fnc>
+        void enableBitPacking(Fnc&& fnc) {
+            procEnableBitPacking(std::forward<Fnc>(fnc), std::integral_constant<bool, !BitPackingEnabled>{});
         }
 
         /*
@@ -85,7 +106,9 @@ namespace bitsery {
         void ext(const T &obj, const Ext &extension, Fnc &&fnc) {
             static_assert(details::ExtensionTraits<Ext,T>::SupportLambdaOverload,
                           "extension doesn't support overload with lambda");
-            extension.serialize(*this, _writter, obj, std::forward<Fnc>(fnc));
+            static_assert(BitPackingEnabled || !details::ExtensionTraits<Ext,T>::BitPackingRequired,
+                          "Extension requires bit-packing to be enabled, (call `enableBitPacking`)");
+            extension.serialize(*this, _writer, obj, std::forward<Fnc>(fnc));
         };
 
         template<size_t VSIZE, typename T, typename Ext>
@@ -94,7 +117,9 @@ namespace bitsery {
                           "extension doesn't support overload with `value<N>`");
             using ExtVType = typename details::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
-            extension.serialize(*this, _writter, obj, [this](VType &v) { value<VSIZE>(v); });
+            static_assert(BitPackingEnabled || !details::ExtensionTraits<Ext,T>::BitPackingRequired,
+                          "Extension requires bit-packing to be enabled, (call `enableBitPacking`)");
+            extension.serialize(*this, _writer, obj, [this](VType &v) { value<VSIZE>(v); });
         };
 
         template<typename T, typename Ext>
@@ -103,19 +128,17 @@ namespace bitsery {
                           "extension doesn't support overload with `object`");
             using ExtVType = typename details::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
-            extension.serialize(*this, _writter, obj, [this](VType &v) { object(v); });
+            static_assert(BitPackingEnabled || !details::ExtensionTraits<Ext,T>::BitPackingRequired,
+                          "Extension requires bit-packing to be enabled, (call `enableBitPacking`)");
+            extension.serialize(*this, _writer, obj, [this](VType &v) { object(v); });
         };
 
         /*
-         * bool
+         * boolValue
          */
 
-        void boolBit(bool v) {
-            _writter.writeBits(static_cast<unsigned char>(v ? 1 : 0), 1);
-        }
-
-        void boolByte(bool v) {
-            _writter.template writeBytes<1>(static_cast<unsigned char>(v ? 1 : 0));
+        void boolValue(bool v) {
+            procBoolValue(v, std::integral_constant<bool, BitPackingEnabled>{});
         }
 
         /*
@@ -149,7 +172,7 @@ namespace bitsery {
                           "use container(const T&, Fnc) overload without `maxSize` for static containers");
             auto size = details::ContainerTraits<T>::size(obj);
             assert(size <= maxSize);
-            details::writeSize(_writter, size);
+            details::writeSize(_writer, size);
             procContainer(std::begin(obj), std::end(obj), std::forward<Fnc>(fnc));
         }
 
@@ -160,7 +183,7 @@ namespace bitsery {
             static_assert(VSIZE > 0, "");
             auto size = details::ContainerTraits<T>::size(obj);
             assert(size <= maxSize);
-            details::writeSize(_writter, size);
+            details::writeSize(_writer, size);
 
             procContainer<VSIZE>(std::begin(obj), std::end(obj), std::integral_constant<bool, details::ContainerTraits<T>::isContiguous>{});
         }
@@ -171,7 +194,7 @@ namespace bitsery {
                           "use container(const T&) overload without `maxSize` for static containers");
             auto size = details::ContainerTraits<T>::size(obj);
             assert(size <= maxSize);
-            details::writeSize(_writter, size);
+            details::writeSize(_writer, size);
             procContainer(std::begin(obj), std::end(obj));
         }
 
@@ -200,7 +223,7 @@ namespace bitsery {
         }
 
         void align() {
-            _writter.align();
+            _writer.align();
         }
 
         //overloads for functions with explicit type size
@@ -272,7 +295,11 @@ namespace bitsery {
         void container8b(T &&obj) { container<8>(std::forward<T>(obj)); }
 
     private:
-        BasicBufferWriter<Config> &_writter;
+
+        typename std::conditional<BitPackingEnabled,
+                BitPackingWriter<Config>,//by value
+                BasicBufferWriter<Config>&//by reference
+            >::type _writer;
         void* _context;
 
         //process value types
@@ -290,7 +317,8 @@ namespace bitsery {
             using TValue = typename std::decay<decltype(*first)>::type;
             using TIntegral = typename details::IntegralFromFundamental<TValue>::TValue;
 			if (first != last)
-				_writter.template writeBuffer<VSIZE>(reinterpret_cast<const TIntegral*>(&(*first)), std::distance(first, last));
+				_writer.template writeBuffer<VSIZE>(reinterpret_cast<const TIntegral*>(&(*first)),
+                                                    static_cast<size_t>(std::distance(first, last)));
         };
 
         //process by calling functions
@@ -307,7 +335,7 @@ namespace bitsery {
         void procText(const T& str, size_t maxSize) {
             auto length = details::TextTraits<T>::length(str);
             assert((length + (details::TextTraits<T>::addNUL ? 1u : 0u)) <= maxSize);
-            details::writeSize(_writter, length);
+            details::writeSize(_writer, length);
             auto begin = std::begin(str);
             procContainer<VSIZE>(begin, std::next(begin, length), std::integral_constant<bool, details::ContainerTraits<T>::isContiguous>{});
         };
@@ -318,6 +346,27 @@ namespace bitsery {
             for (; first != last; ++first)
                 object(*first);
         };
+
+        //proc bool writing bit or byte, depending on if BitPackingEnabled or not
+        void procBoolValue(bool v, std::true_type) {
+            _writer.writeBits(static_cast<unsigned char>(v ? 1 : 0), 1);
+        }
+
+        void procBoolValue(bool v, std::false_type) {
+            _writer.template writeBytes<1>(static_cast<unsigned char>(v ? 1 : 0));
+        }
+
+        //enable bit-packing or do nothing if it is already enabled
+        template <typename Fnc>
+        void procEnableBitPacking(const Fnc& fnc, std::true_type) {
+            BPEnabledType tmp{_writer, _context};
+            fnc(tmp);
+        }
+
+        template <typename Fnc>
+        void procEnableBitPacking(const Fnc& fnc, std::false_type) {
+            fnc(*this);
+        }
 
         //these are dummy functions for extensions that have TValue = void
         void object(const details::DummyType&) {
@@ -336,7 +385,7 @@ namespace bitsery {
     };
 
     //helper type
-    using Serializer = BasicSerializer<DefaultConfig>;
+    using Serializer = BasicSerializer<DefaultConfig, false>;
 
 }
 #endif //BITSERY_SERIALIZER_H

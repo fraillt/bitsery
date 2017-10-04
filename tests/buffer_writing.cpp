@@ -83,10 +83,11 @@ TYPED_TEST(BufferWriting, WhenWritingBitsThenMustFlushWriter) {
     using Buffer = typename Config::BufferType;
     Buffer buf{};
     bitsery::BasicBufferWriter<Config> bw{buf};
-    bw.writeBits(3u, 2);
-    auto range1 = bw.getWrittenRange();
-    bw.flush();
-    auto range2 = bw.getWrittenRange();
+    bitsery::BitPackingWriter<Config> bpw{bw};
+    bpw.writeBits(3u, 2);
+    auto range1 = bpw.getWrittenRange();
+    bpw.flush();
+    auto range2 = bpw.getWrittenRange();
     EXPECT_THAT(std::distance(range1.begin(), range1.end()), Eq(0));
     EXPECT_THAT(std::distance(range2.begin(), range2.end()), Eq(1));
 }
@@ -96,12 +97,12 @@ TYPED_TEST(BufferWriting, WhenDataAlignedThenFlushHasNoEffect) {
     using Buffer = typename Config::BufferType;
     Buffer buf{};
     bitsery::BasicBufferWriter<Config> bw{buf};
-
-    bw.writeBits(3u, 2);
-    bw.align();
-    auto range1 = bw.getWrittenRange();
-    bw.flush();
-    auto range2 = bw.getWrittenRange();
+    bitsery::BitPackingWriter<Config> bpw{bw};
+    bpw.writeBits(3u, 2);
+    bpw.align();
+    auto range1 = bpw.getWrittenRange();
+    bpw.flush();
+    auto range2 = bpw.getWrittenRange();
     EXPECT_THAT(std::distance(range1.begin(), range1.end()), Eq(1));
     EXPECT_THAT(std::distance(range2.begin(), range2.end()), Eq(1));
 }

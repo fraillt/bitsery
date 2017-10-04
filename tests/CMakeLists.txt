@@ -44,7 +44,7 @@ file(GLOB TestSourceFiles ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     message(WARNING "extension tests for optional is disable for VS, because VS currenty doesn't have <optional>")
-    list(REMOVE_ITEM TestSourceFiles ${CMAKE_CURRENT_SOURCE_DIR}/serialization_ext_optional.cpp)
+    list(REMOVE_ITEM TestSourceFiles ${CMAKE_CURRENT_SOURCE_DIR}/serialization_ext_std_optional.cpp)
 endif()
 
 include(${ExtCMakeFilesDir}/LinkTestLib.cmake)

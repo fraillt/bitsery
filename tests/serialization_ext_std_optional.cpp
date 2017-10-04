@@ -23,29 +23,30 @@
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
 
+
 #if __cplusplus > 201402L
 
 
-
+#include <bitsery/ext/value_range.h>
 
 
 #include<optional>
 
-#include <bitsery/ext/optional.h>
+#include <bitsery/ext/std_optional.h>
 
 
-using Optional = bitsery::ext::Optional;
+using StdOptional = bitsery::ext::StdOptional;
 
 using testing::Eq;
 
 
 template <typename T>
 void test(SerializationContext& ctx, const T& v, T& r) {
-    ctx.createSerializer().ext4b(v, Optional{});
-    ctx.createDeserializer().ext4b(r, Optional{});
+    ctx.createSerializer().ext4b(v, StdOptional{});
+    ctx.createDeserializer().ext4b(r, StdOptional{});
 }
 
-TEST(SerializeExtensionOptional, EmptyOptional) {
+TEST(SerializeExtensionStdOptional, EmptyOptional) {
     std::optional<int32_t> t1{};
     std::optional<int32_t> r1{};
 
@@ -62,7 +63,7 @@ TEST(SerializeExtensionOptional, EmptyOptional) {
     EXPECT_THAT(t1, Eq(r1));
 }
 
-TEST(SerializeExtensionOptional, OptionalHasValue) {
+TEST(SerializeExtensionStdOptional, OptionalHasValue) {
     std::optional<int32_t> t1{43};
     std::optional<int32_t> r1{52};
 
@@ -78,5 +79,45 @@ TEST(SerializeExtensionOptional, OptionalHasValue) {
     EXPECT_THAT(t1.value(), Eq(r1.value()));
 
 }
+
+TEST(SerializeExtensionStdOptional, AlignAfterStateWriteRead) {
+    std::optional<int32_t> t1{43};
+    std::optional<int32_t> r1{52};
+
+    SerializationContext ctx;
+    auto& ser = ctx.createBPEnabledSerializer();
+    auto range = bitsery::ext::ValueRange<int>{40,60};
+    ser.ext(t1, StdOptional(true), [&ser, &range](int32_t& v) {
+        ser.ext(v, range);
+    });
+    auto des = ctx.createBPEnabledDeserializer();
+    des.ext(r1, StdOptional(true), [&des, &range](int32_t& v) {
+        des.ext(v, range);
+    });
+
+    EXPECT_THAT(ctx.getBufferSize(), Eq(2));//1byte for index + 1byte for value
+    EXPECT_THAT(t1.value(), Eq(r1.value()));
+}
+
+TEST(SerializeExtensionStdOptional, NoAlignAfterStateWriteRead) {
+    std::optional<int32_t> t1{43};
+    std::optional<int32_t> r1{52};
+
+    SerializationContext ctx;
+    auto& ser = ctx.createBPEnabledSerializer();
+    auto range = bitsery::ext::ValueRange<int>{40,60};
+    ser.ext(t1, StdOptional(false), [&ser, &range](int32_t& v) {
+        ser.ext(v, range);
+    });
+    auto des = ctx.createBPEnabledDeserializer();
+    des.ext(r1, StdOptional(false), [&des, &range](int32_t& v) {
+        des.ext(v, range);
+    });
+    EXPECT_THAT(range.getRequiredBits() + 1, ::testing::Lt(8));
+    EXPECT_THAT(ctx.getBufferSize(), Eq(1));
+    EXPECT_THAT(t1.value(), Eq(r1.value()));
+}
+
+
 
 #endif

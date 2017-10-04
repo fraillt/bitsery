@@ -82,7 +82,7 @@ int main() {
     //2) create buffer writer that is able to write bytes or bits to buffer
     BasicBufferWriter<NonDefaultConfig> bw{buffer};
     //3) create serializer
-    BasicSerializer<NonDefaultConfig> ser{bw};
+    BasicSerializer<NonDefaultConfig, false> ser{bw};
 
     //serialize object, can also be invoked like this: serialize(ser, data)
     ser.object(data);
@@ -94,7 +94,7 @@ int main() {
     //1) create buffer reader
     BasicBufferReader<NonDefaultConfig> br{bw.getWrittenRange()};
     //2) create deserializer
-    BasicDeserializer<NonDefaultConfig> des{br};
+    BasicDeserializer<NonDefaultConfig, false> des{br};
 
     //deserialize same object, can also be invoked like this: serialize(des, data)
     MyTypes::Monster res{};

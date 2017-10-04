@@ -46,8 +46,14 @@ namespace bitsery {
         class Entropy {
         public:
 
-            constexpr explicit Entropy(TContainer& values) : _values{values} {
-
+            /**
+             * Allows entropy-encoding technique, by writing few bits for most common values
+             * @param values list of most common values
+             * @param alignBeforeData only makes sense when bit-packing enabled, by default aligns after writing bits for index
+             */
+            constexpr Entropy(TContainer& values, bool alignBeforeData=true)
+                    : _values{values},
+                      _alignBeforeData{alignBeforeData} {
             };
 
             template<typename Ser, typename Writer, typename T, typename Fnc>
@@ -55,6 +61,8 @@ namespace bitsery {
                 assert(details::ContainerTraits<TContainer>::size(_values) > 0);
                 auto index = details::findEntropyIndex(obj, _values);
                 s.ext(index, ext::ValueRange<size_t>{0u, details::ContainerTraits<TContainer>::size(_values)});
+                if (_alignBeforeData)
+                    s.align();
                 if (!index)
                     fnc(const_cast<T &>(obj));
             }
@@ -64,6 +72,8 @@ namespace bitsery {
                 assert(details::ContainerTraits<TContainer>::size(_values) > 0);
                 size_t index{};
                 d.ext(index, ext::ValueRange<size_t>{0u, details::ContainerTraits<TContainer>::size(_values)});
+                if (_alignBeforeData)
+                    d.align();
                 if (index)
                     obj = *std::next(std::begin(_values), index-1);
                 else
@@ -72,6 +82,7 @@ namespace bitsery {
 
         private:
             TContainer& _values;
+            bool _alignBeforeData;
         };
     }
 
@@ -79,6 +90,7 @@ namespace bitsery {
         template<typename TContainer, typename T>
         struct ExtensionTraits<ext::Entropy<TContainer>, T> {
             using TValue = T;
+            static constexpr bool BitPackingRequired = true;
             static constexpr bool SupportValueOverload = true;
             static constexpr bool SupportObjectOverload = true;
             static constexpr bool SupportLambdaOverload = true;

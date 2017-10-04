@@ -21,17 +21,23 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_STRING_H
-#define BITSERY_FLEXIBLE_TYPE_STD_STRING_H
+#ifndef BITSERY_FLEXIBLE_TYPE_STD_UNORDERED_SET_H
+#define BITSERY_FLEXIBLE_TYPE_STD_UNORDERED_SET_H
 
-#include "../traits/string.h"
-#include "../details/flexible_common.h"
+#include <unordered_set>
+#include "../ext/std_set.h"
 
 namespace bitsery {
-    template<typename S, typename T, typename ... TArgs>
-    void serialize(S &s, std::basic_string<T, TArgs...> &str) {
-        flexible::processContainer(s, str);
+    template<typename S, typename ... TArgs>
+    void serialize(S &s, std::unordered_set<TArgs...> &obj) {
+        s.ext(obj, ext::StdSet{std::numeric_limits<size_t>::max()});
     }
+
+    template<typename S, typename ... TArgs>
+    void serialize(S &s, std::unordered_multiset<TArgs...> &obj) {
+        s.ext(obj, ext::StdSet{std::numeric_limits<size_t>::max()});
+    }
+
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_STRING_H
+#endif //BITSERY_FLEXIBLE_TYPE_STD_UNORDERED_SET_H

@@ -44,9 +44,9 @@ TEST(BufferReadingErrors, WhenReadingBoolByteReadsMoreThanOneThenInvalidBufferDa
     ser.value1b(uint8_t{2});
     bool res{};
     auto des = ctx.createDeserializer();
-    des.boolByte(res);
+    des.boolValue(res);
     EXPECT_THAT(res, Eq(true));
-    des.boolByte(res);
+    des.boolValue(res);
     EXPECT_THAT(res, Eq(false));
     EXPECT_THAT(ctx.br->getError(), Eq(bitsery::BufferReaderError::INVALID_BUFFER_DATA));
 }
@@ -57,11 +57,13 @@ TEST(BufferReadingErrors, WhenReadingAlignHasNonZerosThenInvalidBufferDataError)
     uint8_t tmp{0xFF};
     bw.writeBytes<1>(tmp);
     bw.flush();
-    BufferReader br{bw.getWrittenRange()};
 
-    br.readBits(tmp,3);
-    br.align();
-    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::INVALID_BUFFER_DATA));
+    BufferReader br{bw.getWrittenRange()};
+    bitsery::BitPackingReader<bitsery::DefaultConfig> bpr{br};
+
+    bpr.readBits(tmp,3);
+    bpr.align();
+    EXPECT_THAT(bpr.getError(), Eq(bitsery::BufferReaderError::INVALID_BUFFER_DATA));
 }
 
 TEST(BufferReadingErrors, WhenReadingNewSessionInMiddleOfOldDataThenInvalidBufferError) {

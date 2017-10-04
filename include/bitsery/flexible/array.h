@@ -21,8 +21,8 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_ARRAY_H
-#define BITSERY_FLEXIBLE_TYPE_ARRAY_H
+#ifndef BITSERY_FLEXIBLE_TYPE_STD_ARRAY_H
+#define BITSERY_FLEXIBLE_TYPE_STD_ARRAY_H
 
 #include "../traits/array.h"
 #include "../details/flexible_common.h"
@@ -34,4 +34,4 @@ namespace bitsery {
     }
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_ARRAY_H
+#endif //BITSERY_FLEXIBLE_TYPE_STD_ARRAY_H
