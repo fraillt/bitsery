@@ -24,12 +24,12 @@
 #ifndef BITSERY_TRAITS_STD_DEQUE_H
 #define BITSERY_TRAITS_STD_DEQUE_H
 
-#include "helper/std_defaults.h"
+#include "core/std_defaults.h"
 #include <deque>
 
 namespace bitsery {
 
-    namespace details {
+    namespace traits {
 
         template<typename ... TArgs>
         struct ContainerTraits<std::deque<TArgs...>>

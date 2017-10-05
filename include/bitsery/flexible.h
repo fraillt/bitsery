@@ -25,7 +25,7 @@
 #define BITSERY_FLEXIBLE_H
 
 #include "details/serialization_common.h"
-#include "bitsery/details/flexible_common.h"
+#include "details/flexible_common.h"
 
 namespace bitsery {
 

@@ -177,7 +177,7 @@ namespace bitsery {
                 reader.readBits(reinterpret_cast<details::SAME_SIZE_UNSIGNED<T> &>(v), _range.bitsRequired);
                 details::setRangeValue(v, _range);
                 if (!details::isRangeValid(v, _range)) {
-                    reader.setError(BufferReaderError::INVALID_BUFFER_DATA);
+                    reader.setError(ReaderError::INVALID_DATA);
                     v = _range.min;
                 }
             }
@@ -190,7 +190,7 @@ namespace bitsery {
         };
     }
 
-    namespace details {
+    namespace traits {
         template<typename T>
         struct ExtensionTraits<ext::ValueRange<T>, T> {
             using TValue = void;

@@ -24,12 +24,12 @@
 #ifndef BITSERY_TRAITS_STD_STRING_H
 #define BITSERY_TRAITS_STD_STRING_H
 
-#include "helper/std_defaults.h"
+#include "core/std_defaults.h"
 #include <string>
 
 namespace bitsery {
 
-    namespace details {
+    namespace traits {
 
         // specialization for string, because string is already included for std::char_traits
 
@@ -39,7 +39,7 @@ namespace bitsery {
 
         template <typename ... TArgs>
         struct TextTraits<std::basic_string<TArgs...>> {
-
+            using TValue = typename ContainerTraits<std::basic_string<TArgs...>>::TValue;
             //string is automatically null-terminated
             static constexpr bool addNUL = false;
 
@@ -52,7 +52,7 @@ namespace bitsery {
         //specialization for c-array
         template <typename T, size_t N>
         struct TextTraits<T[N]> {
-
+            using TValue = T;
             static constexpr bool addNUL = true;
 
             static size_t length(const T (&container)[N]) {
@@ -61,8 +61,8 @@ namespace bitsery {
         };
 
         template<typename ... TArgs>
-        struct BufferContainerTraits<std::basic_string<TArgs...>>
-                :public StdContainerForBuffer<std::basic_string<TArgs...>> {};
+        struct BufferAdapterTraits<std::basic_string<TArgs...>>
+                :public StdContainerForBufferAdapter<std::basic_string<TArgs...>> {};
 
     }
 

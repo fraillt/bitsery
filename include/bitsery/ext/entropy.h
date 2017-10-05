@@ -58,9 +58,9 @@ namespace bitsery {
 
             template<typename Ser, typename Writer, typename T, typename Fnc>
             void serialize(Ser &s, Writer &writer, const T &obj, Fnc &&fnc) const {
-                assert(details::ContainerTraits<TContainer>::size(_values) > 0);
+                assert(traits::ContainerTraits<TContainer>::size(_values) > 0);
                 auto index = details::findEntropyIndex(obj, _values);
-                s.ext(index, ext::ValueRange<size_t>{0u, details::ContainerTraits<TContainer>::size(_values)});
+                s.ext(index, ext::ValueRange<size_t>{0u, traits::ContainerTraits<TContainer>::size(_values)});
                 if (_alignBeforeData)
                     s.align();
                 if (!index)
@@ -69,9 +69,9 @@ namespace bitsery {
 
             template<typename Des, typename Reader, typename T, typename Fnc>
             void deserialize(Des &d, Reader &reader, T &obj, Fnc &&fnc) const {
-                assert(details::ContainerTraits<TContainer>::size(_values) > 0);
+                assert(traits::ContainerTraits<TContainer>::size(_values) > 0);
                 size_t index{};
-                d.ext(index, ext::ValueRange<size_t>{0u, details::ContainerTraits<TContainer>::size(_values)});
+                d.ext(index, ext::ValueRange<size_t>{0u, traits::ContainerTraits<TContainer>::size(_values)});
                 if (_alignBeforeData)
                     d.align();
                 if (index)
@@ -86,7 +86,7 @@ namespace bitsery {
         };
     }
 
-    namespace details {
+    namespace traits {
         template<typename TContainer, typename T>
         struct ExtensionTraits<ext::Entropy<TContainer>, T> {
             using TValue = T;

@@ -22,15 +22,11 @@
 
 
 #include <gmock/gmock.h>
-#include <bitsery/buffer_writer.h>
-#include <bitsery/buffer_reader.h>
+#include "serialization_test_utils.h"
 #include <list>
 #include <bitset>
 
 using testing::Eq;
-using bitsery::BufferWriter;
-using bitsery::BufferReader;
-using Buffer = bitsery::DefaultConfig::BufferType;
 
 struct IntegralTypes {
     int64_t a;
@@ -41,48 +37,48 @@ struct IntegralTypes {
     int8_t f[2];
 };
 
-TEST(BufferReading, WhenReadingMoreThanAvailableThenEmptyBufferError) {
+TEST(DataReading, WhenReadingMoreThanAvailableThenEmptyBufferError) {
     //setup data
     uint8_t a = 111;
 
     //create and write to buffer
     Buffer buf{};
-    BufferWriter bw{buf};
+    Writer bw{buf};
 
     bw.writeBytes<1>(a);
     bw.writeBytes<1>(a);
     bw.writeBytes<1>(a);
     bw.flush();
     //read from buffer
-    BufferReader br{bw.getWrittenRange()};
+    Reader br{InputAdapter{buf.begin(), bw.getWrittenBytesCount()}};
     int32_t c;
     br.readBytes<4>(c);
-    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));
+    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::DATA_OVERFLOW));
 }
 
-TEST(BufferReading, WhenErrorOccursThenAllOtherOperationsFailsForSameError) {
+TEST(DataReading, WhenErrorOccursThenAllOtherOperationsFailsForSameError) {
     //setup data
     uint8_t a = 111;
 
     //create and write to buffer
     Buffer buf{};
-    BufferWriter bw{buf};
+    Writer bw{buf};
 
     bw.writeBytes<1>(a);
     bw.writeBytes<1>(a);
     bw.writeBytes<1>(a);
     bw.flush();
     //read from buffer
-    BufferReader br{bw.getWrittenRange()};
+    Reader br{InputAdapter{buf.begin(), bw.getWrittenBytesCount()}};
     int32_t c;
     br.readBytes<4>(c);
-    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));
+    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::DATA_OVERFLOW));
     br.readBytes<1>(a);
-    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));
+    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::DATA_OVERFLOW));
 }
 
 
-TEST(BufferReading, ReadIsCompletedSuccessfullyWhenAllBytesAreReadWithoutErrors) {
+TEST(DataReading, ReadIsCompletedSuccessfullyWhenAllBytesAreReadWithoutErrors) {
     //setup data
     IntegralTypes data;
     data.b = 94545646;
@@ -91,59 +87,59 @@ TEST(BufferReading, ReadIsCompletedSuccessfullyWhenAllBytesAreReadWithoutErrors)
 
     //create and write to buffer
     Buffer buf{};
-    BufferWriter bw{buf};
+    Writer bw{buf};
 
     bw.writeBytes<4>(data.b);
     bw.writeBytes<2>(data.c);
     bw.writeBytes<1>(data.d);
     bw.flush();
     //read from buffer
-    BufferReader br{bw.getWrittenRange()};
+    Reader br{InputAdapter{buf.begin(), bw.getWrittenBytesCount()}};
     IntegralTypes res;
     br.readBytes<4>(res.b);
-    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
+    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::NO_ERROR));
     br.readBytes<2>(res.c);
-    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
+    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::NO_ERROR));
     EXPECT_THAT(br.isCompletedSuccessfully(), Eq(false));
     br.readBytes<1>(res.d);
-    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
+    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::NO_ERROR));
     EXPECT_THAT(br.isCompletedSuccessfully(), Eq(true));
     br.readBytes<1>(res.d);
-    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));
+    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::DATA_OVERFLOW));
     EXPECT_THAT(br.isCompletedSuccessfully(), Eq(false));
 
-    BufferReader br1{bw.getWrittenRange()};
+    Reader br1{InputAdapter{buf.begin(), bw.getWrittenBytesCount()}};
     br1.readBytes<4>(res.b);
-    EXPECT_THAT(br1.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
+    EXPECT_THAT(br1.getError(), Eq(bitsery::ReaderError::NO_ERROR));
     br1.readBytes<2>(res.c);
-    EXPECT_THAT(br1.getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
+    EXPECT_THAT(br1.getError(), Eq(bitsery::ReaderError::NO_ERROR));
     EXPECT_THAT(br1.isCompletedSuccessfully(), Eq(false));
     br1.readBytes<2>(res.c);
-    EXPECT_THAT(br1.getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));
+    EXPECT_THAT(br1.getError(), Eq(bitsery::ReaderError::DATA_OVERFLOW));
     EXPECT_THAT(br1.isCompletedSuccessfully(), Eq(false));
     br1.readBytes<1>(res.d);
-    EXPECT_THAT(br1.getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));
+    EXPECT_THAT(br1.getError(), Eq(bitsery::ReaderError::DATA_OVERFLOW));
     EXPECT_THAT(br1.isCompletedSuccessfully(), Eq(false));
 }
 
-TEST(BufferReading, WhenReaderHasErrorsAllOperationsReadsReturnZero) {
+TEST(DataReading, WhenReaderHasErrorsAllOperationsReadsReturnZero) {
     //setup data
     uint8_t a = 111;
 
     //create and write to buffer
     Buffer buf{};
-    BufferWriter bw{buf};
+    Writer bw{buf};
 
     bw.writeBytes<1>(a);
     bw.writeBytes<1>(a);
     bw.writeBytes<1>(a);
     bw.flush();
     //read from buffer
-    BufferReader br{bw.getWrittenRange()};
-    bitsery::BitPackingReader<bitsery::DefaultConfig> bpr{br};
+    Reader br{InputAdapter{buf.begin(), bw.getWrittenBytesCount()}};
+    bitsery::BitPackingReader<Reader> bpr{br};
     int32_t c;
     bpr.readBytes<4>(c);
-    EXPECT_THAT(br.getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));
+    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::DATA_OVERFLOW));
 
     int16_t r1= {-645};
     uint32_t r2[2] = {54898,87854};

@@ -20,13 +20,14 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-#ifndef BITSERY_DETAILS_TRAITS_H
-#define BITSERY_DETAILS_TRAITS_H
+#ifndef BITSERY_TRAITS_CORE_TRAITS_H
+#define BITSERY_TRAITS_CORE_TRAITS_H
 
 #include <type_traits>
+#include "../../details/not_defined_type.h"
 
 namespace bitsery {
-    namespace details {
+    namespace traits {
 
         /*
          * core library traits, used to extend library for custom types
@@ -39,27 +40,21 @@ namespace bitsery {
             // eg.: extension4b>(obj, myextension{}) will call s.value4b(obj) for TValue
             // or extesion(obj, myextension{})  will call s.object(obj) for TValue
             //when this is void, it will compile, but value and object overloads will do nothing.
-            using TValue = void;
+            using TValue = details::NotDefinedType;
 
-
-            //specify if extension required bitpacking operations
-            //if current serialization instance is not bit-packing enabled,
-            //then new instance will be created with bit-packing enabled,
-            //and bits will be flushed automaticaly after extension finish executing.
-            static constexpr bool BitPackingRequired = false;
             //does extension support ext<N>(...) syntax, by calling value<N> with TValue
-            static constexpr bool SupportValueOverload = true;
+            static constexpr bool SupportValueOverload = false;
             //does extension support ext(...) syntax, by calling object with TValue
-            static constexpr bool SupportObjectOverload = true;
+            static constexpr bool SupportObjectOverload = false;
             //does extension support ext(..., lambda)
-            static constexpr bool SupportLambdaOverload = true;
+            static constexpr bool SupportLambdaOverload = false;
         };
 
         //primary traits for containers
         template<typename T>
         struct ContainerTraits {
 
-            using TValue = void;
+            using TValue = details::NotDefinedType;
 
             static constexpr bool isResizable = false;
             //contiguous arrays has oppurtunity to memcpy whole buffer directly when using funtamental types
@@ -106,7 +101,7 @@ namespace bitsery {
         //traits for text, default adds null-terminated character at the end
         template<typename T>
         struct TextTraits {
-
+            using TValue = details::NotDefinedType;
             //if container is not null-terminated by default, add NUL at the end
             static constexpr bool addNUL = true;
 
@@ -118,32 +113,47 @@ namespace bitsery {
             }
         };
 
-        //traits only for buffer reader/writer
+        //traits only for buffer adapters
         template <typename T>
-        struct BufferContainerTraits {
+        struct BufferAdapterTraits {
             //this function is only applies to resizable containers
 
-            //this function is only used by BufferWriter, when writing data to buffer,
+            //this function is only used by Writer, when writing data to buffer,
             //it is called only current buffer size is not enough to write.
             //it is used to dramaticaly improve performance by updating buffer directly
             //instead of using back_insert_iterator to append each byte to buffer.
-            //thats why BufferWriter return range iterators
+            //thats why Writer return range iterators
 
             static void increaseBufferSize(T& container) {
                 static_assert(std::is_void<T>::value,
-                              "Define BufferContainerTraits or include from <bitsery/traits/...> to use as buffer");
+                              "Define BufferAdapterTraits or include from <bitsery/traits/...> to use as buffer adapter container");
             }
 
-            using TIterator = void;
+            using TIterator = details::NotDefinedType;
+            using TValue = typename ContainerTraits<T>::TValue;
         };
 
         //specialization for c-style buffer
         template <typename T, size_t N>
-        struct BufferContainerTraits<T[N]> {
+        struct BufferAdapterTraits<T[N]> {
             using TIterator = T*;
+            using TValue = T;
+        };
+
+        //specialization for pointer type buffer
+        template <typename T>
+        struct BufferAdapterTraits<const T*> {
+            using TIterator = const T*;
+            using TValue = T;
+        };
+
+        template <typename T>
+        struct BufferAdapterTraits<T*> {
+            using TIterator = T*;
+            using TValue = T;
         };
 
     }
 }
 
-#endif //BITSERY_DETAILS_TRAITS_H
+#endif //BITSERY_TRAITS_CORE_TRAITS_H

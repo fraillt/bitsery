@@ -24,12 +24,12 @@
 #ifndef BITSERY_TRAITS_STD_LIST_H
 #define BITSERY_TRAITS_STD_LIST_H
 
-#include "helper/std_defaults.h"
+#include "core/std_defaults.h"
 #include <list>
 
 namespace bitsery {
 
-    namespace details {
+    namespace traits {
 
         template<typename ... TArgs>
         struct ContainerTraits<std::list<TArgs...>>

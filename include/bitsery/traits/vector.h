@@ -24,12 +24,12 @@
 #ifndef BITSERY_TRAITS_STD_VECTOR_H
 #define BITSERY_TRAITS_STD_VECTOR_H
 
-#include "helper/std_defaults.h"
+#include "core/std_defaults.h"
 #include <vector>
 
 namespace bitsery {
 
-    namespace details {
+    namespace traits {
         template<typename ... TArgs>
         struct ContainerTraits<std::vector<TArgs...>>
                 :public StdContainer<std::vector<TArgs...>, true, true> {};
@@ -40,8 +40,8 @@ namespace bitsery {
                 :public StdContainer<std::vector<bool, Allocator>, true, false> {};
 
         template<typename ... TArgs>
-        struct BufferContainerTraits<std::vector<TArgs...>>
-                :public StdContainerForBuffer<std::vector<TArgs...>> {};
+        struct BufferAdapterTraits<std::vector<TArgs...>>
+                :public StdContainerForBufferAdapter<std::vector<TArgs...>> {};
 
     }
 

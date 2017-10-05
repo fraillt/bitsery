@@ -28,7 +28,7 @@
 
 namespace bitsery {
 
-    namespace details {
+    namespace traits {
 
         template<typename ... TArgs>
         struct ContainerTraits<std::forward_list<TArgs...>> {

@@ -23,8 +23,10 @@
 #ifndef BITSERY_TRAITS_HELPER_STD_DEFAULTS_H
 #define BITSERY_TRAITS_HELPER_STD_DEFAULTS_H
 
+#include "traits.h"
+
 namespace bitsery {
-    namespace details {
+    namespace traits {
 
         /*
          * these are helper types, to easier write specializations for std types
@@ -55,12 +57,13 @@ namespace bitsery {
         };
 
         template <typename T, bool Resizable = ContainerTraits<T>::isResizable>
-        struct StdContainerForBuffer {
+        struct StdContainerForBufferAdapter {
             using TIterator = typename T::iterator;
+            using TValue = typename ContainerTraits<T>::TValue;
         };
 
         template <typename T>
-        struct StdContainerForBuffer<T, true> {
+        struct StdContainerForBufferAdapter<T, true> {
 
             static void increaseBufferSize(T& container) {
                 //use default implementation behaviour;
@@ -70,6 +73,7 @@ namespace bitsery {
                 container.resize(container.capacity());
             }
             using TIterator = typename T::iterator;
+            using TValue = typename ContainerTraits<T>::TValue;
         };
 
     }

@@ -24,9 +24,6 @@
 #ifndef BITSERY_COMMON_H
 #define BITSERY_COMMON_H
 
-#include <vector>
-#include "traits/vector.h"
-
 namespace bitsery {
 
 /*
@@ -40,12 +37,9 @@ namespace bitsery {
     //default configuration for buffer writing/reading operations
     struct DefaultConfig {
         static constexpr EndiannessType NetworkEndianness = EndiannessType::LittleEndian;
-        //this functionality allows to support backward/forward compatibility for any type
-        //disabling it, saves 100+bytes per BufferReader/Writer and also reduces executable size
-        static constexpr bool BufferSessionsEnabled = true;
-        //buffer value type must be unsigned, currently only uint8_t supported
-        //fixed size buffer type also supported, for faster serialization performance
-        using BufferType = std::vector<uint8_t>;
+        //this functionality allows to support backward/forward compatibility
+        //however reading from streams is not supported, because this functionality requires random access to data buffer
+        static constexpr bool BufferSessionsEnabled = false;
 
     };
 

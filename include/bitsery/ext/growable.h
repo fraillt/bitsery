@@ -49,7 +49,7 @@ namespace bitsery {
         };
     }
 
-    namespace details {
+    namespace traits {
         template<typename T>
         struct ExtensionTraits<ext::Growable, T> {
             using TValue = T;

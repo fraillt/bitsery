@@ -87,7 +87,7 @@ namespace bitsery {
         };
     }
 
-    namespace details {
+    namespace traits {
         template<typename T>
         struct ExtensionTraits<ext::StdOptional, T> {
             using TValue = typename T::value_type;

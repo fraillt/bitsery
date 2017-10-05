@@ -1,4 +1,6 @@
 #include <bitsery/bitsery.h>
+#include <bitsery/adapters/buffer_adapters.h>
+#include <bitsery/traits/vector.h>
 
 enum class MyEnum:uint16_t { V1,V2,V3 };
 struct MyStruct {
@@ -17,32 +19,22 @@ void serialize(S& s, MyStruct& o) {
 
 using namespace bitsery;
 
+using Buffer = std::vector<uint8_t>;
+using OutputAdapter = OutputBufferAdapter<Buffer>;
+using InputAdapter = InputBufferAdapter<Buffer>;
+
 int main() {
     //set some random data
     MyStruct data{8941, MyEnum::V2, {15.0f, -8.5f, 0.045f}};
     MyStruct res{};
 
-    //create serializer
-    //1) create buffer to store data
+    //create buffer to store data
     std::vector<uint8_t> buffer;
-    //2) create buffer writer that is able to write bytes or bits to buffer
-    BufferWriter bw{buffer};
-    //3) create serializer
-    Serializer ser{bw};
 
-    //serialize object, can also be invoked like this: serialize(ser, data)
-    ser.object(data);
+    auto writtenSize = startSerialization<OutputAdapter>(buffer, data);
 
-    //flush to buffer, before creating buffer reader
-    bw.flush();
+    auto state = startDeserialization<InputAdapter>(InputAdapter{buffer.begin(), writtenSize}, res);
 
-    //create deserializer
-    //1) create buffer reader
-    BufferReader br{bw.getWrittenRange()};
-    //2) create deserializer
-    Deserializer des{br};
-
-    //deserialize same object, can also be invoked like this: serialize(des, data)
-    des.object(res);
+    assert(state.first == ReaderError::NO_ERROR && state.second);
     assert(data.fs == res.fs && data.i == res.i && data.e == res.e);
 }

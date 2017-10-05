@@ -23,15 +23,16 @@
 #ifndef BITSERY_DETAILS_BOTH_COMMON_H
 #define BITSERY_DETAILS_BOTH_COMMON_H
 
+#include <cassert>
 #include <cstdint>
 #include <cstddef>
 
 namespace bitsery {
 
-    enum class BufferReaderError {
+    enum class ReaderError {
         NO_ERROR,
-        BUFFER_OVERFLOW,
-        INVALID_BUFFER_DATA
+        DATA_OVERFLOW,
+        INVALID_DATA
     };
 
     namespace details {
@@ -56,7 +57,7 @@ namespace bitsery {
                 }
             }
             if (size > maxSize) {
-                r.setError(BufferReaderError::INVALID_BUFFER_DATA);
+                r.setError(ReaderError::INVALID_DATA);
                 size = {};
             }
         }

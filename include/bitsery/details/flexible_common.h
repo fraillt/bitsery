@@ -23,7 +23,7 @@
 #ifndef BITSERY_DETAILS_FLEXIBLE_COMMON_H
 #define BITSERY_DETAILS_FLEXIBLE_COMMON_H
 
-#include "traits.h"
+#include "../traits/core/traits.h"
 #include <limits>
 
 namespace bitsery {
@@ -33,34 +33,34 @@ namespace bitsery {
         //for contigous arrays of fundamenal types, memcpy will be applied
 
         template<typename S, typename T, typename std::enable_if<
-                details::IsFundamentalType<typename details::ContainerTraits<T>::TValue>::value
-                && details::ContainerTraits<T>::isResizable
+                details::IsFundamentalType<typename traits::ContainerTraits<T>::TValue>::value
+                && traits::ContainerTraits<T>::isResizable
         >::type * = nullptr>
         void processContainer(S &s, T &c, size_t maxSize = std::numeric_limits<size_t>::max()) {
-            using TValue = typename details::ContainerTraits<T>::TValue;
+            using TValue = typename traits::ContainerTraits<T>::TValue;
             s.template container<sizeof(TValue)>(c, maxSize);
         }
 
         template<typename S, typename T, typename std::enable_if<
-                !details::IsFundamentalType<typename details::ContainerTraits<T>::TValue>::value
-                && details::ContainerTraits<T>::isResizable
+                !details::IsFundamentalType<typename traits::ContainerTraits<T>::TValue>::value
+                && traits::ContainerTraits<T>::isResizable
         >::type * = nullptr>
         void processContainer(S &s, T &c, size_t maxSize = std::numeric_limits<size_t>::max()) {
             s.container(c, maxSize);
         }
 
         template<typename S, typename T, typename std::enable_if<
-                details::IsFundamentalType<typename details::ContainerTraits<T>::TValue>::value
-                && !details::ContainerTraits<T>::isResizable
+                details::IsFundamentalType<typename traits::ContainerTraits<T>::TValue>::value
+                && !traits::ContainerTraits<T>::isResizable
         >::type * = nullptr>
         void processContainer(S &s, T &c) {
-            using TValue = typename details::ContainerTraits<T>::TValue;
+            using TValue = typename traits::ContainerTraits<T>::TValue;
             s.template container<sizeof(TValue)>(c);
         }
 
         template<typename S, typename T, typename std::enable_if<
-                !details::IsFundamentalType<typename details::ContainerTraits<T>::TValue>::value
-                && !details::ContainerTraits<T>::isResizable
+                !details::IsFundamentalType<typename traits::ContainerTraits<T>::TValue>::value
+                && !traits::ContainerTraits<T>::isResizable
         >::type * = nullptr>
         void processContainer(S &s, T &c) {
             s.container(c);
@@ -69,16 +69,16 @@ namespace bitsery {
         //overloads for text processing to apply maxSize
 
         template<typename S, typename T, typename std::enable_if<
-                details::ContainerTraits<T>::isResizable>::type * = nullptr>
+                traits::ContainerTraits<T>::isResizable>::type * = nullptr>
         void processText(S &s, T &c, size_t maxSize = std::numeric_limits<size_t>::max()) {
-            using TValue = typename details::ContainerTraits<T>::TValue;
+            using TValue = typename traits::ContainerTraits<T>::TValue;
             s.template text<sizeof(TValue)>(c, maxSize);
         }
 
         template<typename S, typename T, typename std::enable_if<
-                !details::ContainerTraits<T>::isResizable>::type * = nullptr>
+                !traits::ContainerTraits<T>::isResizable>::type * = nullptr>
         void processText(S &s, T &c) {
-            using TValue = typename details::ContainerTraits<T>::TValue;
+            using TValue = typename traits::ContainerTraits<T>::TValue;
             s.template text<sizeof(TValue)>(c);
         }
 

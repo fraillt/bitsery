@@ -28,8 +28,6 @@ using namespace testing;
 
 using bitsery::ext::Growable;
 
-using Buffer = typename bitsery::DefaultConfig::BufferType;
-
 struct DataV1 {
     int32_t v1;
 };
@@ -47,7 +45,7 @@ struct DataV3 {
 
 
 TEST(SerializeExtensionGrowable, WriteSessionsDataAtBufferEndAfterFlush) {
-    SerializationContext ctx;
+    BasicSerializationContext<SessionsEnabledConfig> ctx;
     ctx.createSerializer().ext(int8_t{}, Growable{}, [] (int8_t& v) { });
     EXPECT_THAT(ctx.getBufferSize(), Eq(0));
     ctx.bw->flush();
@@ -55,8 +53,8 @@ TEST(SerializeExtensionGrowable, WriteSessionsDataAtBufferEndAfterFlush) {
 }
 
 
-TEST(SerializeExtensionGrowable, SessionDataConsistOfSessionsEndPosAnd2BytesSessionsDataOffset) {
-    SerializationContext ctx;
+TEST(SerializeExtensionGrowable, SessionDataConsistOfSessionsEndPosAnd4BytesSessionsDataOffset) {
+    BasicSerializationContext<SessionsEnabledConfig> ctx;
 
 
     constexpr size_t DATA_SIZE = 4;
@@ -66,7 +64,7 @@ TEST(SerializeExtensionGrowable, SessionDataConsistOfSessionsEndPosAnd2BytesSess
     ser.ext(data, Growable{}, [&ser](int32_t & v) { ser.value4b(v);});
     ctx.createDeserializer();//to flush data and create buffer reader
 
-    EXPECT_THAT(ctx.getBufferSize(), Eq(3 + DATA_SIZE));
+    EXPECT_THAT(ctx.getBufferSize(), Eq(1+4 + DATA_SIZE));
 
     //read value back
     auto& br = *(ctx.br);
@@ -77,16 +75,16 @@ TEST(SerializeExtensionGrowable, SessionDataConsistOfSessionsEndPosAnd2BytesSess
     bitsery::details::readSize(br, sessionEnd, 1000000u);
     EXPECT_THAT(sessionEnd, Eq(DATA_SIZE));
     //this is the the offset from the end of buffer where actual data ends
-    uint16_t sessionsOffset{};//bufferEnd - sessionsOffset = dataEnd
-    br.readBytes<2>(sessionsOffset);
-    EXPECT_THAT(sessionsOffset, Eq(1+2));//1byte for session info, 2 bytes for session offset variable
-    auto range = ctx.bw->getWrittenRange();
-    auto dSize = std::distance(range.begin(), std::next(range.end(), -sessionsOffset));
+    uint32_t sessionsOffset{};//bufferEnd - sessionsOffset = dataEnd
+    br.readBytes<4>(sessionsOffset);
+    EXPECT_THAT(sessionsOffset, Eq(1+4));//1byte for session info, 4 bytes for session offset variable
+    auto writtenSize = ctx.bw->getWrittenBytesCount();
+    auto dSize = writtenSize - sessionsOffset;
     EXPECT_THAT(dSize, Eq(DATA_SIZE));
 }
 
 TEST(SerializeExtensionGrowable, WhenNestedSessionsThenStoreEachDepthAndSize) {
-    SerializationContext ctx;
+    BasicSerializationContext<SessionsEnabledConfig> ctx;
     DataV3 data{19457,846, 498418};
     ctx.createSerializer();
     ctx.bw->beginSession();
@@ -117,29 +115,8 @@ TEST(SerializeExtensionGrowable, WhenNestedSessionsThenStoreEachDepthAndSize) {
     EXPECT_THAT(sessionEnd[2], Eq(12));
 }
 
-TEST(SerializeExtensionGrowable, WhenSessionsDataIsMoreThan0x7FFFThenWrite4BytesForSessionsOffset) {
-    SerializationContext ctx;
-    ctx.createSerializer();
-    //create more sessions that can fit in 2 bytes
-    for (auto i = 0u; i < 0x8000; ++i) {
-        ctx.bw->beginSession();
-        ctx.bw->endSession();
-    }
-    ctx.createDeserializer();//to flush data and create buffer reader
-    EXPECT_THAT(ctx.getBufferSize(), Eq(0x8000+4));
-    uint8_t tmp{};
-    for (auto i = 0u; i < 0x8000; ++i) {
-        ctx.br->beginSession();
-        ctx.br->endSession();
-    }
-
-    EXPECT_THAT(ctx.br->getError(), Eq(bitsery::BufferReaderError::NO_ERROR));
-    ctx.br->readBytes<1>(tmp);
-    EXPECT_THAT(ctx.br->getError(), Eq(bitsery::BufferReaderError::BUFFER_OVERFLOW));
-}
-
 TEST(SerializeExtensionGrowable, MultipleSessionsReadSameVersionData) {
-    SerializationContext ctx;
+    BasicSerializationContext<SessionsEnabledConfig> ctx;
     DataV2 data{8454,987451};
     ctx.createSerializer();
     auto& bw = (*ctx.bw);
@@ -165,7 +142,7 @@ TEST(SerializeExtensionGrowable, MultipleSessionsReadSameVersionData) {
 }
 
 TEST(SerializeExtensionGrowable, MultipleSessionsReadNewerVersionData) {
-    SerializationContext ctx;
+    BasicSerializationContext<SessionsEnabledConfig> ctx;
     DataV3 data{8454,987451,54};
     ctx.createSerializer();
     auto& bw = (*ctx.bw);
@@ -192,7 +169,7 @@ TEST(SerializeExtensionGrowable, MultipleSessionsReadNewerVersionData) {
 }
 
 TEST(SerializeExtensionGrowable, MultipleSessionsReadOlderVersionData) {
-    SerializationContext ctx;
+    BasicSerializationContext<SessionsEnabledConfig> ctx;
     DataV2 data{8454,987451};
     ctx.createSerializer();
     auto& bw = (*ctx.bw);
@@ -220,7 +197,7 @@ TEST(SerializeExtensionGrowable, MultipleSessionsReadOlderVersionData) {
 }
 
 TEST(SerializeExtensionGrowable, MultipleNestedSessionsReadSameVersionData) {
-    SerializationContext ctx;
+    BasicSerializationContext<SessionsEnabledConfig> ctx;
     DataV2 data{8454,987451};
     ctx.createSerializer();
     auto& bw = (*ctx.bw);
@@ -256,7 +233,7 @@ TEST(SerializeExtensionGrowable, MultipleNestedSessionsReadSameVersionData) {
 }
 
 TEST(SerializeExtensionGrowable, MultipleNestedSessionsReadOlderVersionData) {
-    SerializationContext ctx;
+    BasicSerializationContext<SessionsEnabledConfig> ctx;
     DataV2 data{8454,987451};
     ctx.createSerializer();
     auto& bw = (*ctx.bw);
@@ -296,7 +273,7 @@ TEST(SerializeExtensionGrowable, MultipleNestedSessionsReadOlderVersionData) {
 }
 
 TEST(SerializeExtensionGrowable, MultipleNestedSessionsReadNewerVersionData1) {
-    SerializationContext ctx;
+    BasicSerializationContext<SessionsEnabledConfig> ctx;
     DataV3 data{8454,987451,54};
     ctx.createSerializer();
     auto& bw = (*ctx.bw);
@@ -352,7 +329,7 @@ TEST(SerializeExtensionGrowable, MultipleNestedSessionsReadNewerVersionData1) {
 }
 
 TEST(SerializeExtensionGrowable, MultipleNestedSessionsReadNewerVersionData2) {
-    SerializationContext ctx;
+    BasicSerializationContext<SessionsEnabledConfig> ctx;
     DataV3 data{8454,987451,54};
     ctx.createSerializer();
     auto& bw = (*ctx.bw);
@@ -414,7 +391,7 @@ TEST(SerializeExtensionGrowable, MultipleNestedSessionsReadNewerVersionData2) {
 }
 
 TEST(SerializeExtensionGrowable, SessionsStartsAtEndOfSerialization) {
-    SerializationContext ctx;
+    BasicSerializationContext<SessionsEnabledConfig> ctx;
     DataV2 data{8454,987451};
     ctx.createSerializer();
     auto& bw = (*ctx.bw);

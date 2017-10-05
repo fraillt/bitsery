@@ -37,9 +37,6 @@ BITSERY_QUOTE_MACRO(patch)
 #define BITSERY_VERSION \
 BITSERY_BUILD_VERSION_STR(BITSERY_MAJOR_VERSION, BITSERY_MINOR_VERSION, BITSERY_PATCH_VERSION)
 
-
-#include "buffer_writer.h"
-#include "buffer_reader.h"
 #include "serializer.h"
 #include "deserializer.h"
 

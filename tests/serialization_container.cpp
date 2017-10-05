@@ -80,7 +80,7 @@ public:
     TContainer res{};
 
     size_t getExpectedBufSize(const SerializationContext &ctx) const {
-        auto size = bitsery::details::ContainerTraits<TContainer>::size(src);
+        auto size = bitsery::traits::ContainerTraits<TContainer>::size(src);
         return ctx.containerSizeSerializedBytesCount(size) + size * sizeof(TValue);
     }
 };

@@ -21,38 +21,27 @@
 //SOFTWARE.
 
 #include <gmock/gmock.h>
-#include <bitsery/buffer_writer.h>
-#include <bitsery/buffer_reader.h>
+#include "serialization_test_utils.h"
 #include <bitsery/details/serialization_common.h>
 #include <bitsery/traits/array.h>
-#include <bitsery/traits/vector.h>
 
 using testing::Eq;
 using testing::ContainerEq;
 using bitsery::EndiannessType;
-using bitsery::DefaultConfig;
-using Buffer = bitsery::DefaultConfig::BufferType;
 
-struct FixedBufferConfig: public DefaultConfig {
-    using BufferType = std::array<uint8_t, 100>;
-};
-
-struct NonFixedBufferConfig: public DefaultConfig  {
-    using BufferType = std::vector<uint8_t>;
-};
-
-template <typename Config>
-class BufferWriting:public testing::Test {
+template <typename BufType>
+class DataWriting:public testing::Test {
 public:
-    using type = Config;
-
+    using TWriter = bitsery::BasicWriter<bitsery::DefaultConfig, bitsery::OutputBufferAdapter<BufType>>;
+    using TBuffer = BufType;
 };
 
-using BufferWritingConfigs = ::testing::Types<
-        NonFixedBufferConfig,
-        FixedBufferConfig>;
+using NonFixedContainer = std::vector<uint8_t>;
+using FixedContainer = std::array<uint8_t, 100>;
 
-TYPED_TEST_CASE(BufferWriting, BufferWritingConfigs);
+using ContainerTypes = ::testing::Types<FixedContainer,NonFixedContainer>;
+
+TYPED_TEST_CASE(DataWriting, ContainerTypes);
 
 static constexpr size_t DATA_SIZE = 14u;
 
@@ -67,50 +56,51 @@ void writeData(BW& bw) {
     bw.template writeBytes<4>(tmp5);
 }
 
-TYPED_TEST(BufferWriting, GetWrittenRangeReturnsBeginEndIterators) {
-    using Config = typename TestFixture::type;
-    using Buffer = typename Config::BufferType;
-    Buffer buf{};
-    bitsery::BasicBufferWriter<Config> bw{buf};
+TYPED_TEST(DataWriting, GetWrittenBytesCountReturnsActualBytesWritten) {
+    using TWriter = typename TestFixture::TWriter;
+    using TBuffer = typename TestFixture::TBuffer;
+    TBuffer buf{};
+    TWriter bw{buf};
     writeData(bw);
     bw.flush();
-    auto range = bw.getWrittenRange();
-    EXPECT_THAT(std::distance(range.begin(), range.end()), DATA_SIZE);
+    auto writtenSize = bw.getWrittenBytesCount();
+    EXPECT_THAT(writtenSize, DATA_SIZE);
+    EXPECT_THAT(buf.size(), ::testing::Ge(DATA_SIZE));
 }
 
-TYPED_TEST(BufferWriting, WhenWritingBitsThenMustFlushWriter) {
-    using Config = typename TestFixture::type;
-    using Buffer = typename Config::BufferType;
-    Buffer buf{};
-    bitsery::BasicBufferWriter<Config> bw{buf};
-    bitsery::BitPackingWriter<Config> bpw{bw};
+TYPED_TEST(DataWriting, WhenWritingBitsThenMustFlushWriter) {
+    using TWriter = typename TestFixture::TWriter;
+    using TBuffer = typename TestFixture::TBuffer;
+    TBuffer buf{};
+    TWriter bw{buf};
+    bitsery::BitPackingWriter<TWriter> bpw{bw};
     bpw.writeBits(3u, 2);
-    auto range1 = bpw.getWrittenRange();
+    auto writtenSize1 = bpw.getWrittenBytesCount();
     bpw.flush();
-    auto range2 = bpw.getWrittenRange();
-    EXPECT_THAT(std::distance(range1.begin(), range1.end()), Eq(0));
-    EXPECT_THAT(std::distance(range2.begin(), range2.end()), Eq(1));
+    auto writtenSize2 = bpw.getWrittenBytesCount();
+    EXPECT_THAT(writtenSize1, Eq(0));
+    EXPECT_THAT(writtenSize2, Eq(1));
 }
 
-TYPED_TEST(BufferWriting, WhenDataAlignedThenFlushHasNoEffect) {
-    using Config = typename TestFixture::type;
-    using Buffer = typename Config::BufferType;
-    Buffer buf{};
-    bitsery::BasicBufferWriter<Config> bw{buf};
-    bitsery::BitPackingWriter<Config> bpw{bw};
+TYPED_TEST(DataWriting, WhenDataAlignedThenFlushHasNoEffect) {
+    using TWriter = typename TestFixture::TWriter;
+    using TBuffer = typename TestFixture::TBuffer;
+    TBuffer buf{};
+    TWriter bw{buf};
+    bitsery::BitPackingWriter<TWriter> bpw{bw};
     bpw.writeBits(3u, 2);
     bpw.align();
-    auto range1 = bpw.getWrittenRange();
+    auto writtenSize1 = bpw.getWrittenBytesCount();
     bpw.flush();
-    auto range2 = bpw.getWrittenRange();
-    EXPECT_THAT(std::distance(range1.begin(), range1.end()), Eq(1));
-    EXPECT_THAT(std::distance(range2.begin(), range2.end()), Eq(1));
+    auto writtenSize2 = bpw.getWrittenBytesCount();
+    EXPECT_THAT(writtenSize1, Eq(1));
+    EXPECT_THAT(writtenSize2, Eq(1));
+
 }
 
-TEST(BufferWrittingNonFixedBuffer, BufferIsAlwaysResizedToCapacity) {
-    using Buffer = typename NonFixedBufferConfig::BufferType;
-    Buffer buf{};
-    bitsery::BasicBufferWriter<NonFixedBufferConfig> bw{buf};
+TEST(DataWritingNonFixedBufferContainer, ContainerIsAlwaysResizedToCapacity) {
+    NonFixedContainer buf{};
+    bitsery::BasicWriter<bitsery::DefaultConfig, bitsery::OutputBufferAdapter<NonFixedContainer>> bw{buf};
     for (auto i = 0; i < 5; ++i) {
         uint32_t tmp{};
         bw.writeBytes<4>(tmp);

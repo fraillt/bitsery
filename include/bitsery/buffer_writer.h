@@ -26,8 +26,11 @@
 #define BITSERY_BUFFER_WRITER_H
 
 #include "details/buffer_common.h"
+#include "details/sessions.h"
+
 #include <cassert>
 #include <utility>
+
 
 namespace bitsery {
 
@@ -63,8 +66,7 @@ namespace bitsery {
             align();
             //flush sessions count
             if (_sessionsBytesCount > 0) {
-                auto sessionsDataSizeBytesCount = (_sessionsBytesCount < 0x8000u ? 2 : 4);
-                _bitsCount += (_sessionsBytesCount + sessionsDataSizeBytesCount) * 8;
+                _bitsCount += (_sessionsBytesCount + 4) * 8;
                 _sessionsBytesCount = 0;
             }
         }
@@ -93,34 +95,30 @@ namespace bitsery {
     };
 
 
-    template <typename Config>
+    template <typename TWriter>
     class BitPackingWriter;
 
-    template<typename Config>
-    struct BasicBufferWriter {
-        using BufferType = typename Config::BufferType;
-        using ValueType = typename details::ContainerTraits<BufferType>::TValue;
-        using ScratchType = typename details::SCRATCH_TYPE<ValueType>::type;
-        using BufferContext = details::WriteBufferContext<BufferType, details::ContainerTraits<BufferType>::isResizable>;
+    template<typename Config, typename OutputAdapter>
+    struct BasicWriter {
+        using TValue = typename OutputAdapter::TValue;
+        using ScratchType = typename details::SCRATCH_TYPE<TValue>::type;
+        static_assert(details::IsDefined<TValue>::value, "Please define adapter traits or include from <bitsery/traits/...>");
+        static_assert(details::IsDefined<ScratchType>::value, "Underlying adapter value type is not supported");
 
-        explicit BasicBufferWriter(BufferType &buffer)
-                : _bufferContext{buffer}
+        explicit BasicWriter(OutputAdapter adapter)
+                : _outputAdapter{std::move(adapter)}
         {
-            static_assert(std::is_unsigned<ValueType>(), "Config::BufferType value type must be unsigned");
-            static_assert(sizeof(ValueType) * 2 == sizeof(ScratchType),
-                          "ScratchType must be 2x bigger than value type");
-            static_assert(sizeof(ValueType) == 1, "currently only supported BufferValueType is 1 byte");
         }
 
-        BasicBufferWriter(const BasicBufferWriter &) = delete;
+        BasicWriter(const BasicWriter &) = delete;
 
-        BasicBufferWriter &operator=(const BasicBufferWriter &) = delete;
+        BasicWriter &operator=(const BasicWriter &) = delete;
 
-        BasicBufferWriter(BasicBufferWriter &&) noexcept = default;
+        BasicWriter(BasicWriter &&) noexcept = default;
 
-        BasicBufferWriter &operator=(BasicBufferWriter &&) noexcept = default;
+        BasicWriter &operator=(BasicWriter &&) noexcept = default;
 
-        ~BasicBufferWriter() noexcept = default;
+        ~BasicWriter() noexcept = default;
 
         template<size_t SIZE, typename T>
         void writeBytes(const T &v) {
@@ -137,6 +135,12 @@ namespace bitsery {
             directWrite(buf, count);
         }
 
+        template<typename T>
+        void writeBits(const T &, size_t ) {
+            static_assert(std::is_void<T>::value,
+                          "Bit-packing is not enabled.\nEnable by call to `enableBitPacking`) or create Serializer with bit packing enabled.");
+        }
+
         //to have the same interface as bitpackingwriter
         void align() {
 
@@ -146,8 +150,8 @@ namespace bitsery {
             _session.flushSessions(*this);
         }
 
-        BufferRange<typename details::BufferContainerTraits<BufferType>::TIterator> getWrittenRange() const {
-            return _bufferContext.getWrittenRange();
+        size_t getWrittenBytesCount() const {
+            return _outputAdapter.getWrittenBytesCount();
         }
 
         void beginSession() {
@@ -159,7 +163,7 @@ namespace bitsery {
         }
 
     private:
-        friend class BitPackingWriter<Config>;
+        friend class BitPackingWriter<BasicWriter<Config, OutputAdapter>>;
         template<typename T>
         void directWrite(T &&v, size_t count) {
             _directWriteSwapTag(std::forward<T>(v), count, std::integral_constant<bool,
@@ -170,34 +174,30 @@ namespace bitsery {
         void _directWriteSwapTag(const T *v, size_t count, std::true_type) {
             std::for_each(v, std::next(v, count), [this](const T &v) {
                 const auto res = details::swap(v);
-                _bufferContext.write(reinterpret_cast<const ValueType *>(&res), sizeof(T));
+                _outputAdapter.write(reinterpret_cast<const TValue *>(&res), sizeof(T));
             });
         }
 
         template<typename T>
         void _directWriteSwapTag(const T *v, size_t count, std::false_type) {
-            _bufferContext.write(reinterpret_cast<const ValueType *>(v), count * sizeof(T));
+            _outputAdapter.write(reinterpret_cast<const TValue *>(v), count * sizeof(T));
         }
 
-        BufferContext _bufferContext;
+        OutputAdapter _outputAdapter;
         typename std::conditional<Config::BufferSessionsEnabled,
-                details::BufferSessionsWriter<BasicBufferWriter<Config>>,
-                details::DisabledBufferSessionsWriter<Config>>::type
+                session::SessionsWriter<BasicWriter<Config, OutputAdapter>>,
+                session::DisabledSessionsWriter<BasicWriter<Config, OutputAdapter>>>::type
                 _session{};
     };
 
-    template<typename Config>
+    template<typename TWriter>
     struct BitPackingWriter {
-        using ValueType = typename details::ContainerTraits<typename Config::BufferType>::TValue;
-        using ScratchType = typename details::SCRATCH_TYPE<ValueType>::type;
+        using TValue = typename TWriter::TValue;
+        using ScratchType = typename details::SCRATCH_TYPE<TValue>::type;
 
-        explicit BitPackingWriter(BasicBufferWriter<Config> &writer)
+        explicit BitPackingWriter(TWriter &writer)
                 : _writer{writer}
         {
-            static_assert(std::is_unsigned<ValueType>(), "Config::BufferType value type must be unsigned");
-            static_assert(sizeof(ValueType) * 2 == sizeof(ScratchType),
-                          "ScratchType must be 2x bigger than value type");
-            static_assert(sizeof(ValueType) == 1, "currently only supported BufferValueType is 1 byte");
         }
 
         BitPackingWriter(const BitPackingWriter&) = delete;
@@ -249,7 +249,7 @@ namespace bitsery {
         }
 
         void align() {
-            writeBitsInternal(ValueType{}, (details::BITS_SIZE<ValueType>::value - _scratchBits) % 8);
+            writeBitsInternal(TValue{}, (details::BITS_SIZE<TValue>::value - _scratchBits) % 8);
         }
 
         void flush() {
@@ -257,8 +257,8 @@ namespace bitsery {
             _writer._session.flushSessions(_writer);
         }
 
-        BufferRange<typename details::BufferContainerTraits<typename Config::BufferType>::TIterator> getWrittenRange() const {
-            return _writer.getWrittenRange();
+        size_t getWrittenBytesCount() const {
+            return _writer.getWrittenBytesCount();
         }
 
         void beginSession() {
@@ -275,7 +275,7 @@ namespace bitsery {
 
         template<typename T>
         void writeBitsInternal(const T &v, size_t size) {
-            constexpr size_t valueSize = details::BITS_SIZE<ValueType>::value;
+            constexpr size_t valueSize = details::BITS_SIZE<TValue>::value;
             auto value = v;
             auto bitsLeft = size;
             while (bitsLeft > 0) {
@@ -283,8 +283,8 @@ namespace bitsery {
                 _scratch |= static_cast<ScratchType>( value ) << _scratchBits;
                 _scratchBits += bits;
                 if (_scratchBits >= valueSize) {
-                    auto tmp = static_cast<ValueType>(_scratch & _MASK);
-                    _writer.template writeBytes<sizeof(ValueType), ValueType >(tmp);
+                    auto tmp = static_cast<TValue>(_scratch & _MASK);
+                    _writer.template writeBytes<sizeof(TValue), TValue >(tmp);
                     _scratch >>= valueSize;
                     _scratchBits -= valueSize;
 
@@ -294,29 +294,26 @@ namespace bitsery {
             }
         }
 
-        //overload for ValueType, for better performance
-        void writeBitsInternal(const ValueType &v, size_t size) {
+        //overload for TValue, for better performance
+        void writeBitsInternal(const TValue &v, size_t size) {
             if (size > 0) {
                 _scratch |= static_cast<ScratchType>( v ) << _scratchBits;
                 _scratchBits += size;
-                if (_scratchBits >= details::BITS_SIZE<ValueType>::value) {
-                    auto tmp = static_cast<ValueType>(_scratch & _MASK);
-                    _writer.template writeBytes<sizeof(ValueType), ValueType>(tmp);
-                    _scratch >>= details::BITS_SIZE<ValueType>::value;
-                    _scratchBits -= details::BITS_SIZE<ValueType>::value;
+                if (_scratchBits >= details::BITS_SIZE<TValue>::value) {
+                    auto tmp = static_cast<TValue>(_scratch & _MASK);
+                    _writer.template writeBytes<sizeof(TValue), TValue>(tmp);
+                    _scratch >>= details::BITS_SIZE<TValue>::value;
+                    _scratchBits -= details::BITS_SIZE<TValue>::value;
                 }
             }
         }
 
-        const ValueType _MASK = std::numeric_limits<ValueType>::max();
+        const TValue _MASK = std::numeric_limits<TValue>::max();
         ScratchType _scratch{};
         size_t _scratchBits{};
-        BasicBufferWriter<Config>& _writer;
+        TWriter& _writer;
 
     };
-
-    //helper type
-    using BufferWriter = BasicBufferWriter<DefaultConfig>;
 }
 
 #endif //BITSERY_BUFFER_WRITER_H

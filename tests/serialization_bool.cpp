@@ -27,10 +27,10 @@
 using testing::Eq;
 
 template <bool BitPackingEnabled>
-using Serializer = bitsery::BasicSerializer<bitsery::DefaultConfig, BitPackingEnabled>;
+using Serializer = bitsery::BasicSerializer<Writer, BitPackingEnabled>;
 
 template <bool BitPackingEnabled>
-using Deserializer = bitsery::BasicDeserializer<bitsery::DefaultConfig, BitPackingEnabled>;
+using Deserializer = bitsery::BasicDeserializer<Reader, BitPackingEnabled>;
 
 
 TEST(SerializeBooleans, BoolAsBit) {

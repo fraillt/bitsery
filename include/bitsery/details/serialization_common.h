@@ -24,7 +24,9 @@
 #define BITSERY_DETAILS_SERIALIZATION_COMMON_H
 
 #include <type_traits>
+#include <utility>
 #include "both_common.h"
+#include "../traits/core/traits.h"
 
 namespace bitsery {
 
@@ -39,6 +41,19 @@ namespace bitsery {
 
 
     namespace details {
+
+        //helper types for error handling
+        template <typename T>
+        struct IsContainerTraitsDefined:public IsDefined<typename traits::ContainerTraits<T>::TValue> {
+        };
+
+        template <typename T>
+        struct IsTextTraitsDefined:public IsDefined<typename traits::TextTraits<T>::TValue> {
+        };
+
+        template <typename Ext, typename T>
+        struct IsExtensionTraitsDefined:public IsDefined<typename traits::ExtensionTraits<Ext, T>::TValue> {
+        };
 
         //used for extensions, when extension TValue = void
         struct DummyType {

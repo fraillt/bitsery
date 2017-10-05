@@ -24,19 +24,19 @@
 #ifndef BITSERY_TRAITS_STD_ARRAY_H
 #define BITSERY_TRAITS_STD_ARRAY_H
 
-#include "helper/std_defaults.h"
+#include "core/std_defaults.h"
 #include <array>
 
 namespace bitsery {
 
-    namespace details {
+    namespace traits {
         template<typename T, size_t N>
         struct ContainerTraits<std::array<T, N>>
                 :public StdContainer<std::array<T, N>, false, true> {};
 
         template<typename T, size_t N>
-        struct BufferContainerTraits<std::array<T, N>>
-                :public StdContainerForBuffer<std::array<T, N>> {};
+        struct BufferAdapterTraits<std::array<T, N>>
+                :public StdContainerForBufferAdapter<std::array<T, N>> {};
     }
 
 }

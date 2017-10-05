@@ -25,7 +25,7 @@
 #define BITSERY_FLEXIBLE_TYPE_STD_MAP_H
 
 #include <map>
-#include "bitsery/ext/std_map.h"
+#include "../ext/std_map.h"
 
 namespace bitsery {
     template<typename S, typename ... TArgs>

@@ -13,6 +13,10 @@ ExtensionTraits gain additional patameter BitPackingRequired, static_asserts if 
 Removed boolByte, boolBit, and added boolValue and it writes bit or byte, depeding on if bit-packing is enabled or not.
 added missing std containers support: forward_list, deque, stack, queue, priority_queue, set, multiset, unordered_set, unordered_multiset
 Renamed ContainerMap to StdMap, Optional to StdOptional
+Improved error messages
+Lots of renaming ...
+Added adapters for easier extension
+Config no longer needs typedef *Buffer*
 
 
 todo write tests:

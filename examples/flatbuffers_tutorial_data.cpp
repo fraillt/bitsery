@@ -1,7 +1,9 @@
 #include <bitsery/bitsery.h>
+#include <bitsery/adapters/buffer_adapters.h>
 #include <bitsery/ext/growable.h>
 #include <bitsery/traits/string.h>
 #include <bitsery/traits/array.h>
+#include <bitsery/traits/vector.h>
 
 namespace MyTypes {
 
@@ -63,41 +65,25 @@ namespace MyTypes {
 
 using namespace bitsery;
 
-using Buffer =std::array<uint8_t, 1000000>;
-//change configuration
-struct NonDefaultConfig: public bitsery::DefaultConfig {
-    //change underlying buffer
-    using BufferType = Buffer;
-};
+using Buffer = std::array<uint8_t, 1000000>;
+using OutputAdapter = OutputBufferAdapter<Buffer>;
+using InputAdapter = InputBufferAdapter<Buffer>;
 
+struct SessionsEnabled:public DefaultConfig {
+    static constexpr bool BufferSessionsEnabled = true;
+};
 
 int main() {
     //set some random data
     MyTypes::Monster data{};
     data.name = "lew";
 
-    //create serializer
     //1) create buffer to store data
     Buffer buffer{};
-    //2) create buffer writer that is able to write bytes or bits to buffer
-    BasicBufferWriter<NonDefaultConfig> bw{buffer};
-    //3) create serializer
-    BasicSerializer<NonDefaultConfig, false> ser{bw};
-
-    //serialize object, can also be invoked like this: serialize(ser, data)
-    ser.object(data);
-
-    //flush to buffer, before creating buffer reader, this will always write sessions data for forward/backward compatibility
-    bw.flush();
-
-    //create deserializer
-    //1) create buffer reader
-    BasicBufferReader<NonDefaultConfig> br{bw.getWrittenRange()};
-    //2) create deserializer
-    BasicDeserializer<NonDefaultConfig, false> des{br};
+    auto writtenSize = startSerialization<OutputAdapter, MyTypes::Monster, SessionsEnabled>(buffer, data);
 
     //deserialize same object, can also be invoked like this: serialize(des, data)
     MyTypes::Monster res{};
-    des.object(res);
-
+    auto state = startDeserialization<InputAdapter, MyTypes::Monster, SessionsEnabled>(InputAdapter{buffer.begin(), writtenSize}, res);
+    assert(state.first == ReaderError::NO_ERROR && state.second);
 }
