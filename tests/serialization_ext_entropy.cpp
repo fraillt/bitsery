@@ -30,22 +30,33 @@ using namespace testing;
 
 using bitsery::ext::Entropy;
 
+using BPSer = bitsery::BasicSerializer<bitsery::AdapterWriterBitPackingWrapper<Writer>>;
+using BPDes = bitsery::BasicDeserializer<bitsery::AdapterReaderBitPackingWrapper<Reader>>;
+
+
 TEST(SerializeExtensionEntropy, WhenEntropyEncodedThenOnlyWriteIndexUsingMinRequiredBits) {
     int32_t v = 4849;
     int32_t res;
     constexpr size_t N = 3;
     int32_t values[3] = {485,4849,89};
     SerializationContext ctx;
-    ctx.createBPEnabledSerializer().ext4b(v, Entropy<int32_t[3]>{values});
-    ctx.createBPEnabledDeserializer().ext4b(res, Entropy<int32_t[3]>{values});
+    ctx.createSerializer().enableBitPacking([&v, &values](BPSer& ser) {
+        ser.ext4b(v, Entropy<int32_t[3]>{values});
+    });
+    ctx.createDeserializer().enableBitPacking([&res, &values](BPDes& des) {
+        des.ext4b(res, Entropy<int32_t[3]>{values});
+    });
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
 
     SerializationContext ctx1;
-    ctx1.createBPEnabledSerializer().ext4b(v, Entropy<int32_t[3]>{values});
-    auto des = ctx1.createBPEnabledDeserializer();
-    des.ext(res, bitsery::ext::ValueRange<int32_t>{0, static_cast<int32_t>(N + 1)});
+    ctx1.createSerializer().enableBitPacking([&v, &values](BPSer& ser) {
+        ser.ext4b(v, Entropy<int32_t[3]>{values});
+    });
+    ctx1.createDeserializer().enableBitPacking([&res](BPDes& des) {
+       des.ext(res, bitsery::ext::ValueRange<int32_t>{0, static_cast<int32_t>(N + 1)});
+    });
     EXPECT_THAT(res, Eq(2));
 }
 
@@ -54,8 +65,12 @@ TEST(SerializeExtensionEntropy, WhenNoEntropyEncodedThenWriteZeroBitsAndValueOrO
     int16_t res;
     std::initializer_list<int> values{485,4849,89};
     SerializationContext ctx;
-    ctx.createBPEnabledSerializer().ext2b(v, Entropy<std::initializer_list<int>>{values});
-    ctx.createBPEnabledDeserializer().ext2b(res, Entropy<std::initializer_list<int>>{values});
+    ctx.createSerializer().enableBitPacking([&v, &values](BPSer& ser) {
+        ser.ext2b(v, Entropy<std::initializer_list<int>>{values});
+    });
+    ctx.createDeserializer().enableBitPacking([&res, &values](BPDes& des) {
+        des.ext2b(res, Entropy<std::initializer_list<int>>{values});
+    });
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(sizeof(int16_t)+1));
@@ -70,9 +85,12 @@ TEST(SerializeExtensionEntropy, CustomTypeEntropyEncoded) {
                     MyStruct1{12, 10}, MyStruct1{485, 454},
                     MyStruct1{4849, 89}, MyStruct1{0, 1}};
     SerializationContext ctx;
-    ctx.createBPEnabledSerializer().ext(v, Entropy<MyStruct1[N]>{values});
-    ctx.createBPEnabledDeserializer().ext(res, Entropy<MyStruct1[N]>{values});
-
+    ctx.createSerializer().enableBitPacking([&v, &values](BPSer& ser) {
+        ser.ext(v, Entropy<MyStruct1[N]>{values});
+    });
+    ctx.createDeserializer().enableBitPacking([&res, &values](BPDes& des) {
+        des.ext(res, Entropy<MyStruct1[N]>{values});
+    });
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
 }
@@ -85,9 +103,12 @@ TEST(SerializeExtensionEntropy, CustomTypeNotEntropyEncoded) {
             MyStruct1{12,10}, MyStruct1{485, 454},
             MyStruct1{4849,89}, MyStruct1{0,1}};
     SerializationContext ctx;
-
-    ctx.createBPEnabledSerializer().ext(v, Entropy<std::initializer_list<MyStruct1>>{values});
-    ctx.createBPEnabledDeserializer().ext(res, Entropy<std::initializer_list<MyStruct1>>{values});
+    ctx.createSerializer().enableBitPacking([&v, &values](BPSer& ser) {
+        ser.ext(v, Entropy<std::initializer_list<MyStruct1>>{values});
+    });
+    ctx.createDeserializer().enableBitPacking([&res, &values](BPDes& des) {
+        des.ext(res, Entropy<std::initializer_list<MyStruct1>>{values});
+    });
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(MyStruct1::SIZE + 1));
@@ -105,21 +126,22 @@ TEST(SerializeExtensionEntropy, CustomFunctionNotEntropyEncodedWithNoAlignBefore
     auto rangeForValue = bitsery::ext::ValueRange<int>{0, 10000};
 
     SerializationContext ctx;
-    auto& ser = ctx.createBPEnabledSerializer();
+    ctx.createSerializer().enableBitPacking([&v, &values, &rangeForValue](BPSer& ser){
+        //lambdas differ only in capture clauses, it would make sense to use std::bind, but debugger crashes when it sees std::bind...
+        auto serLambda = [&ser, &rangeForValue](MyStruct1& data) {
+            ser.ext(data.i1, rangeForValue);
+            ser.ext(data.i2, rangeForValue);
+        };
+        ser.ext(v, Entropy<std::vector<MyStruct1>>(values, false), serLambda);
+    });
 
-    //lambdas differ only in capture clauses, it would make sense to use std::bind, but debugger crashes when it sees std::bind...
-    auto serLambda = [&ser, &rangeForValue](MyStruct1& data) {
-        ser.ext(data.i1, rangeForValue);
-        ser.ext(data.i2, rangeForValue);
-    };
-    ser.ext(v, Entropy<std::vector<MyStruct1>>(values, false), serLambda);
-
-    auto des = ctx.createBPEnabledDeserializer();
-    auto desLambda = [&des, &rangeForValue](MyStruct1& data) {
-        des.ext(data.i1, rangeForValue);
-        des.ext(data.i2, rangeForValue);
-    };
-    des.ext(res, Entropy<std::vector<MyStruct1>>(values, false), desLambda);
+    ctx.createDeserializer().enableBitPacking([&res, &values, &rangeForValue](BPDes& des) {
+        auto desLambda = [&des, &rangeForValue](MyStruct1& data) {
+            des.ext(data.i1, rangeForValue);
+            des.ext(data.i2, rangeForValue);
+        };
+        des.ext(res, Entropy<std::vector<MyStruct1>>(values, false), desLambda);
+    });
 
     EXPECT_THAT(res, Eq(v));
     auto rangeForIndex = bitsery::ext::ValueRange<size_t>{0u, N+1};
@@ -137,21 +159,21 @@ TEST(SerializeExtensionEntropy, CustomFunctionNotEntropyEncodedWithAlignBeforeDa
     auto rangeForValue = bitsery::ext::ValueRange<int>{0, 10000};
 
     SerializationContext ctx;
-    auto& ser = ctx.createBPEnabledSerializer();
-
-    //lambdas differ only in capture clauses, it would make sense to use std::bind, but debugger crashes when it sees std::bind...
-    auto serLambda = [&ser, &rangeForValue](MyStruct1& data) {
-        ser.ext(data.i1, rangeForValue);
-        ser.ext(data.i2, rangeForValue);
-    };
-    ser.ext(v, Entropy<std::vector<MyStruct1>>(values, true), serLambda);
-
-    auto des = ctx.createBPEnabledDeserializer();
-    auto desLambda = [&des, &rangeForValue](MyStruct1& data) {
-        des.ext(data.i1, rangeForValue);
-        des.ext(data.i2, rangeForValue);
-    };
-    des.ext(res, Entropy<std::vector<MyStruct1>>(values, true), desLambda);
+    ctx.createSerializer().enableBitPacking([&v, &values, &rangeForValue](BPSer& ser){
+        //lambdas differ only in capture clauses, it would make sense to use std::bind, but debugger crashes when it sees std::bind...
+        auto serLambda = [&ser, &rangeForValue](MyStruct1& data) {
+            ser.ext(data.i1, rangeForValue);
+            ser.ext(data.i2, rangeForValue);
+        };
+        ser.ext(v, Entropy<std::vector<MyStruct1>>(values, true), serLambda);
+    });
+    ctx.createDeserializer().enableBitPacking([&res, &values, &rangeForValue](BPDes& des) {
+        auto desLambda = [&des, &rangeForValue](MyStruct1& data) {
+            des.ext(data.i1, rangeForValue);
+            des.ext(data.i2, rangeForValue);
+        };
+        des.ext(res, Entropy<std::vector<MyStruct1>>(values, true), desLambda);
+    });
 
     EXPECT_THAT(res, Eq(v));
     auto bitsForIndex = 8; //because aligned
@@ -166,8 +188,12 @@ TEST(SerializeExtensionEntropy, WhenEntropyEncodedThenCustomFunctionNotInvoked) 
                                  MyStruct1{4849,89}, MyStruct1{0,1}};
 
     SerializationContext ctx;
-    ctx.createBPEnabledSerializer().ext(v, Entropy<std::list<MyStruct1>>{values}, [](MyStruct1& ) {});
-    ctx.createBPEnabledDeserializer().ext(res, Entropy<std::list<MyStruct1>>{values}, []( MyStruct1& ) {});
+    ctx.createSerializer().enableBitPacking([&v, &values](BPSer& ser) {
+        ser.ext(v, Entropy<std::list<MyStruct1>>{values}, [](MyStruct1& ) {});
+    });
+    ctx.createDeserializer().enableBitPacking([&res, &values](BPDes& des) {
+        des.ext(res, Entropy<std::list<MyStruct1>>{values}, []( MyStruct1& ) {});
+    });
 
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));

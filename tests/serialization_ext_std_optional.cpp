@@ -26,19 +26,17 @@
 
 #if __cplusplus > 201402L
 
-
-#include <bitsery/ext/value_range.h>
-
-
-#include<optional>
-
+#include <optional>
 #include <bitsery/ext/std_optional.h>
+#include <bitsery/ext/value_range.h>
 
 
 using StdOptional = bitsery::ext::StdOptional;
 
 using testing::Eq;
 
+using BPSer = bitsery::BasicSerializer<Writer, true>;
+using BPDes = bitsery::BasicDeserializer<Reader, true>;
 
 template <typename T>
 void test(SerializationContext& ctx, const T& v, T& r) {
@@ -83,16 +81,19 @@ TEST(SerializeExtensionStdOptional, OptionalHasValue) {
 TEST(SerializeExtensionStdOptional, AlignAfterStateWriteRead) {
     std::optional<int32_t> t1{43};
     std::optional<int32_t> r1{52};
+    auto range = bitsery::ext::ValueRange<int>{40,60};
 
     SerializationContext ctx;
-    auto& ser = ctx.createBPEnabledSerializer();
-    auto range = bitsery::ext::ValueRange<int>{40,60};
-    ser.ext(t1, StdOptional(true), [&ser, &range](int32_t& v) {
-        ser.ext(v, range);
+    ctx.createSerializer().enableBitPacking([&t1, &range](BPSer& ser) {
+
+        ser.ext(t1, StdOptional(true), [&ser, &range](int32_t& v) {
+            ser.ext(v, range);
+        });
     });
-    auto des = ctx.createBPEnabledDeserializer();
-    des.ext(r1, StdOptional(true), [&des, &range](int32_t& v) {
-        des.ext(v, range);
+    ctx.createDeserializer().enableBitPacking([&r1, &range](BPDes& des) {
+        des.ext(r1, StdOptional(true), [&des, &range](int32_t& v) {
+            des.ext(v, range);
+        });
     });
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(2));//1byte for index + 1byte for value
@@ -102,17 +103,21 @@ TEST(SerializeExtensionStdOptional, AlignAfterStateWriteRead) {
 TEST(SerializeExtensionStdOptional, NoAlignAfterStateWriteRead) {
     std::optional<int32_t> t1{43};
     std::optional<int32_t> r1{52};
+    auto range = bitsery::ext::ValueRange<int>{40,60};
 
     SerializationContext ctx;
-    auto& ser = ctx.createBPEnabledSerializer();
-    auto range = bitsery::ext::ValueRange<int>{40,60};
-    ser.ext(t1, StdOptional(false), [&ser, &range](int32_t& v) {
-        ser.ext(v, range);
+    ctx.createSerializer().enableBitPacking([&t1, &range](BPSer& ser) {
+        ser.ext(t1, StdOptional(false), [&ser, &range](int32_t& v) {
+            ser.ext(v, range);
+        });
     });
-    auto des = ctx.createBPEnabledDeserializer();
-    des.ext(r1, StdOptional(false), [&des, &range](int32_t& v) {
-        des.ext(v, range);
+    ctx.createDeserializer().enableBitPacking([&r1, &range](BPDes& des) {
+        des.ext(r1, StdOptional(false), [&des, &range](int32_t& v) {
+            des.ext(v, range);
+        });
     });
+
+
     EXPECT_THAT(range.getRequiredBits() + 1, ::testing::Lt(8));
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(t1.value(), Eq(r1.value()));

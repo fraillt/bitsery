@@ -90,7 +90,6 @@ namespace bitsery {
         template<typename TContainer, typename T>
         struct ExtensionTraits<ext::Entropy<TContainer>, T> {
             using TValue = T;
-            static constexpr bool BitPackingRequired = true;
             static constexpr bool SupportValueOverload = true;
             static constexpr bool SupportObjectOverload = true;
             static constexpr bool SupportLambdaOverload = true;

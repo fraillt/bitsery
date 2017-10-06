@@ -23,7 +23,7 @@
 #ifndef BITSERY_EXT_STD_MAP_H
 #define BITSERY_EXT_STD_MAP_H
 
-#include "../details/both_common.h"
+#include "../details/adapter_utils.h"
 
 namespace bitsery {
     namespace ext {
@@ -71,7 +71,6 @@ namespace bitsery {
         template<typename T>
         struct ExtensionTraits<ext::StdMap, T> {
             using TValue = void;
-            static constexpr bool BitPackingRequired = false;
             static constexpr bool SupportValueOverload = false;
             static constexpr bool SupportObjectOverload = false;
             static constexpr bool SupportLambdaOverload = true;

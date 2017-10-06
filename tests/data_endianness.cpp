@@ -22,8 +22,8 @@
 
 
 #include <gmock/gmock.h>
-#include <bitsery/buffer_writer.h>
-#include <bitsery/buffer_reader.h>
+#include <bitsery/adapter_writer.h>
+#include <bitsery/adapter_reader.h>
 #include <bitsery/ext/value_range.h>
 #include "serialization_test_utils.h"
 
@@ -50,7 +50,7 @@ struct IntegralTypes {
     int8_t e;
 };
 
-using InverseReader = bitsery::BasicReader<InverseEndiannessConfig, InputAdapter >;
+using InverseReader = bitsery::AdapterReader<InputAdapter, InverseEndiannessConfig>;
 
 
 TEST(DataEndianness, WhenWriteBytesThenBytesAreSwapped) {
@@ -80,7 +80,7 @@ TEST(DataEndianness, WhenWriteBytesThenBytesAreSwapped) {
     bw.writeBytes<1>(src.e);
     bw.flush();
     //read from buffer using inverse endianness config
-    InverseReader br{InputAdapter{buf.begin(), bw.getWrittenBytesCount()}};
+    InverseReader br{InputAdapter{buf.begin(), bw.writtenBytesCount()}};
     IntegralTypes res{};
     br.readBytes<8>(res.a);
     br.readBytes<4>(res.b);
@@ -106,7 +106,7 @@ TEST(DataEndianness, WhenWrite1ByteValuesThenEndiannessIsIgnored) {
     bw.writeBuffer<1>(src, SIZE);
     bw.flush();
     //read from buffer using inverse endianness config
-    InverseReader br{InputAdapter{buf.begin(), bw.getWrittenBytesCount()}};
+    InverseReader br{InputAdapter{buf.begin(), bw.writtenBytesCount()}};
     br.readBuffer<1>(res, SIZE);
     //result is identical, because we write separate values, of size 1byte, that requires no swapping
     //check results
@@ -125,7 +125,7 @@ TEST(DataEndianness, WhenWriteMoreThan1ByteValuesThenValuesAreSwapped) {
     bw.writeBuffer<2>(src, SIZE);
     bw.flush();
     //read from buffer using inverse endianness config
-    InverseReader br{InputAdapter{buf.begin(), bw.getWrittenBytesCount()}};
+    InverseReader br{InputAdapter{buf.begin(), bw.writtenBytesCount()}};
     br.readBuffer<2>(res, SIZE);
     //result is identical, because we write separate values, of size 1byte, that requires no swapping
     //check results
@@ -148,10 +148,10 @@ struct IntegralUnsignedTypes {
 TEST(DataEndianness, WhenValueTypeIs1ByteThenBitOperationsIsNotAffectedByEndianness) {
     //fill initial values
     constexpr IntegralUnsignedTypes src {
-            0x0000334455667788,//bits 19
-            0x00CCDDEE,//bits 16
-            0x00DD,//bits 1
-            0x0F,//bits 6
+            0x0000334455667788,
+            0x00CCDDEE,
+            0x00DD,
+            0x0F,
     };
 
     constexpr size_t aBITS = getBits(src.a) + 8;
@@ -161,15 +161,15 @@ TEST(DataEndianness, WhenValueTypeIs1ByteThenBitOperationsIsNotAffectedByEndiann
     //create and write to buffer
     Buffer buf{};
     Writer bw{buf};
-    bitsery::BitPackingWriter<Writer> bpw{bw};
+    bitsery::AdapterWriterBitPackingWrapper<Writer> bpw{bw};
     bpw.writeBits(src.a, aBITS);
     bpw.writeBits(src.b, bBITS);
     bpw.writeBits(src.c, cBITS);
     bpw.writeBits(src.d, dBITS);
     bpw.flush();
     //read from buffer using inverse endianness config
-    InverseReader br{InputAdapter{buf.begin(), bpw.getWrittenBytesCount()}};
-    bitsery::BitPackingReader<InverseReader> bpr{br};
+    InverseReader br{InputAdapter{buf.begin(), bpw.writtenBytesCount()}};
+    bitsery::AdapterReaderBitPackingWrapper<InverseReader> bpr{br};
     IntegralUnsignedTypes res{};
     bpr.readBits(res.a, aBITS);
     bpr.readBits(res.b, bBITS);

@@ -32,7 +32,7 @@ using bitsery::EndiannessType;
 template <typename BufType>
 class DataWriting:public testing::Test {
 public:
-    using TWriter = bitsery::BasicWriter<bitsery::DefaultConfig, bitsery::OutputBufferAdapter<BufType>>;
+    using TWriter = bitsery::AdapterWriter<bitsery::OutputBufferAdapter<BufType>, bitsery::DefaultConfig>;
     using TBuffer = BufType;
 };
 
@@ -63,7 +63,7 @@ TYPED_TEST(DataWriting, GetWrittenBytesCountReturnsActualBytesWritten) {
     TWriter bw{buf};
     writeData(bw);
     bw.flush();
-    auto writtenSize = bw.getWrittenBytesCount();
+    auto writtenSize = bw.writtenBytesCount();
     EXPECT_THAT(writtenSize, DATA_SIZE);
     EXPECT_THAT(buf.size(), ::testing::Ge(DATA_SIZE));
 }
@@ -73,11 +73,11 @@ TYPED_TEST(DataWriting, WhenWritingBitsThenMustFlushWriter) {
     using TBuffer = typename TestFixture::TBuffer;
     TBuffer buf{};
     TWriter bw{buf};
-    bitsery::BitPackingWriter<TWriter> bpw{bw};
+    bitsery::AdapterWriterBitPackingWrapper<TWriter> bpw{bw};
     bpw.writeBits(3u, 2);
-    auto writtenSize1 = bpw.getWrittenBytesCount();
+    auto writtenSize1 = bpw.writtenBytesCount();
     bpw.flush();
-    auto writtenSize2 = bpw.getWrittenBytesCount();
+    auto writtenSize2 = bpw.writtenBytesCount();
     EXPECT_THAT(writtenSize1, Eq(0));
     EXPECT_THAT(writtenSize2, Eq(1));
 }
@@ -87,12 +87,12 @@ TYPED_TEST(DataWriting, WhenDataAlignedThenFlushHasNoEffect) {
     using TBuffer = typename TestFixture::TBuffer;
     TBuffer buf{};
     TWriter bw{buf};
-    bitsery::BitPackingWriter<TWriter> bpw{bw};
+    bitsery::AdapterWriterBitPackingWrapper<TWriter> bpw{bw};
     bpw.writeBits(3u, 2);
     bpw.align();
-    auto writtenSize1 = bpw.getWrittenBytesCount();
+    auto writtenSize1 = bpw.writtenBytesCount();
     bpw.flush();
-    auto writtenSize2 = bpw.getWrittenBytesCount();
+    auto writtenSize2 = bpw.writtenBytesCount();
     EXPECT_THAT(writtenSize1, Eq(1));
     EXPECT_THAT(writtenSize2, Eq(1));
 
@@ -100,7 +100,7 @@ TYPED_TEST(DataWriting, WhenDataAlignedThenFlushHasNoEffect) {
 
 TEST(DataWritingNonFixedBufferContainer, ContainerIsAlwaysResizedToCapacity) {
     NonFixedContainer buf{};
-    bitsery::BasicWriter<bitsery::DefaultConfig, bitsery::OutputBufferAdapter<NonFixedContainer>> bw{buf};
+    bitsery::AdapterWriter<bitsery::OutputBufferAdapter<NonFixedContainer>, bitsery::DefaultConfig> bw{buf};
     for (auto i = 0; i < 5; ++i) {
         uint32_t tmp{};
         bw.writeBytes<4>(tmp);

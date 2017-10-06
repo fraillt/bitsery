@@ -30,9 +30,10 @@
 namespace bitsery {
 
     enum class ReaderError {
-        NO_ERROR,
-        DATA_OVERFLOW,
-        INVALID_DATA
+        NoError,
+        ReadingError, // this might be used with stream adapter
+        DataOverflow,
+        InvalidData
     };
 
     namespace details {
@@ -57,7 +58,7 @@ namespace bitsery {
                 }
             }
             if (size > maxSize) {
-                r.setError(ReaderError::INVALID_DATA);
+                r.setError(ReaderError::InvalidData);
                 size = {};
             }
         }

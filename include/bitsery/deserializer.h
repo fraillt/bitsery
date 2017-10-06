@@ -25,35 +25,42 @@
 #define BITSERY_DESERIALIZER_H
 
 #include "details/serialization_common.h"
-#include "buffer_reader.h"
+#include "adapter_reader.h"
 #include <utility>
 
 namespace bitsery {
 
 
-    template<typename TReader, bool BitPackingEnabled = false>
+    template<typename TAdapterReader>
     class BasicDeserializer {
     public:
-        using BPEnabledType = BasicDeserializer<TReader, true>;
+        //this is used by AdapterAccess class
+        using TReader = TAdapterReader;
+        //helper type, that always returns bit-packing enabled type, useful inside serialize function when enabling bitpacking
+        using BPEnabledType = BasicDeserializer<typename std::conditional<TAdapterReader::BitPackingEnabled,
+                TAdapterReader, AdapterReaderBitPackingWrapper<TAdapterReader>>::type>;
 
-        explicit BasicDeserializer(TReader &r, void* context = nullptr)
-                : _reader{r},
+
+        template <typename ReaderParam>
+        explicit BasicDeserializer(ReaderParam&& r, void* context = nullptr)
+                : _reader{std::forward<ReaderParam>(r)},
                   _context{context}
-        {};
+        {
+        };
 
         //copying disabled
         BasicDeserializer(const BasicDeserializer&) = delete;
         BasicDeserializer& operator = (const BasicDeserializer&) = delete;
 
         //move enabled
-        BasicDeserializer(BasicDeserializer&& ) noexcept = default;
-        BasicDeserializer& operator = (BasicDeserializer&& ) noexcept = default;
+        BasicDeserializer(BasicDeserializer&& ) = default;
+        BasicDeserializer& operator = (BasicDeserializer&& ) = default;
 
         /*
          * get serialization context.
          * this is optional, but might be required for some specific deserialization flows.
          */
-        void* getContext() {
+        void* context() {
             return _context;
         }
 
@@ -97,7 +104,7 @@ namespace bitsery {
          */
         template <typename Fnc>
         void enableBitPacking(Fnc&& fnc) {
-            procEnableBitPacking(std::forward<Fnc>(fnc), std::integral_constant<bool, !BitPackingEnabled>{});
+            procEnableBitPacking(std::forward<Fnc>(fnc), std::integral_constant<bool, TAdapterReader::BitPackingEnabled>{});
         }
 
         /*
@@ -136,7 +143,7 @@ namespace bitsery {
          * boolValue
          */
         void boolValue(bool &v) {
-            procBoolValue(v, std::integral_constant<bool, BitPackingEnabled>{});
+            procBoolValue(v, std::integral_constant<bool, TAdapterReader::BitPackingEnabled>{});
         }
 
         /*
@@ -310,11 +317,9 @@ namespace bitsery {
         void container8b(T &&obj) { container<8>(std::forward<T>(obj)); }
 
     private:
+        friend AdapterAccess;
 
-        typename std::conditional<BitPackingEnabled,
-                BitPackingReader<TReader>,//by value
-        TReader&//by reference
-            >::type _reader;
+        TAdapterReader _reader;
         void* _context;
 
         //process value types
@@ -371,7 +376,7 @@ namespace bitsery {
             unsigned char tmp;
             _reader.template readBytes<1>(tmp);
             if (tmp > 1)
-                _reader.setError(ReaderError::INVALID_DATA);
+                _reader.setError(ReaderError::InvalidData);
             v = tmp == 1;
         }
 
@@ -379,13 +384,14 @@ namespace bitsery {
         //enable bit-packing or do nothing if it is already enabled
         template <typename Fnc>
         void procEnableBitPacking(const Fnc& fnc, std::true_type) {
-            BPEnabledType tmp{_reader, _context};
-            fnc(tmp);
+            fnc(*this);
         }
 
         template <typename Fnc>
         void procEnableBitPacking(const Fnc& fnc, std::false_type) {
-            fnc(*this);
+            //create serializer using bitpacking wrapper
+            BasicDeserializer<AdapterReaderBitPackingWrapper<TAdapterReader>> tmp(_reader, _context);
+            fnc(tmp);
         }
 
         //these are dummy functions for extensions that have TValue = void
@@ -405,16 +411,16 @@ namespace bitsery {
     };
 
     //helper type
-    template <typename TReader>
-    using Deserializer = BasicDeserializer<TReader, false>;
+    template <typename Adapter>
+    using Deserializer = BasicDeserializer<AdapterReader<Adapter, DefaultConfig>>;
 
     //helper function that set ups all the basic steps and after deserialziation returns status
-    template <typename Adapter, typename T, typename Config = DefaultConfig>
-    std::pair<ReaderError, bool> startDeserialization(Adapter adapter, T& value) {
-        BasicReader<Config, Adapter> br{std::move(adapter)};
-        BasicDeserializer<BasicReader<Config, Adapter>> des{br};
+    template <typename Adapter, typename T>
+    std::pair<ReaderError, bool> quickDeserialization(Adapter adapter, T& value) {
+        Deserializer<Adapter> des{std::move(adapter)};
         des.object(value);
-        return {br.getError(), br.isCompletedSuccessfully()};
+        auto& r = AdapterAccess::getReader(des);
+        return {r.error(), r.isCompletedSuccessfully()};
     };
 
 }

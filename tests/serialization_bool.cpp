@@ -26,11 +26,9 @@
 
 using testing::Eq;
 
-template <bool BitPackingEnabled>
-using Serializer = bitsery::BasicSerializer<Writer, BitPackingEnabled>;
+using Serializer = bitsery::BasicSerializer<bitsery::AdapterWriterBitPackingWrapper<Writer>>;
 
-template <bool BitPackingEnabled>
-using Deserializer = bitsery::BasicDeserializer<Reader, BitPackingEnabled>;
+using Deserializer = bitsery::BasicDeserializer<bitsery::AdapterReaderBitPackingWrapper<Reader>>;
 
 
 TEST(SerializeBooleans, BoolAsBit) {
@@ -40,13 +38,13 @@ TEST(SerializeBooleans, BoolAsBit) {
     bool t2{false};
     bool res1;
     bool res2;
-    auto ser = ctx.createSerializer();
-    ser.enableBitPacking([&t1, &t2](Serializer<true>& sbp) {
+    auto& ser = ctx.createSerializer();
+    ser.enableBitPacking([&t1, &t2](Serializer& sbp) {
         sbp.boolValue(t1);
         sbp.boolValue(t2);
     });
-    auto des = ctx.createDeserializer();
-    des.enableBitPacking([&res1, &res2](Deserializer <true>& sbp) {
+    auto& des = ctx.createDeserializer();
+    des.enableBitPacking([&res1, &res2](Deserializer& sbp) {
         sbp.boolValue(res1);
         sbp.boolValue(res2);
     });
@@ -62,10 +60,10 @@ TEST(SerializeBooleans, BoolAsByte) {
     bool t2{false};
     bool res1;
     bool res2;
-    auto ser = ctx.createSerializer();
+    auto& ser = ctx.createSerializer();
     ser.boolValue(t1);
     ser.boolValue(t2);
-    auto des = ctx.createDeserializer();
+    auto& des = ctx.createDeserializer();
     des.boolValue(res1);
     des.boolValue(res2);
 

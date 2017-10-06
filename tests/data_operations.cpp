@@ -28,8 +28,8 @@
 using testing::Eq;
 using testing::ContainerEq;
 
-using BitPackingWriter = bitsery::BitPackingWriter<Writer>;
-using BitPackingReader = bitsery::BitPackingReader<Reader>;
+using AdapterBitPackingWriter = bitsery::AdapterWriterBitPackingWrapper<Writer>;
+using AdapterBitPackingReader = bitsery::AdapterReaderBitPackingWrapper<Reader>;
 
 
 struct IntegralUnsignedTypes {
@@ -50,15 +50,15 @@ constexpr size_t getBits(T v) {
 TEST(DataBitsAndBytesOperations, WriteAndReadBitsMaxTypeValues) {
     Buffer buf;
     Writer bw{buf};
-    BitPackingWriter bpw{bw};
+    AdapterBitPackingWriter bpw{bw};
     bpw.writeBits(std::numeric_limits<uint64_t>::max(), 64);
     bpw.writeBits(std::numeric_limits<uint32_t>::max(), 32);
     bpw.writeBits(std::numeric_limits<uint16_t>::max(), 16);
     bpw.writeBits(std::numeric_limits<uint8_t>::max(), 8);
     bpw.flush();
 
-    Reader br{InputAdapter{buf.begin(), bpw.getWrittenBytesCount()}};
-    BitPackingReader bpr{br};
+    Reader br{InputAdapter{buf.begin(), bpw.writtenBytesCount()}};
+    AdapterBitPackingReader bpr{br};
     uint64_t v64{};
     uint32_t v32{};
     uint16_t v16{};
@@ -93,7 +93,7 @@ TEST(DataBitsAndBytesOperations, WriteAndReadBits) {
     //create and write to buffer
     Buffer buf;
     Writer bw{buf};
-    BitPackingWriter bpw{bw};
+    AdapterBitPackingWriter bpw{bw};
 
     bpw.writeBits(data.a, aBITS);
     bpw.writeBits(data.b, bBITS);
@@ -101,12 +101,12 @@ TEST(DataBitsAndBytesOperations, WriteAndReadBits) {
     bpw.writeBits(data.d, dBITS);
     bpw.writeBits(data.e, eBITS);
     bpw.flush();
-    auto writtenSize = bpw.getWrittenBytesCount();
+    auto writtenSize = bpw.writtenBytesCount();
     auto bytesCount = ((aBITS + bBITS + cBITS + dBITS + eBITS) / 8) +1 ;
     EXPECT_THAT(writtenSize, Eq(bytesCount));
     //read from buffer
     Reader br{InputAdapter{buf.begin(), writtenSize}};
-    BitPackingReader bpr{br};
+    AdapterBitPackingReader bpr{br};
 
     IntegralUnsignedTypes res{};
 
@@ -130,43 +130,43 @@ TEST(DataBitsAndBytesOperations, WrittenSizeIsCountedPerByteNotPerBit) {
     //create and write to buffer
     Buffer buf;
     Writer bw{buf};
-    BitPackingWriter bpw{bw};
+    AdapterBitPackingWriter bpw{bw};
 
     bpw.writeBits(7u,3);
     bpw.flush();
-    auto writtenSize = bpw.getWrittenBytesCount();
+    auto writtenSize = bpw.writtenBytesCount();
     EXPECT_THAT(writtenSize, Eq(1));
 
     //read from buffer
     Reader br{InputAdapter{buf.begin(), writtenSize}};
-    BitPackingReader bpr{br};
+    AdapterBitPackingReader bpr{br};
     uint16_t tmp;
     bpr.readBits(tmp,4);
     bpr.readBits(tmp,2);
     bpr.readBits(tmp,2);
-    EXPECT_THAT(bpr.getError(), Eq(bitsery::ReaderError::NO_ERROR));
+    EXPECT_THAT(bpr.error(), Eq(bitsery::ReaderError::NoError));
     bpr.readBits(tmp,2);
-    EXPECT_THAT(bpr.getError(), Eq(bitsery::ReaderError::DATA_OVERFLOW));//false
+    EXPECT_THAT(bpr.error(), Eq(bitsery::ReaderError::DataOverflow));//false
 
     //part of next byte
     Reader br1{InputAdapter{buf.begin(), writtenSize}};
-    BitPackingReader bpr1{br1};
+    AdapterBitPackingReader bpr1{br1};
     bpr1.readBits(tmp,2);
-    EXPECT_THAT(bpr1.getError(), Eq(bitsery::ReaderError::NO_ERROR));
+    EXPECT_THAT(bpr1.error(), Eq(bitsery::ReaderError::NoError));
     bpr1.readBits(tmp,7);
-    EXPECT_THAT(bpr1.getError(), Eq(bitsery::ReaderError::DATA_OVERFLOW));//false
+    EXPECT_THAT(bpr1.error(), Eq(bitsery::ReaderError::DataOverflow));//false
 
     //bigger than byte
     Reader br2{InputAdapter{buf.begin(), writtenSize}};
-    BitPackingReader bpr2{br2};
+    AdapterBitPackingReader bpr2{br2};
     bpr2.readBits(tmp,9);
-    EXPECT_THAT(bpr2.getError(), Eq(bitsery::ReaderError::DATA_OVERFLOW));//false
+    EXPECT_THAT(bpr2.error(), Eq(bitsery::ReaderError::DataOverflow));//false
 }
 
 TEST(DataBitsAndBytesOperations, ConsecutiveCallsToAlignHasNoEffect) {
     Buffer buf;
     Writer bw{buf};
-    BitPackingWriter bpw{bw};
+    AdapterBitPackingWriter bpw{bw};
 
     bpw.writeBits(3u, 2);
     //3 calls to align after 1st data
@@ -180,22 +180,22 @@ TEST(DataBitsAndBytesOperations, ConsecutiveCallsToAlignHasNoEffect) {
     bpw.flush();
 
     unsigned char tmp;
-    Reader br{InputAdapter{buf.begin(), bpw.getWrittenBytesCount()}};
-    BitPackingReader bpr{br};
+    Reader br{InputAdapter{buf.begin(), bpw.writtenBytesCount()}};
+    AdapterBitPackingReader bpr{br};
     bpr.readBits(tmp,2);
     EXPECT_THAT(tmp, Eq(3u));
     bpr.align();
-    EXPECT_THAT(bpr.getError(), Eq(bitsery::ReaderError::NO_ERROR));
+    EXPECT_THAT(bpr.error(), Eq(bitsery::ReaderError::NoError));
     bpr.readBits(tmp,3);
     bpr.align();
     bpr.align();
     bpr.align();
     EXPECT_THAT(tmp, Eq(7u));
-    EXPECT_THAT(bpr.getError(), Eq(bitsery::ReaderError::NO_ERROR));
+    EXPECT_THAT(bpr.error(), Eq(bitsery::ReaderError::NoError));
 
     bpr.readBits(tmp,4);
     EXPECT_THAT(tmp, Eq(15u));
-    EXPECT_THAT(bpr.getError(), Eq(bitsery::ReaderError::NO_ERROR));
+    EXPECT_THAT(bpr.error(), Eq(bitsery::ReaderError::NoError));
 }
 
 TEST(DataBitsAndBytesOperations, AlignWritesZerosBits) {
@@ -204,28 +204,28 @@ TEST(DataBitsAndBytesOperations, AlignWritesZerosBits) {
     //create and write to buffer
     Buffer buf;
     Writer bw{buf};
-    BitPackingWriter bpw{bw};
+    AdapterBitPackingWriter bpw{bw};
 
     //write 2 bits and align
     bpw.writeBits(3u, 2);
     bpw.align();
     bpw.flush();
-    auto writtenSize = bpw.getWrittenBytesCount();
+    auto writtenSize = bpw.writtenBytesCount();
     EXPECT_THAT(writtenSize, Eq(1));
     unsigned char tmp;
     Reader br1{InputAdapter{buf.begin(), writtenSize}};
-    BitPackingReader bpr1{br1};
+    AdapterBitPackingReader bpr1{br1};
     bpr1.readBits(tmp,2);
     //read aligned bits
     bpr1.readBits(tmp,6);
     EXPECT_THAT(tmp, Eq(0));
 
     Reader br2{InputAdapter{buf.begin(), writtenSize}};
-    BitPackingReader bpr2{br2};
+    AdapterBitPackingReader bpr2{br2};
     //read 2 bits
     bpr2.readBits(tmp,2);
     bpr2.align();
-    EXPECT_THAT(bpr2.getError(), Eq(bitsery::ReaderError::NO_ERROR));
+    EXPECT_THAT(bpr2.error(), Eq(bitsery::ReaderError::NoError));
 }
 
 
@@ -261,7 +261,7 @@ TEST(DataBitsAndBytesOperations, WriteAndReadBytes) {
     bw.writeBytes<1>(data.e);
     bw.writeBuffer<1>(data.f, 2);
     bw.flush();
-    auto writtenSize = bw.getWrittenBytesCount();
+    auto writtenSize = bw.writtenBytesCount();
 
     EXPECT_THAT(writtenSize, Eq(18));
     //read from buffer
@@ -273,7 +273,7 @@ TEST(DataBitsAndBytesOperations, WriteAndReadBytes) {
     br.readBytes<8>(res.a);
     br.readBytes<1>(res.e);
     br.readBuffer<1>(res.f, 2);
-    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::NO_ERROR));
+    EXPECT_THAT(br.error(), Eq(bitsery::ReaderError::NoError));
     //assert results
 
     EXPECT_THAT(data.a, Eq(res.a));
@@ -295,10 +295,10 @@ TEST(DataBitsAndBytesOperations, ReadWriteFncCanAcceptSignedData) {
     bw.writeBuffer<2>(src, DATA_SIZE);
     bw.flush();
     //read from buffer
-    Reader br1{InputAdapter{buf.begin(), bw.getWrittenBytesCount()}};
+    Reader br1{InputAdapter{buf.begin(), bw.writtenBytesCount()}};
     int16_t dst[DATA_SIZE]{};
     br1.readBuffer<2>(dst, DATA_SIZE);
-    EXPECT_THAT(br1.getError(), Eq(bitsery::ReaderError::NO_ERROR));
+    EXPECT_THAT(br1.error(), Eq(bitsery::ReaderError::NoError));
     EXPECT_THAT(dst, ContainerEq(src));
 }
 
@@ -309,23 +309,23 @@ TEST(DataBitsAndBytesOperations, ReadWriteCanWorkOnUnalignedData) {
     //create and write to buffer
     Buffer buf{};
     Writer bw{buf};
-    BitPackingWriter bpw{bw};
+    AdapterBitPackingWriter bpw{bw};
     bpw.writeBits(15u, 4);
     bpw.writeBuffer<2>(src, DATA_SIZE);
     bpw.writeBits(12u, 4);
     bpw.flush();
-    auto writtenSize = bpw.getWrittenBytesCount();
+    auto writtenSize = bpw.writtenBytesCount();
     EXPECT_THAT(writtenSize, Eq(sizeof(src) + 1));
 
     //read from buffer
     Reader br1{InputAdapter{buf.begin(), writtenSize}};
-    BitPackingReader bpr1{br1};
+    AdapterBitPackingReader bpr1{br1};
     int16_t dst[DATA_SIZE]{};
     uint8_t tmp{};
     bpr1.readBits(tmp, 4);
     EXPECT_THAT(tmp, Eq(15));
     bpr1.readBuffer<2>(dst, DATA_SIZE);
-    EXPECT_THAT(bpr1.getError(), Eq(bitsery::ReaderError::NO_ERROR));
+    EXPECT_THAT(bpr1.error(), Eq(bitsery::ReaderError::NoError));
     EXPECT_THAT(dst, ContainerEq(src));
     bpr1.readBits(tmp, 4);
     EXPECT_THAT(tmp, Eq(12));
@@ -338,7 +338,7 @@ TEST(DataBitsAndBytesOperations, RegressionTestReadBytesAfterReadBitsWithLotsOfZ
     //create and write to buffer
     Buffer buf{};
     Writer bw{buf};
-    BitPackingWriter bpw{bw};
+    AdapterBitPackingWriter bpw{bw};
     bpw.writeBits(2u, 2);
     bpw.writeBytes<2>(data[0]);
     bpw.writeBytes<2>(data[1]);
@@ -346,8 +346,8 @@ TEST(DataBitsAndBytesOperations, RegressionTestReadBytesAfterReadBitsWithLotsOfZ
     bpw.flush();
 
     //read from buffer
-    Reader br{InputAdapter{buf.begin(), bpw.getWrittenBytesCount()}};
-    BitPackingReader bpr{br};
+    Reader br{InputAdapter{buf.begin(), bpw.writtenBytesCount()}};
+    AdapterBitPackingReader bpr{br};
     uint8_t tmp{};
     bpr.readBits(tmp, 2);
     EXPECT_THAT(tmp, Eq(2));

@@ -14,12 +14,14 @@ All cross-platform requirements are enforced at compile time, so serialized data
 
 * Cross-platform compatible.
 * Optimized for speed and space.
+* Allows flexible or/and verbose syntax for better serialization control.
 * No code generation required: no IDL or metadata, just use your types directly.
 * Runtime error checking on deserialization.
 * Supports forward/backward compatibility for your types.
 * 2-in-1 declarative control flow, same code for serialization and deserialization.
 * Allows fine-grained bit-level serialization control.
-* Easily extendable.
+* Can read/write from any source: stream (file, network stream. etc... ), or buffer (vector, c-array, etc...).
+* Easily extendable for any type.
 * Configurable endianess support.
 * No macros.
 
@@ -41,38 +43,44 @@ If still not convinced read more in library [motivation](doc/design/README.md) s
 ## Usage example
 ```cpp
 #include <bitsery/bitsery.h>
+#include <bitsery/adapter/buffer.h>
+#include <bitsery/traits/vector.h>
 
-using namespace bitsery;
-
+enum class MyEnum:uint16_t { V1,V2,V3 };
 struct MyStruct {
     uint32_t i;
-    char str[6];
+    MyEnum e;
     std::vector<float> fs;
 };
 
 template <typename S>
 void serialize(S& s, MyStruct& o) {
     s.value4b(o.i);
-    s.text1b(o.str);
-    s.container4b(o.fs, 100);
+    s.value2b(o.e);
+    s.container4b(o.fs, 10);
 };
 
+using namespace bitsery;
+
+using Buffer = std::vector<uint8_t>;
+using OutputAdapter = OutputBufferAdapter<Buffer>;
+using InputAdapter = InputBufferAdapter<Buffer>;
+
 int main() {
-    std::vector<uint8_t> buffer;
-    BufferWriter bw{buffer};
-    Serializer ser{bw};
-
-    MyStruct data{8941, "hello", {15.0f, -8.5f, 0.045f}};
-    ser.object(data); // serializes data
-
-    BufferReader br{bw.getWrittenRange()};
-    Deserializer des{br};
-
+    MyStruct data{8941, MyEnum::V2, {15.0f, -8.5f, 0.045f}};
     MyStruct res{};
-    des.object(res); //deserializes data
+
+    Buffer buffer;
+
+    auto writtenSize = quickSerialization<OutputAdapter>(buffer, data);
+
+    auto state = quickDeserialization<InputAdapter>({buffer.begin(), writtenSize}, res);
+
+    assert(state.first == ReaderError::NoError && state.second);
+    assert(data.fs == res.fs && data.i == res.i && data.e == res.e);
 }
 ```
-For more details go directly to [Quick start](doc/tutorial/hello_world.md) tutorial.
+For more details go directly to [quick start](doc/tutorial/hello_world.md) tutorial.
 
 ## How to use it
 This documentation comprises these parts:

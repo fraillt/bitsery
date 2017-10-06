@@ -25,7 +25,7 @@
 
 #include <type_traits>
 #include <utility>
-#include "both_common.h"
+#include "adapter_utils.h"
 #include "../traits/core/traits.h"
 
 namespace bitsery {
@@ -39,6 +39,21 @@ namespace bitsery {
         }
     };
 
+    //serializer/deserializer, does not public interface to get underlying writer/reader
+    //to prevent users from using writer/reader directly, because they have different interface
+    //and they cannot be used describing serialization flows.: use extensions for this reason.
+    //this class allows to get underlying adapter writer/reader, and only should be used outside serialization functions.
+    struct AdapterAccess {
+        template <typename Serializer>
+        static typename Serializer::TWriter& getWriter(Serializer& s) {
+            return s._writer;
+        }
+
+        template <typename Deserializer>
+        static typename Deserializer::TReader& getReader(Deserializer& s) {
+            return s._reader;
+        }
+    };
 
     namespace details {
 
@@ -54,6 +69,39 @@ namespace bitsery {
         template <typename Ext, typename T>
         struct IsExtensionTraitsDefined:public IsDefined<typename traits::ExtensionTraits<Ext, T>::TValue> {
         };
+
+        //helper metafunction, that is added to c++17
+        template<typename... Ts>
+        struct make_void {
+            typedef void type;
+        };
+        template<typename... Ts>
+        using void_t = typename make_void<Ts...>::type;
+
+        template <typename, typename, typename = void>
+        struct HasSerializeFunction:std::false_type {};
+
+        template <typename S, typename T>
+        struct HasSerializeFunction<S,T,
+                void_t<decltype(serialize(std::declval<S &>(), std::declval<T &>()))>
+        > : std::true_type {};
+
+
+        template <typename, typename, typename = void>
+        struct HasSerializeMethod:std::false_type {};
+
+        template <typename S, typename T>
+        struct HasSerializeMethod<S,T,
+                void_t<decltype(Access::serialize(std::declval<S &>(), std::declval<T &>()))>
+        > : std::true_type {};
+
+        template <typename, typename, typename = void>
+        struct IsFlexibleIncluded:std::false_type {};
+
+        template <typename S, typename T>
+        struct IsFlexibleIncluded<S,T,
+                void_t<decltype(archiveProcess(std::declval<S &>(), std::declval<T &&>()))>
+        > : std::true_type {};
 
         //used for extensions, when extension TValue = void
         struct DummyType {
@@ -90,49 +138,36 @@ namespace bitsery {
         };
 
         template<typename T>
-        using SAME_SIZE_UNSIGNED = typename UnsignedFromFundamental<T>::type;
+        using SameSizeUnsigned = typename UnsignedFromFundamental<T>::type;
 
 
 /*
  * functions for object serialization
  */
 
-        template<typename S, typename T, typename Enabled = void>
+        template<typename S, typename T>
         struct SerializeFunction {
 
             static void invoke(S &s, T &v) {
-                static_assert(!std::is_void<Enabled>::value,
+                static_assert(HasSerializeFunction<S,T>::value || HasSerializeMethod<S,T>::value,
                               "\nPlease define 'serialize' function for your type (inside or outside of class):\n"
                                       "  template<typename S>\n"
                                       "  void serialize(S& s)\n"
                                       "  {\n"
                                       "    ...\n"
                                       "  }\n");
+                static_assert(!(HasSerializeFunction<S,T>::value && HasSerializeMethod<S,T>::value),
+                              "\nPlease define only one 'serialize' function (member OR free), not both.");
+                internalInvoke(s,v, HasSerializeMethod<S,T>{});
+            }
+        private:
+            static void internalInvoke(S& s, T& v,std::true_type) {
+                Access::serialize(s,v);
+            }
+            static void internalInvoke(S& s, T& v,std::false_type) {
+                serialize(s,v);
             }
         };
-
-        //check for serialize(s,o) support
-        template<typename S, typename T>
-        struct SerializeFunction<S, T, typename std::enable_if<
-                std::is_same<void, decltype((void) serialize(std::declval<S &>(), std::declval<T &>()))>::value
-        >::type> {
-
-            static void invoke(S &s, T &v) {
-                serialize(s, v);
-            }
-        };
-
-        //check for o.serialize(s) support through static class Access
-        template<typename S, typename T>
-        struct SerializeFunction<S, T, typename std::enable_if<
-                std::is_same<void, decltype(Access::serialize(std::declval<S &>(), std::declval<T &>()))>::value
-        >::type> {
-
-            static void invoke(S &s, T &v) {
-                Access::serialize(s, v);
-            }
-        };
-
 
 /*
  * functions for object serialization
@@ -141,58 +176,15 @@ namespace bitsery {
         template<typename S, typename T, typename Enabled = void>
         struct ArchiveFunction {
 
-            static void invoke(S &s, T &v) {
-                static_assert(!std::is_void<Enabled>::value,
-                              "\nPlease include 'flexible.h' to use 'archive' function:\n");
-            }
-        };
+            static void invoke(S &s, T&& obj) {
+                static_assert(IsFlexibleIncluded<S,T>::value,
+                              "\nPlease include '<bitsery/flexible.h>' to use 'archive' function:\n");
+//                static_assert(HasSerializeFunction<S,T>::value || HasSerializeMethod<S,T>::value,
+//                              "\nPlease define 'serialize' function or include '<bitsery/flexible/...>' to use with 'archive'\n");
 
-        template<typename S, typename T>
-        struct ArchiveFunction<S, T, typename std::enable_if<
-                std::is_same<void, decltype((void)archiveProcess(std::declval<S &>(), std::declval<T &&>()))>::value
-        >::type> {
-
-            static void invoke(S &s, T &&obj) {
                 archiveProcess(s, std::forward<T>(obj));
             }
         };
-
-/*
- * delta functions
- */
-
-        class ObjectMemoryPosition {
-        public:
-
-            template<typename T>
-            ObjectMemoryPosition(const T &oldObj, const T &newObj)
-                    :ObjectMemoryPosition{reinterpret_cast<const char *>(&oldObj),
-                                          reinterpret_cast<const char *>(&newObj),
-                                          sizeof(T)} {
-            }
-
-            template<typename T>
-            bool isFieldsEquals(const T &newObjField) {
-                return *getOldObjectField(newObjField) == newObjField;
-            }
-
-            template<typename T>
-            const T *getOldObjectField(const T &field) {
-                auto offset = reinterpret_cast<const char *>(&field) - newObj;
-                return reinterpret_cast<const T *>(oldObj + offset);
-            }
-
-        private:
-
-            ObjectMemoryPosition(const char *objOld, const char *objNew, size_t)
-                    : oldObj{objOld},
-                      newObj{objNew} {
-            }
-
-            const char *oldObj;
-            const char *newObj;
-        };
-
 
     }
 

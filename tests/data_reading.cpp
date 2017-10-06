@@ -50,10 +50,10 @@ TEST(DataReading, WhenReadingMoreThanAvailableThenEmptyBufferError) {
     bw.writeBytes<1>(a);
     bw.flush();
     //read from buffer
-    Reader br{InputAdapter{buf.begin(), bw.getWrittenBytesCount()}};
+    Reader br{InputAdapter{buf.begin(), bw.writtenBytesCount()}};
     int32_t c;
     br.readBytes<4>(c);
-    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::DATA_OVERFLOW));
+    EXPECT_THAT(br.error(), Eq(bitsery::ReaderError::DataOverflow));
 }
 
 TEST(DataReading, WhenErrorOccursThenAllOtherOperationsFailsForSameError) {
@@ -69,12 +69,12 @@ TEST(DataReading, WhenErrorOccursThenAllOtherOperationsFailsForSameError) {
     bw.writeBytes<1>(a);
     bw.flush();
     //read from buffer
-    Reader br{InputAdapter{buf.begin(), bw.getWrittenBytesCount()}};
+    Reader br{InputAdapter{buf.begin(), bw.writtenBytesCount()}};
     int32_t c;
     br.readBytes<4>(c);
-    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::DATA_OVERFLOW));
+    EXPECT_THAT(br.error(), Eq(bitsery::ReaderError::DataOverflow));
     br.readBytes<1>(a);
-    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::DATA_OVERFLOW));
+    EXPECT_THAT(br.error(), Eq(bitsery::ReaderError::DataOverflow));
 }
 
 
@@ -94,31 +94,31 @@ TEST(DataReading, ReadIsCompletedSuccessfullyWhenAllBytesAreReadWithoutErrors) {
     bw.writeBytes<1>(data.d);
     bw.flush();
     //read from buffer
-    Reader br{InputAdapter{buf.begin(), bw.getWrittenBytesCount()}};
+    Reader br{InputAdapter{buf.begin(), bw.writtenBytesCount()}};
     IntegralTypes res;
     br.readBytes<4>(res.b);
-    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::NO_ERROR));
+    EXPECT_THAT(br.error(), Eq(bitsery::ReaderError::NoError));
     br.readBytes<2>(res.c);
-    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::NO_ERROR));
+    EXPECT_THAT(br.error(), Eq(bitsery::ReaderError::NoError));
     EXPECT_THAT(br.isCompletedSuccessfully(), Eq(false));
     br.readBytes<1>(res.d);
-    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::NO_ERROR));
+    EXPECT_THAT(br.error(), Eq(bitsery::ReaderError::NoError));
     EXPECT_THAT(br.isCompletedSuccessfully(), Eq(true));
     br.readBytes<1>(res.d);
-    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::DATA_OVERFLOW));
+    EXPECT_THAT(br.error(), Eq(bitsery::ReaderError::DataOverflow));
     EXPECT_THAT(br.isCompletedSuccessfully(), Eq(false));
 
-    Reader br1{InputAdapter{buf.begin(), bw.getWrittenBytesCount()}};
+    Reader br1{InputAdapter{buf.begin(), bw.writtenBytesCount()}};
     br1.readBytes<4>(res.b);
-    EXPECT_THAT(br1.getError(), Eq(bitsery::ReaderError::NO_ERROR));
+    EXPECT_THAT(br1.error(), Eq(bitsery::ReaderError::NoError));
     br1.readBytes<2>(res.c);
-    EXPECT_THAT(br1.getError(), Eq(bitsery::ReaderError::NO_ERROR));
+    EXPECT_THAT(br1.error(), Eq(bitsery::ReaderError::NoError));
     EXPECT_THAT(br1.isCompletedSuccessfully(), Eq(false));
     br1.readBytes<2>(res.c);
-    EXPECT_THAT(br1.getError(), Eq(bitsery::ReaderError::DATA_OVERFLOW));
+    EXPECT_THAT(br1.error(), Eq(bitsery::ReaderError::DataOverflow));
     EXPECT_THAT(br1.isCompletedSuccessfully(), Eq(false));
     br1.readBytes<1>(res.d);
-    EXPECT_THAT(br1.getError(), Eq(bitsery::ReaderError::DATA_OVERFLOW));
+    EXPECT_THAT(br1.error(), Eq(bitsery::ReaderError::DataOverflow));
     EXPECT_THAT(br1.isCompletedSuccessfully(), Eq(false));
 }
 
@@ -135,11 +135,11 @@ TEST(DataReading, WhenReaderHasErrorsAllOperationsReadsReturnZero) {
     bw.writeBytes<1>(a);
     bw.flush();
     //read from buffer
-    Reader br{InputAdapter{buf.begin(), bw.getWrittenBytesCount()}};
-    bitsery::BitPackingReader<Reader> bpr{br};
+    Reader br{InputAdapter{buf.begin(), bw.writtenBytesCount()}};
+    bitsery::AdapterReaderBitPackingWrapper<Reader> bpr{br};
     int32_t c;
     bpr.readBytes<4>(c);
-    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::DATA_OVERFLOW));
+    EXPECT_THAT(br.error(), Eq(bitsery::ReaderError::DataOverflow));
 
     int16_t r1= {-645};
     uint32_t r2[2] = {54898,87854};

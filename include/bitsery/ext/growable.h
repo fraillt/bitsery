@@ -53,7 +53,6 @@ namespace bitsery {
         template<typename T>
         struct ExtensionTraits<ext::Growable, T> {
             using TValue = T;
-            static constexpr bool BitPackingRequired = false;
             static constexpr bool SupportValueOverload = false;
             static constexpr bool SupportObjectOverload = true;
             static constexpr bool SupportLambdaOverload = true;

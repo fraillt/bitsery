@@ -29,7 +29,7 @@
 #include <vector>
 #include <stack>
 #include <cstring>
-#include "both_common.h"
+#include "adapter_utils.h"
 #include "not_defined_type.h"
 
 #include "../common.h"
@@ -39,7 +39,7 @@ namespace bitsery {
     namespace details {
 
         template<typename T>
-        struct BITS_SIZE:public std::integral_constant<size_t, sizeof(T) << 3> {
+        struct BitsSize:public std::integral_constant<size_t, sizeof(T) * 8> {
 
         };
 
@@ -97,25 +97,14 @@ namespace bitsery {
 
 
         template<typename T>
-        struct SCRATCH_TYPE {
+        struct ScratchType {
             using type = NotDefinedType;
         };
 
         template<>
-        struct SCRATCH_TYPE<uint8_t> {
+        struct ScratchType<uint8_t> {
             using type = uint16_t;
         };
-
-
-//        template<>
-//        struct SCRATCH_TYPE<uint16_t> {
-//            using type = uint32_t;
-//        };
-//
-//        template<>
-//        struct SCRATCH_TYPE<uint32_t> {
-//            using type = uint64_t;
-//        };
 
         /*
          * class used by session reader, to access underlying iterators of buffer
@@ -123,11 +112,11 @@ namespace bitsery {
         struct SessionAccess {
             template <typename TReader, typename Iterator>
             static Iterator& posIteratorRef(TReader& r) {
-                return r._pos;
+                return r.posIt;
             }
             template <typename TReader, typename Iterator>
             static Iterator& endIteratorRef(TReader& r) {
-                return r._end;
+                return r.endIt;
             }
         };
 

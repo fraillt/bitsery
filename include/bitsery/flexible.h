@@ -95,6 +95,17 @@ namespace bitsery {
         flexible::processContainer(s, obj);
     };
 
+    //this is a helper class that enforce fundamental type sizes, when used on multiple platforms
+    template <size_t TShort, size_t TInt, size_t TLong, size_t TLongLong>
+    void assertFundamentalTypeSizes() {
+        //http://en.cppreference.com/w/cpp/language/types
+        static_assert(sizeof(short) == TShort, "");
+        static_assert(sizeof(int) == TInt, "");
+        static_assert(sizeof(long) == TLong, "");
+        static_assert(sizeof(long long) == TLongLong, "");
+        //for completion we also need pointer type size, but serializer doesn't support pointer serialization.
+    };
+
 }
 
 #endif //BITSERY_FLEXIBLE_H

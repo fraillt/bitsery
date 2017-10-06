@@ -52,7 +52,7 @@ include(${ExtCMakeFilesDir}/LinkTestLib.cmake)
 FOREACH(TestFile ${TestSourceFiles})
     get_filename_component(TestName ${TestFile} NAME_WE)
     set(TestName TEST_${TestName})
-    add_executable(${TestName} ${TestFile} ${IncludeHeaders})
+    add_executable(${TestName} ${TestFile} ${IncludeHeaders} serialization_test_utils.h)
     LinkTestLib(${TestName})
 
     add_test(NAME ${TestName} COMMAND $<TARGET_FILE:${TestName}>)

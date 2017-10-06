@@ -1,9 +1,11 @@
 #include <bitsery/bitsery.h>
-#include <bitsery/adapters/buffer_adapters.h>
-#include <bitsery/ext/growable.h>
+#include <bitsery/adapter/buffer.h>
+//include traits for types, that we'll be using
 #include <bitsery/traits/string.h>
 #include <bitsery/traits/array.h>
 #include <bitsery/traits/vector.h>
+//include extension that will allow to have backward/forward compatibility
+#include <bitsery/ext/growable.h>
 
 namespace MyTypes {
 
@@ -15,6 +17,17 @@ namespace MyTypes {
     struct Weapon {
         std::string name;
         int16_t damage;
+    private:
+        //define serialize function as private, and give access to bitsery
+        friend bitsery::Access;
+        template <typename S>
+        void serialize (S& s) {
+            //forward/backward compatibility for monsters
+            s.ext(*this, bitsery::ext::Growable{}, [&s](Weapon& o1) {
+                s.text1b(o1.name, 20);
+                s.value2b(o1.damage);
+            });
+        }
     };
 
     struct Monster {
@@ -36,16 +49,6 @@ namespace MyTypes {
         s.value4b(o.z);
     }
 
-    //define serialization functions
-    template <typename S>
-    void serialize (S& s, Weapon& o) {
-        //forward/backward compatibility for monsters
-        s.ext(o, bitsery::ext::Growable{}, [&s](Weapon& o1) {
-            s.text1b(o1.name, 20);
-            s.value2b(o1.damage);
-        });
-    }
-
     template <typename S>
     void serialize (S& s, Monster& o) {
         //forward/backward compatibility for monsters
@@ -65,10 +68,12 @@ namespace MyTypes {
 
 using namespace bitsery;
 
-using Buffer = std::array<uint8_t, 1000000>;
+//use fixed-size buffer
+using Buffer = std::array<uint8_t, 10000>;
 using OutputAdapter = OutputBufferAdapter<Buffer>;
 using InputAdapter = InputBufferAdapter<Buffer>;
 
+//create configuration that enables session support, to work with "growable" extension
 struct SessionsEnabled:public DefaultConfig {
     static constexpr bool BufferSessionsEnabled = true;
 };
@@ -77,13 +82,22 @@ int main() {
     //set some random data
     MyTypes::Monster data{};
     data.name = "lew";
+    data.weapons.push_back(MyTypes::Weapon{"GoodWeapon", 100});
 
-    //1) create buffer to store data
+    //create buffer to store data to
     Buffer buffer{};
-    auto writtenSize = startSerialization<OutputAdapter, MyTypes::Monster, SessionsEnabled>(buffer, data);
+    //since we're using different configuration, we cannot use quickSerialization function.
+    BasicSerializer<AdapterWriter<OutputAdapter, SessionsEnabled>> ser{OutputAdapter{buffer}};
+    ser.object(data);
+    auto& w = AdapterAccess::getWriter(ser);
+    w.flush();
+    auto writtenSize = w.writtenBytesCount();
 
-    //deserialize same object, can also be invoked like this: serialize(des, data)
+
     MyTypes::Monster res{};
-    auto state = startDeserialization<InputAdapter, MyTypes::Monster, SessionsEnabled>(InputAdapter{buffer.begin(), writtenSize}, res);
-    assert(state.first == ReaderError::NO_ERROR && state.second);
+    //deserialize
+    BasicDeserializer<AdapterReader<InputAdapter, SessionsEnabled>> des{InputAdapter{buffer.begin(), writtenSize}};
+    des.object(res);
+    auto& r = AdapterAccess::getReader(des);
+    assert(r.error() == ReaderError::NoError && r.isCompletedSuccessfully());
 }

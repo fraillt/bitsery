@@ -10,7 +10,30 @@ bitsery can be directly included in your project or installed anywhere you can a
 Grab the latest version, and include directory `bitsery_base_dir/include/` to your project.
 There's nothing to build or make - **bitsery** is header only.
 
-## Add serialization methods for your types
+## Include required headers and define some helper types
+
+```cpp
+#include <bitsery/bitsery.h>
+#include <bitsery/adapter/buffer.h>
+#include <bitsery/traits/vector.h>
+#include <bitsery/traits/string.h>
+
+using namespace bitsery;
+
+using Buffer = std::vector<uint8_t>;
+using OutputAdapter = OutputBufferAdapter<Buffer>;
+using InputAdapter = InputBufferAdapter<Buffer>;
+
+```
+
+**bitsery** is very lightweight, so we need to explicitly include what we need.
+* `<bitsery/bitsery.h>` is a core header, that includes our Serializer and Deserializer
+* `<bitsery/adapter/buffer.h>` in order to write/read data we need specific adapter, depending on what underlying buffer will be. In this example we'll be using std::vector as our buffer, so we include buffer adapter.
+* <bitsery/traits/...> traits tells library how efficiently serialize particular container.
+
+create alias types for *InputAdapter* and *OutputAdapter* using our vector as buffer.
+
+## Add serialization method for your type
 
 **bitsery** needs to know which data members to serialize in your classes.
 Let it know by implementing a serialize method for your type:
@@ -30,11 +53,11 @@ void serialize(S& s, MyStruct& o) {
 };
 ```
 
-**bitsery** also can serialize private class members, just move *serialize* function inside structure, and make it *friend* (*fiend void serialize(.....)*).
+**bitsery** also allows to define serialize function in side your class, and can also serialize private class members, just make *friend bitsery::Access;*
 
-**bitsery** has verbose syntax, because it is cross-platform compatible by default and has full control over how to serialize data (read more about it in [motivation](../design/README.md))
+**bitsery** supports two ways how to describe your serialization flow: *verbose syntax* (as in example) or *flexible syntax*, similar to *cereal* library, just include `<bitsery/flexible.h>` to use it.
 
-This example contains core functionality that you'll use all the time, so lets get through it:
+This example we choosed probably unfamiliar verbose syntax, so lets explain core functionality that you'll use all the time:
 * **s.value4b(o.i);** serialize fundamental types (ints, floats, enums) value**4b** means, that data type is 4 bytes. If you use same code on different machines, if it compiles it means it is compatible.
 * **s.text1b(o.str);** serialize text (null-terminated) of char type, if you use *wchar* then you would write *text2b*.
 * **s.container4b(o.fs, 100);** serializes any container of fundamental types of size 4bytes, **100** is max size of container.
@@ -45,56 +68,34 @@ External serialization functions should be placed either in the same namespace a
 
 ## Serialization and deserialization
 
-### Create serializer
-Create a serializer and send the data you want to serialize to it.
+Create buffer and use helper functions for serialization and deserialization.
 
 ```cpp
-std::vector<uint8_t> buffer;
-BufferWriter bw{buffer};
-Serializer ser{bw};
+Buffer buffer;
+
+auto writtenSize = quickSerialization<OutputAdapter>(buffer, data);
+
+auto state = quickDeserialization<InputAdapter>({buffer.begin(), writtenSize}, res);
 ```
 
-Serialization process consists of three independant parts.
-* **std::vector<uint8_t> buffer;** core object, that will store the data for serialization and deserialization.
-* **BufferWriter bw{buffer};** writer knows how to write bytes to buffer, and how to resize buffer, or how to use fixed-size buffer. It also applies endianess transformations if nesessary.
-* **Serializer ser{bw};** serializer is a high level wrapper that knows how to convert object to stream of bytes, and write then to buffer.
-
-Serializer doesn't store any state, it only has reference to buffer, so it is safe to create many of those if nesessary.
-
-BufferWriter also doesn't own buffer, but it stores state about writing position and container size.
-
-One important note that when using bit-level operations, dont forget to flush buffer writer **bw.flush()** otherwise, some data might not be written to buffer.
-
-
-### Serialize object
-
-```cpp
-MyStruct data{8941, "hello", {15.0f, -8.5f, 0.045f}};
-ser.object(data); // serializes data
-```
-
-**ser.object(data)** is a final core function along with **value, text, container**.
-
-This function is actually equivalent to calling *serialize(ser, data)* directly, but it displays friendly static assert message if it cannot find *serialize* function for your type.
-
-### Deserialize object
-
-```cpp
-BufferReader br{bw.getWrittenRange()};
-Deserializer des{br};
-
-MyStruct res{};
-des.object(res); //deserializes data
-```
-
-Deserialization process is equivalent to serialization, except that *BufferReader* reader has getError() method that returns deserialization state.
+These helper functions use default configuration *bitsery::DefaultConfig*
+* **quickSerialization** create serializer using output adapter, serializes data and returns written size.
+* **quickDeserialization** create deserializer using input adapter, deserializes to object, and returns deserialization state.
+deserialization state has two properties, error code and bool that indicates if buffer was fully read and there is no errors.
 
 ## Full example code
 
 ```cpp
 #include <bitsery/bitsery.h>
+#include <bitsery/adapter/buffer.h>
+#include <bitsery/traits/vector.h>
+#include <bitsery/traits/string.h>
 
 using namespace bitsery;
+
+using Buffer = std::vector<uint8_t>;
+using OutputAdapter = OutputBufferAdapter<Buffer>;
+using InputAdapter = InputBufferAdapter<Buffer>;
 
 struct MyStruct {
     uint32_t i;
@@ -110,18 +111,16 @@ void serialize(S& s, MyStruct& o) {
 };
 
 int main() {
-    std::vector<uint8_t> buffer;
-    BufferWriter bw{buffer};
-    Serializer ser{bw};
-
     MyStruct data{8941, "hello", {15.0f, -8.5f, 0.045f}};
-    ser.object(data); // serializes data
-
-    BufferReader br{bw.getWrittenRange()};
-    Deserializer des{br};
-
     MyStruct res{};
-    des.object(res); //deserializes data
+
+    Buffer buffer;
+    auto writtenSize = quickSerialization<OutputAdapter>(buffer, data);
+
+    auto state = quickDeserialization<InputAdapter>({buffer.begin(), writtenSize}, res);
+
+    assert(state.first == ReaderError::NoError && state.second);
+    assert(data.fs == res.fs && data.i == res.i && std::strcmp(data.str, res.str) == 0);
 }
 ```
 

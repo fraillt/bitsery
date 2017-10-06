@@ -25,29 +25,29 @@
 #include <bitsery/traits/string.h>
 
 using testing::Eq;
-using SessionsEnabledWriter = bitsery::BasicWriter<SessionsEnabledConfig, OutputAdapter>;
-using SessionsEnabledReader = bitsery::BasicReader<SessionsEnabledConfig, InputAdapter>;
+using SessionsEnabledWriter = bitsery::AdapterWriter<OutputAdapter, SessionsEnabledConfig>;
+using SessionsEnabledReader = bitsery::AdapterReader<InputAdapter, SessionsEnabledConfig>;
 
 TEST(DataReadingErrors, WhenContainerOrTextSizeIsMoreThanMaxThenInvalidDataError) {
     SerializationContext ctx;
     std::string tmp = "larger text then allowed";
     ctx.createSerializer().text1b(tmp,100);
     ctx.createDeserializer().text1b(tmp, 10);
-    EXPECT_THAT(ctx.br->getError(), Eq(bitsery::ReaderError::INVALID_DATA));
+    EXPECT_THAT(ctx.br->error(), Eq(bitsery::ReaderError::InvalidData));
 }
 
 TEST(DataReadingErrors, WhenReadingBoolByteReadsMoreThanOneThenInvalidBufferDataErrorAndResultIsFalse) {
     SerializationContext ctx;
-    auto ser = ctx.createSerializer();
+    auto& ser = ctx.createSerializer();
     ser.value1b(uint8_t{1});
     ser.value1b(uint8_t{2});
     bool res{};
-    auto des = ctx.createDeserializer();
+    auto& des = ctx.createDeserializer();
     des.boolValue(res);
     EXPECT_THAT(res, Eq(true));
     des.boolValue(res);
     EXPECT_THAT(res, Eq(false));
-    EXPECT_THAT(ctx.br->getError(), Eq(bitsery::ReaderError::INVALID_DATA));
+    EXPECT_THAT(ctx.br->error(), Eq(bitsery::ReaderError::InvalidData));
 }
 
 TEST(DataReadingErrors, WhenReadingAlignHasNonZerosThenInvalidDataError) {
@@ -57,12 +57,12 @@ TEST(DataReadingErrors, WhenReadingAlignHasNonZerosThenInvalidDataError) {
     bw.writeBytes<1>(tmp);
     bw.flush();
 
-    Reader br{InputAdapter{buf.begin(), bw.getWrittenBytesCount()}};
-    bitsery::BitPackingReader<Reader> bpr{br};
+    Reader br{InputAdapter{buf.begin(), bw.writtenBytesCount()}};
+    bitsery::AdapterReaderBitPackingWrapper<Reader> bpr{br};
 
     bpr.readBits(tmp,3);
     bpr.align();
-    EXPECT_THAT(bpr.getError(), Eq(bitsery::ReaderError::INVALID_DATA));
+    EXPECT_THAT(bpr.error(), Eq(bitsery::ReaderError::InvalidData));
 }
 
 TEST(DataReadingErrors, WhenReadingNewSessionInMiddleOfOldDataThenInvalidDataError) {
@@ -76,7 +76,7 @@ TEST(DataReadingErrors, WhenReadingNewSessionInMiddleOfOldDataThenInvalidDataErr
         bw.endSession();
     }
     bw.flush();
-    SessionsEnabledReader br{InputAdapter{buf.begin(), bw.getWrittenBytesCount()}};
+    SessionsEnabledReader br{InputAdapter{buf.begin(), bw.writtenBytesCount()}};
     for (auto i = 0; i < 2; ++i) {
         br.beginSession();
         br.readBytes<1>(tmp);
@@ -85,7 +85,7 @@ TEST(DataReadingErrors, WhenReadingNewSessionInMiddleOfOldDataThenInvalidDataErr
         br.endSession();
         br.endSession();
     }
-    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::INVALID_DATA));
+    EXPECT_THAT(br.error(), Eq(bitsery::ReaderError::InvalidData));
 }
 
 
@@ -95,18 +95,18 @@ TEST(DataReadingErrors, WhenInitializingSessionsWhenNotEnoughDataThenInvalidData
     SessionsEnabledWriter bw1{buf1};
     bw1.writeBytes<1>(tmp1);
     bw1.flush();
-    SessionsEnabledReader br1{InputAdapter{buf1.begin(), bw1.getWrittenBytesCount()}};
+    SessionsEnabledReader br1{InputAdapter{buf1.begin(), bw1.writtenBytesCount()}};
     br1.beginSession();
-    EXPECT_THAT(br1.getError(), Eq(bitsery::ReaderError::INVALID_DATA));
+    EXPECT_THAT(br1.error(), Eq(bitsery::ReaderError::InvalidData));
 
     Buffer buf2{};
     SessionsEnabledWriter bw2{buf2};
     uint16_t tmp2{0x8000};
     bw2.writeBytes<2>(tmp2);
     bw2.flush();
-    SessionsEnabledReader br2{InputAdapter{buf2.begin(), bw2.getWrittenBytesCount()}};
+    SessionsEnabledReader br2{InputAdapter{buf2.begin(), bw2.writtenBytesCount()}};
     br2.beginSession();
-    EXPECT_THAT(br2.getError(), Eq(bitsery::ReaderError::INVALID_DATA));
+    EXPECT_THAT(br2.error(), Eq(bitsery::ReaderError::InvalidData));
 }
 
 TEST(DataReadingErrors, WhenInitializingSessionsWhereSessionsDataOffsetIsCorruptedThenInvalidData) {
@@ -115,7 +115,7 @@ TEST(DataReadingErrors, WhenInitializingSessionsWhereSessionsDataOffsetIsCorrupt
     bw.writeBytes<1>(uint8_t{1});
     bw.writeBytes<1>(uint8_t{1});
     bw.writeBytes<2>(uint16_t{10});
-    SessionsEnabledReader br{InputAdapter{buf.begin(), bw.getWrittenBytesCount()}};
+    SessionsEnabledReader br{InputAdapter{buf.begin(), bw.writtenBytesCount()}};
     br.beginSession();
-    EXPECT_THAT(br.getError(), Eq(bitsery::ReaderError::INVALID_DATA));
+    EXPECT_THAT(br.error(), Eq(bitsery::ReaderError::InvalidData));
 }

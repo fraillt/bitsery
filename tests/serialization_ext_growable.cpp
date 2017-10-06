@@ -60,7 +60,7 @@ TEST(SerializeExtensionGrowable, SessionDataConsistOfSessionsEndPosAnd4BytesSess
     constexpr size_t DATA_SIZE = 4;
     int32_t data{};
 
-    auto ser = ctx.createSerializer();
+    auto& ser = ctx.createSerializer();
     ser.ext(data, Growable{}, [&ser](int32_t & v) { ser.value4b(v);});
     ctx.createDeserializer();//to flush data and create buffer reader
 
@@ -78,7 +78,7 @@ TEST(SerializeExtensionGrowable, SessionDataConsistOfSessionsEndPosAnd4BytesSess
     uint32_t sessionsOffset{};//bufferEnd - sessionsOffset = dataEnd
     br.readBytes<4>(sessionsOffset);
     EXPECT_THAT(sessionsOffset, Eq(1+4));//1byte for session info, 4 bytes for session offset variable
-    auto writtenSize = ctx.bw->getWrittenBytesCount();
+    auto writtenSize = ctx.bw->writtenBytesCount();
     auto dSize = writtenSize - sessionsOffset;
     EXPECT_THAT(dSize, Eq(DATA_SIZE));
 }

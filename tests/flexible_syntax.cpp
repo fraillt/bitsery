@@ -72,7 +72,7 @@ TEST(FlexibleSyntax, UseObjectFncInsteadOfValueN) {
     double_t td = -454184.48445;
     bool tb=true;
     SerializationContext ctx;
-    auto ser = ctx.createSerializer();
+    auto& ser = ctx.createSerializer();
     ser.object(ti);
     ser.object(te);
     ser.object(tf);
@@ -85,7 +85,7 @@ TEST(FlexibleSyntax, UseObjectFncInsteadOfValueN) {
     float rf{};
     double_t rd{};
     bool rb{};
-    auto des = ctx.createDeserializer();
+    auto& des = ctx.createDeserializer();
     des.object(ri);
     des.object(re);
     des.object(rf);
@@ -107,7 +107,7 @@ TEST(FlexibleSyntax, MixDifferentSyntax) {
     double_t td = -454184.48445;
     bool tb=true;
     SerializationContext ctx;
-    auto ser = ctx.createSerializer();
+    auto& ser = ctx.createSerializer();
     ser.value<sizeof(ti)>(ti);
     ser.archive(te, tf, td);
     ser.object(tb);
@@ -118,7 +118,7 @@ TEST(FlexibleSyntax, MixDifferentSyntax) {
     float rf{};
     double_t rd{};
     bool rb{};
-    auto des = ctx.createDeserializer();
+    auto& des = ctx.createDeserializer();
     des.archive(ri, re, rf);
     des.value8b(rd);
     des.object(rb);

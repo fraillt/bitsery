@@ -24,7 +24,7 @@
 #define BITSERY_EXT_VALUE_RANGE_H
 
 #include "../details/serialization_common.h"
-#include "../details/buffer_common.h"
+#include "../details/adapter_common.h"
 #include <cassert>
 
 namespace bitsery {
@@ -96,7 +96,7 @@ namespace bitsery {
             constexpr RangeSpec(T minValue, T maxValue, T precision) :
                     min{minValue},
                     max{maxValue},
-                    bitsRequired{calcRequiredBits<details::SAME_SIZE_UNSIGNED<T>>({}, ((max - min) / precision))} {
+                    bitsRequired{calcRequiredBits<details::SameSizeUnsigned<T>>({}, ((max - min) / precision))} {
 
             }
 
@@ -106,19 +106,19 @@ namespace bitsery {
         };
 
         template<typename T, typename std::enable_if<std::is_integral<T>::value>::type * = nullptr>
-        details::SAME_SIZE_UNSIGNED<T> getRangeValue(const T &v, const RangeSpec<T> &r) {
-            return static_cast<details::SAME_SIZE_UNSIGNED<T>>(v - r.min);
+        details::SameSizeUnsigned<T> getRangeValue(const T &v, const RangeSpec<T> &r) {
+            return static_cast<details::SameSizeUnsigned<T>>(v - r.min);
         };
 
         template<typename T, typename std::enable_if<std::is_enum<T>::value>::type * = nullptr>
-        details::SAME_SIZE_UNSIGNED<T> getRangeValue(const T &v, const RangeSpec<T> &r) {
-            using VT = details::SAME_SIZE_UNSIGNED<T>;
+        details::SameSizeUnsigned<T> getRangeValue(const T &v, const RangeSpec<T> &r) {
+            using VT = details::SameSizeUnsigned<T>;
             return static_cast<VT>(static_cast<VT>(v) - static_cast<VT>(r.min));
         };
 
         template<typename T, typename std::enable_if<std::is_floating_point<T>::value>::type * = nullptr>
-        details::SAME_SIZE_UNSIGNED<T> getRangeValue(const T &v, const RangeSpec<T> &r) {
-            using VT = details::SAME_SIZE_UNSIGNED<T>;
+        details::SameSizeUnsigned<T> getRangeValue(const T &v, const RangeSpec<T> &r) {
+            using VT = details::SameSizeUnsigned<T>;
             const VT maxUint = (static_cast<VT>(1) << r.bitsRequired) - 1;
             const auto ratio = (v - r.min) / (r.max - r.min);
             return static_cast<VT>(ratio * maxUint);
@@ -137,7 +137,7 @@ namespace bitsery {
 
         template<typename T, typename std::enable_if<std::is_floating_point<T>::value>::type * = nullptr>
         void setRangeValue(T &v, const RangeSpec<T> &r) {
-            using UIT = details::SAME_SIZE_UNSIGNED<T>;
+            using UIT = details::SameSizeUnsigned<T>;
             const auto intRep = reinterpret_cast<UIT &>(v);
             const UIT maxUint = (static_cast<UIT>(1) << r.bitsRequired) - 1;
             v = r.min + (static_cast<T>(intRep) / maxUint) * (r.max - r.min);
@@ -174,10 +174,10 @@ namespace bitsery {
 
             template<typename Des, typename Reader, typename T, typename Fnc>
             void deserialize(Des &, Reader &reader, T &v, Fnc &&) const {
-                reader.readBits(reinterpret_cast<details::SAME_SIZE_UNSIGNED<T> &>(v), _range.bitsRequired);
+                reader.readBits(reinterpret_cast<details::SameSizeUnsigned<T> &>(v), _range.bitsRequired);
                 details::setRangeValue(v, _range);
                 if (!details::isRangeValid(v, _range)) {
-                    reader.setError(ReaderError::INVALID_DATA);
+                    reader.setError(ReaderError::InvalidData);
                     v = _range.min;
                 }
             }
@@ -194,7 +194,6 @@ namespace bitsery {
         template<typename T>
         struct ExtensionTraits<ext::ValueRange<T>, T> {
             using TValue = void;
-            static constexpr bool BitPackingRequired = true;
             static constexpr bool SupportValueOverload = false;
             static constexpr bool SupportObjectOverload = true;
             static constexpr bool SupportLambdaOverload = false;

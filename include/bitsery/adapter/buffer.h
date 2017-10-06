@@ -24,22 +24,39 @@
 #ifndef BITSERY_ADAPTERS_INPUT_BUFFER_ADAPTER_H
 #define BITSERY_ADAPTERS_INPUT_BUFFER_ADAPTER_H
 
-#include "../details/buffer_common.h"
+#include "../details/adapter_common.h"
 #include "../traits/core/traits.h"
 
 namespace bitsery {
 
+    //base class that stores container iterators, and is required for session support (for reading sessions data)
     template <typename Buffer>
-    class InputBufferAdapter {
+    class BufferIterators {
+    protected:
+        using TIterator = typename traits::BufferAdapterTraits<Buffer>::TIterator;
+
+        BufferIterators(TIterator begin, TIterator end)
+                :posIt{begin},
+                 endIt{end}
+        {
+        }
+
+        friend details::SessionAccess;
+
+        TIterator posIt;
+        TIterator endIt;
+    };
+
+
+    template <typename Buffer>
+    class InputBufferAdapter: public BufferIterators<Buffer> {
     public:
 
+        using TIterator = typename BufferIterators<Buffer>::TIterator;
         using TValue = typename traits::BufferAdapterTraits<Buffer>::TValue;
-        using TIterator = typename traits::BufferAdapterTraits<Buffer>::TIterator;
         static_assert(details::IsDefined<TValue>::value, "Please define BufferAdapterTraits or include from <bitsery/traits/...>");
 
-        InputBufferAdapter(TIterator begin, TIterator end)
-                :_pos{begin},
-                 _end{end}
+        InputBufferAdapter(TIterator begin, TIterator end): BufferIterators<Buffer>(begin, end)
         {
         }
 
@@ -50,43 +67,38 @@ namespace bitsery {
 
         void read(TValue* data, size_t size) {
             //for optimization
-            auto tmp = _pos;
-            _pos += size;
-            if (std::distance(_pos, _end) >= 0) {
+            auto tmp = this->posIt;
+            this->posIt += size;
+            if (std::distance(this->posIt, this->endIt) >= 0) {
                 std::memcpy(data, std::addressof(*tmp), size);
             } else {
-                _pos -= size;
+                this->posIt -= size;
                 //set everything to zeros
                 std::memset(data, 0, size);
 
-                if (getError() == ReaderError::NO_ERROR)
-                    setError(ReaderError::DATA_OVERFLOW);
+                if (error() == ReaderError::NoError)
+                    setError(ReaderError::DataOverflow);
             }
         }
 
-        ReaderError getError() const {
-            auto res = std::distance(_end, _pos);
+        ReaderError error() const {
+            auto res = std::distance(this->endIt, this->posIt);
             if (res > 0) {
                 auto err = static_cast<ReaderError>(res);
                 return err;
             }
-            return ReaderError::NO_ERROR;
+            return ReaderError::NoError;
         }
 
         void setError(ReaderError error) {
-            _end = _pos;
-            //to avoid creating temporary for error state, mark an error by passing _pos after the _end
-            std::advance(_pos, static_cast<size_t>(error));
+            this->endIt = this->posIt;
+            //to avoid creating temporary for error state, mark an error by passing posIt after the endIt
+            std::advance(this->posIt, static_cast<size_t>(error));
         }
 
         bool isCompletedSuccessfully() const {
-            return _pos == _end;
+            return this->posIt == this->endIt;
         }
-    private:
-        friend details::SessionAccess;
-
-        TIterator _pos;
-        TIterator _end;
     };
 
 
@@ -111,7 +123,11 @@ namespace bitsery {
             writeInternal(data, size, TResizable{});
         }
 
-        size_t getWrittenBytesCount() const {
+        void flush() {
+            //this function might be useful for stream adapters
+        }
+
+        size_t writtenBytesCount() const {
             return static_cast<size_t>(std::distance(std::begin(_buffer), _outIt));
         }
 
@@ -135,7 +151,7 @@ namespace bitsery {
             _outIt = std::begin(_buffer);
         }
 
-        void writeInternal(const TValue *data, size_t size, std::true_type) {
+        void writeInternal(const TValue *data, const size_t size, std::true_type) {
             //optimization
             auto tmp = _outIt;
             _outIt += size;

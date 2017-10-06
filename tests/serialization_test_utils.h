@@ -27,7 +27,7 @@
 #include <memory>
 #include <bitsery/bitsery.h>
 #include <bitsery/traits/vector.h>
-#include <bitsery/adapters/buffer_adapters.h>
+#include <bitsery/adapter/buffer.h>
 
 /*
  * define some types for testing
@@ -90,37 +90,44 @@ struct SessionsEnabledConfig: public bitsery::DefaultConfig {
     static constexpr bool BufferSessionsEnabled = true;
 };
 
-using Buffer = std::vector<uint8_t>;
+using Buffer = std::vector<char>;
 using InputAdapter = bitsery::InputBufferAdapter<Buffer>;
 using OutputAdapter = bitsery::OutputBufferAdapter<Buffer>;
-using Writer = bitsery::BasicWriter<bitsery::DefaultConfig, OutputAdapter>;
-using Reader = bitsery::BasicReader<bitsery::DefaultConfig, InputAdapter>;
+using Writer = bitsery::AdapterWriter<OutputAdapter, bitsery::DefaultConfig>;
+using Reader = bitsery::AdapterReader<InputAdapter, bitsery::DefaultConfig>;
 
 
 template <typename Config = bitsery::DefaultConfig>
 class BasicSerializationContext {
 public:
     Buffer buf;
-    std::unique_ptr<bitsery::BasicWriter<Config, OutputAdapter>> bw;
-    std::unique_ptr<bitsery::BasicReader<Config, InputAdapter>> br;
-    std::unique_ptr<bitsery::BasicSerializer<bitsery::BasicWriter<Config, OutputAdapter>, true>> sbp;
+    using TWriter = bitsery::AdapterWriter<OutputAdapter, Config>;
+    using TReader = bitsery::AdapterReader<InputAdapter, Config>;
+    std::unique_ptr<bitsery::BasicSerializer<TWriter>> ser;
+    std::unique_ptr<bitsery::BasicDeserializer<TReader>> des;
+    TWriter* bw;
+    TReader* br;
 
-    bitsery::BasicSerializer<bitsery::BasicWriter<Config, OutputAdapter>, false> createSerializer() {
-        //make_unique is not in c++11
-        bw = std::unique_ptr<bitsery::BasicWriter<Config, OutputAdapter>>(new bitsery::BasicWriter<Config, OutputAdapter>(buf));
-        return bitsery::BasicSerializer<bitsery::BasicWriter<Config, OutputAdapter>, false>{*bw};
+    bitsery::BasicSerializer<TWriter>& createSerializer() {
+        if (!ser) {
+            ser = std::unique_ptr<bitsery::BasicSerializer<TWriter>>(new bitsery::BasicSerializer<TWriter>(OutputAdapter{buf}));
+            bw = &bitsery::AdapterAccess::getWriter(*ser);
+        }
+        return *ser;
     };
 
-    bitsery::BasicSerializer<bitsery::BasicWriter<Config, OutputAdapter>, true>& createBPEnabledSerializer() {
-        //make_unique is not in c++11
-        bw = std::unique_ptr<bitsery::BasicWriter<Config, OutputAdapter>>(new bitsery::BasicWriter<Config, OutputAdapter>(buf));
-        sbp = std::unique_ptr<bitsery::BasicSerializer<bitsery::BasicWriter<Config, OutputAdapter>, true>>(
-                new bitsery::BasicSerializer<bitsery::BasicWriter<Config, OutputAdapter>, true>{*bw});
-        return *sbp;
+    bitsery::BasicDeserializer<bitsery::AdapterReader<InputAdapter, Config>>& createDeserializer() {
+        bw->flush();
+        if (!des) {
+            des = std::unique_ptr<bitsery::BasicDeserializer<TReader>>(
+                    new bitsery::BasicDeserializer<TReader>(InputAdapter{buf.begin(), bw->writtenBytesCount()}));
+            br = &bitsery::AdapterAccess::getReader(*des);
+        }
+        return *des;
     };
 
     size_t getBufferSize() const {
-        return bw->getWrittenBytesCount();
+        return bw->writtenBytesCount();
     }
 
     //since all containers .size() method returns size_t, it cannot be directly serialized, because size_t is platform dependant
@@ -133,21 +140,6 @@ public:
         return 4;
     }
 
-    bitsery::BasicDeserializer<bitsery::BasicReader<Config, InputAdapter>, false> createDeserializer() {
-        bw->flush();
-        //make_unique is not in c++11
-        br = std::unique_ptr<bitsery::BasicReader<Config, InputAdapter>>(
-                new bitsery::BasicReader<Config, InputAdapter>(InputAdapter{buf.begin(), bw->getWrittenBytesCount()}));
-        return bitsery::BasicDeserializer<bitsery::BasicReader<Config, InputAdapter>, false>{*br};
-    };
-
-    bitsery::BasicDeserializer<bitsery::BasicReader<Config, InputAdapter>, true> createBPEnabledDeserializer() {
-        sbp.reset(nullptr);
-        //make_unique is not in c++11
-        br = std::unique_ptr<bitsery::BasicReader<Config, InputAdapter>>(
-                new bitsery::BasicReader<Config, InputAdapter>(InputAdapter{buf.begin(), bw->getWrittenBytesCount()}));
-        return bitsery::BasicDeserializer<bitsery::BasicReader<Config, InputAdapter>, true>{*br};
-    };
 };
 
 //helper type

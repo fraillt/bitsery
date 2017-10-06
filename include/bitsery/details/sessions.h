@@ -7,7 +7,7 @@
 
 #include <vector>
 #include <stack>
-#include "buffer_common.h"
+#include "adapter_common.h"
 
 namespace bitsery {
 
@@ -65,19 +65,19 @@ namespace bitsery {
                 //change position to session end
                 auto sessionIt = std::next(std::begin(_sessions), _sessionIndex.top());
                 _sessionIndex.pop();
-                *sessionIt = writer.getWrittenBytesCount();
+                *sessionIt = writer.writtenBytesCount();
             }
 
             void flushSessions(TWriter& writer) {
                 if (_sessions.size()) {
                     assert(_sessionIndex.empty());
-                    auto dataSize = writer.getWrittenBytesCount();
+                    auto dataSize = writer.writtenBytesCount();
                     for(auto& s:_sessions) {
                         details::writeSize(writer, s);
                     }
                     _sessions.clear();
 
-                    auto totalSize = writer.getWrittenBytesCount();
+                    auto totalSize = writer.writtenBytesCount();
                     //write offset where actual data ends
                     auto sessionsOffset = totalSize - dataSize + 4;//4 bytes for offset data
                     writer.template writeBytes<4>(static_cast<uint32_t>(sessionsOffset));
@@ -115,7 +115,7 @@ namespace bitsery {
                         if (std::distance(newEnd, _endItRef) < 0)
                         {
                             //new session cannot end further than current end
-                            _reader.setError(ReaderError::INVALID_DATA);
+                            _reader.setError(ReaderError::InvalidData);
                             return;
                         }
                         _endItRef = newEnd;
@@ -125,8 +125,8 @@ namespace bitsery {
                 } else {
                     //there is no data to read anymore
                     //pos == end or buffer overflow while session is active
-                    if (!(_posItRef == _endItRef || _reader.getError() == ReaderError::NO_ERROR)) {
-                        _reader.setError(ReaderError::INVALID_DATA);
+                    if (!(_posItRef == _endItRef || _reader.error() == ReaderError::NoError)) {
+                        _reader.setError(ReaderError::InvalidData);
                     }
                 }
             }
@@ -137,7 +137,7 @@ namespace bitsery {
                     //can additionaly be checked for session data versioning
                     //_pos == _end : same versions
                     //distance(_pos,_end) > 0: reading newer version
-                    //getError() == BUFFER_OVERFLOW: reading older version
+                    //error() == BUFFER_OVERFLOW: reading older version
                     auto dist = std::distance(_posItRef, _endItRef);
                     if (dist > 0) {
                         //newer version might have some inner sessions, try to find the one after current ends
@@ -172,7 +172,7 @@ namespace bitsery {
                 auto currPos = _posItRef;
                 //read size
                 if (std::distance(_posItRef, _endItRef) < 4) {
-                    _reader.setError(ReaderError::INVALID_DATA);
+                    _reader.setError(ReaderError::InvalidData);
                     return false;
                 }
                 auto endSessionsSizesIt = std::next(_endItRef, -4);
@@ -182,7 +182,7 @@ namespace bitsery {
 
                 auto bufferSize = std::distance(_beginIt, _endItRef);
                 if (static_cast<size_t>(bufferSize) < sessionsOffset) {
-                    _reader.setError(ReaderError::INVALID_DATA);
+                    _reader.setError(ReaderError::InvalidData);
                     return false;
                 }
                 //we can initialy resizes to this value, and we'll shrink it after reading

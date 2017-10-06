@@ -24,6 +24,7 @@
 #define BITSERY_TRAITS_HELPER_STD_DEFAULTS_H
 
 #include "traits.h"
+#include <iostream>
 
 namespace bitsery {
     namespace traits {
@@ -62,15 +63,17 @@ namespace bitsery {
             using TValue = typename ContainerTraits<T>::TValue;
         };
 
+        //specialization for resizable buffers
         template <typename T>
         struct StdContainerForBufferAdapter<T, true> {
 
             static void increaseBufferSize(T& container) {
-                //use default implementation behaviour;
-                //call push_back to use default resize strategy
-                container.push_back({});
-                //after allocation resize to take all capacity
-                container.resize(container.capacity());
+                //since we're writing to buffer use different resize strategy than default implementation
+                //when small size grow faster, to avoid thouse 2/4/8/16... byte allocations
+                auto newSize = static_cast<size_t>(container.size() * 1.5 + 128);
+                //make data cache friendly
+                newSize -= newSize % 64;//64 is cache line size
+                container.resize(std::max(newSize, container.capacity()));
             }
             using TIterator = typename T::iterator;
             using TValue = typename ContainerTraits<T>::TValue;

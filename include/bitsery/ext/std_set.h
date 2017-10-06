@@ -24,7 +24,7 @@
 #define BITSERY_EXT_STD_SET_H
 
 #include <cassert>
-#include "../details/both_common.h"
+#include "../details/adapter_utils.h"
 //we need this, so we could
 #include <unordered_set>
 
@@ -85,7 +85,6 @@ namespace bitsery {
         template<typename T>
         struct ExtensionTraits<ext::StdSet, T> {
             using TValue = typename T::key_type;
-            static constexpr bool BitPackingRequired = false;
             static constexpr bool SupportValueOverload = true;
             static constexpr bool SupportObjectOverload = true;
             static constexpr bool SupportLambdaOverload = true;

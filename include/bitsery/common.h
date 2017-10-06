@@ -36,9 +36,10 @@ namespace bitsery {
 
     //default configuration for buffer writing/reading operations
     struct DefaultConfig {
+        //data will be stored in little endian, independant of host.
         static constexpr EndiannessType NetworkEndianness = EndiannessType::LittleEndian;
         //this functionality allows to support backward/forward compatibility
-        //however reading from streams is not supported, because this functionality requires random access to data buffer
+        //however reading from streams is not supported, because this functionality requires random access to buffer.
         static constexpr bool BufferSessionsEnabled = false;
 
     };

@@ -1,27 +1,33 @@
 # [4.0.0](https://github.com/fraillt/bitsery/compare/v3.0.0...v4.0.0) (2017-10-02)
 
-new flexible syntax
-traits changed,
-    container get isContiguous
-    text is separate from container, only has length, and addNUL
-    buffer traits removed difference type
-improved reading, writing performance (because of isContiguous and difference_type)
-BasicBufferWriter/Reader no longer has bit-packing operations by default
-Bit-packing is enabled via template parameter in Serializer/Deserializer, additionally added new method enableBitPacking.
-Additionally Serializer/Deserializer is no longer copyable, because it stores bit-packer state.
-ExtensionTraits gain additional patameter BitPackingRequired, static_asserts if bit-packing is not enabled.
-Removed boolByte, boolBit, and added boolValue and it writes bit or byte, depeding on if bit-packing is enabled or not.
-added missing std containers support: forward_list, deque, stack, queue, priority_queue, set, multiset, unordered_set, unordered_multiset
-Renamed ContainerMap to StdMap, Optional to StdOptional
-Improved error messages
-Lots of renaming ...
-Added adapters for easier extension
-Config no longer needs typedef *Buffer*
+I feel that current library public API is complete, and should be stable for long time.
+Most changes was made to improve performance or/and make library usage easier.
 
+### Features
 
-todo write tests:
-bufferreader accepts const data
+* new **flexible** syntax similar to *cereal* library.
+This syntax no longer requires to specify explicit fundamental type sizes and container maxsize (container max size can be enforced by special function *maxSize*).
+Be careful when using deserializing untrusted data and make sure to enforce fundamental type sizes when using on multiple platforms.
+(use helper function *assertFundamentalTypeSizes* to enforce type sizes for multiple platforms)
+* added streaming support, by introducing new **adapter** concept. Two adapter implementations is available: stream adapter, or buffer adapter.
+* added missing std containers support: forward_list, deque, stack, queue, priority_queue, set, multiset, unordered_set, unordered_multiset.
 
+### Breaking changes
+
+* a lot of classes and files were renamed.
+* improved error messages.
+* traits reworked:
+  * ContainerTraits get **isContiguous**.
+  * TextTraits is separate from ContainerTraits, only has **length**, and **addNUL**.
+  * buffer traits renamed to **BufferAdapterTraits** and removed difference type.
+  * added **TValue** to all trait types, this is used to diagnose better errors.
+* BasicBufferReader/Writer is split in two different types: **AdapterReader/Writer** and separate type that enables bit-packing operations  **AdapterBitPacking(Reader/Writer)Wrapper**.
+* Serializer/Deserializer reworked
+  * No longer copyable, because it stores adapter writer/reader.
+  * Removed boolByte, boolBit, and added **boolValue** and it writes bit or byte, depeding on if bit-packing is enabled or not.
+  * Bit-packing is enabled by calling **enableBitPacking**, if bitpacking is already enabled, this method will return same instance.
+* changed defaults for *DefaultConfig*, BufferSessionsEnabled is false by default, because it doesn't work with input streams.
+* serialization config no longer needs typedef *Buffer*.
 
 # [3.0.0](https://github.com/fraillt/bitsery/compare/v2.0.1...v3.0.0) (2017-09-21)
 
@@ -76,7 +82,7 @@ bufferreader accepts const data
 
 ### Features
 
-* Endianness support, default network configuration is *little endian*
+* endianness support, default network configuration is *little endian*
 * added user extensible function **ext**, to work with objects that require different serialization/deserialization path (e.g. pointers)
 * **optional** extension (for *ext* function), to work with *std::optional* types
 

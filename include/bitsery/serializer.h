@@ -25,34 +25,40 @@
 #define BITSERY_SERIALIZER_H
 
 #include "details/serialization_common.h"
-#include "buffer_writer.h"
+#include "adapter_writer.h"
 #include <cassert>
 
 namespace bitsery {
 
-    template<typename TWriter, bool BitPackingEnabled = false>
+    template<typename TAdapterWriter>
     class BasicSerializer {
     public:
-        using BPEnabledType = BasicSerializer<TWriter, true>;
+        //this is used by AdapterAccess class
+        using TWriter = TAdapterWriter;
+        //helper type, that always returns bit-packing enabled type, useful inside serialize function when enabling bitpacking
+        using BPEnabledType = BasicSerializer<typename std::conditional<TAdapterWriter::BitPackingEnabled,
+                TAdapterWriter, AdapterWriterBitPackingWrapper<TAdapterWriter>>::type>;
 
-        explicit BasicSerializer(TWriter &w, void* context = nullptr)
-                : _writer{w},
+        template <typename WriterParam>
+        explicit BasicSerializer(WriterParam&& w, void* context = nullptr)
+                : _writer{std::forward<WriterParam>(w)},
                   _context{context}
-        {};
+        {
+        };
 
         //copying disabled
         BasicSerializer(const BasicSerializer&) = delete;
         BasicSerializer& operator = (const BasicSerializer&) = delete;
 
         //move enabled
-        BasicSerializer(BasicSerializer&& ) noexcept = default;
-        BasicSerializer& operator = (BasicSerializer&& ) noexcept = default;
+        BasicSerializer(BasicSerializer&& ) = default;
+        BasicSerializer& operator = (BasicSerializer&& ) = default;
 
         /*
          * get serialization context.
          * this is optional, but might be required for some specific serialization flows.
          */
-        void* getContext() {
+        void* context() {
             return _context;
         }
 
@@ -95,7 +101,7 @@ namespace bitsery {
          */
         template <typename Fnc>
         void enableBitPacking(Fnc&& fnc) {
-            procEnableBitPacking(std::forward<Fnc>(fnc), std::integral_constant<bool, !BitPackingEnabled>{});
+            procEnableBitPacking(std::forward<Fnc>(fnc), std::integral_constant<bool, TAdapterWriter::BitPackingEnabled>{});
         }
 
         /*
@@ -135,7 +141,7 @@ namespace bitsery {
          */
 
         void boolValue(bool v) {
-            procBoolValue(v, std::integral_constant<bool, BitPackingEnabled>{});
+            procBoolValue(v, std::integral_constant<bool, TAdapterWriter::BitPackingEnabled>{});
         }
 
         /*
@@ -307,11 +313,9 @@ namespace bitsery {
         void container8b(T &&obj) { container<8>(std::forward<T>(obj)); }
 
     private:
+        friend AdapterAccess;
 
-        typename std::conditional<BitPackingEnabled,
-                BitPackingWriter<TWriter>,//by value
-                TWriter&//by reference
-            >::type _writer;
+        TAdapterWriter _writer;
         void* _context;
 
         //process value types
@@ -371,13 +375,14 @@ namespace bitsery {
         //enable bit-packing or do nothing if it is already enabled
         template <typename Fnc>
         void procEnableBitPacking(const Fnc& fnc, std::true_type) {
-            BPEnabledType tmp{_writer, _context};
-            fnc(tmp);
+            fnc(*this);
         }
 
         template <typename Fnc>
         void procEnableBitPacking(const Fnc& fnc, std::false_type) {
-            fnc(*this);
+            //create serializer using bitpacking wrapper
+            BasicSerializer<AdapterWriterBitPackingWrapper<TAdapterWriter>> tmp(_writer, _context);
+            fnc(tmp);
         }
 
         //these are dummy functions for extensions that have TValue = void
@@ -397,26 +402,26 @@ namespace bitsery {
     };
 
     //helper type
-    template <typename TWriter>
-    using Serializer = BasicSerializer<TWriter, false>;
+    template <typename Adapter>
+    using Serializer = BasicSerializer<AdapterWriter<Adapter, DefaultConfig>>;
 
     //helper function that set ups all the basic steps and after serialziation returns serialized bytes count
-    template <typename Adapter, typename T, typename Config = DefaultConfig>
-    size_t startSerialization(Adapter adapter, const T& value) {
-        BasicWriter<Config, Adapter> bw{std::move(adapter)};
-        BasicSerializer<BasicWriter<Config, Adapter>> ser{bw};
+    template <typename Adapter, typename T>
+    size_t quickSerialization(Adapter adapter, const T& value) {
+        Serializer<Adapter> ser{std::move(adapter)};
         ser.object(value);
-        bw.flush();
-        return bw.getWrittenBytesCount();
+        auto& w = AdapterAccess::getWriter(ser);
+        w.flush();
+        return w.writtenBytesCount();
     };
 
     template <typename T>
-    size_t startMeasureSize(const T& value) {
-        MeasureSize ms{};
-        BasicSerializer<MeasureSize> ser {ms};
+    size_t quickMeasureSize(const T& value) {
+        BasicSerializer<MeasureSize> ser {nullptr};
         ser.object(value);
-        ms.flush();
-        return ms.getWrittenBytesCount();
+        auto& w = AdapterAccess::getWriter(ser);
+        w.flush();
+        return w.writtenBytesCount();
     }
 
 }

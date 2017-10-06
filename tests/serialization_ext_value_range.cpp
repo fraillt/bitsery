@@ -49,14 +49,21 @@ TEST(SerializeExtensionValueRange, RequiredBitsIsConstexpr) {
 
 #endif
 
+using BPSer = bitsery::BasicSerializer<bitsery::AdapterWriterBitPackingWrapper<Writer>>;
+using BPDes = bitsery::BasicDeserializer<bitsery::AdapterReaderBitPackingWrapper<Reader>>;
+
+
 TEST(SerializeExtensionValueRange, IntegerNegative) {
     SerializationContext ctx;
     ValueRange<int> r1{-50, 50};
     int t1{-8};
     int res1;
-
-    ctx.createBPEnabledSerializer().ext(t1, r1);
-    ctx.createBPEnabledDeserializer().ext(res1, r1);
+    ctx.createSerializer().enableBitPacking([&t1, &r1](BPSer& ser) {
+        ser.ext(t1, r1);
+    });
+    ctx.createDeserializer().enableBitPacking([&res1, &r1](BPDes& des) {
+        des.ext(res1, r1);
+    });
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, Eq(t1));
@@ -69,8 +76,12 @@ TEST(SerializeExtensionValueRange, IntegerPositive) {
     unsigned t1{8};
     unsigned res1;
 
-    ctx.createBPEnabledSerializer().ext(t1, r1);
-    ctx.createBPEnabledDeserializer().ext(res1, r1);
+    ctx.createSerializer().enableBitPacking([&t1, &r1](BPSer& ser) {
+        ser.ext(t1, r1);
+    });
+    ctx.createDeserializer().enableBitPacking([&res1, &r1](BPDes& des) {
+        des.ext(res1, r1);
+    });
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, Eq(t1));
@@ -83,8 +94,12 @@ TEST(SerializeExtensionValueRange, EnumTypes) {
     MyEnumClass t1{MyEnumClass::E2};
     MyEnumClass res1;
 
-    ctx.createBPEnabledSerializer().ext(t1, r1);
-    ctx.createBPEnabledDeserializer().ext(res1, r1);
+    ctx.createSerializer().enableBitPacking([&t1, &r1](BPSer& ser) {
+        ser.ext(t1, r1);
+    });
+    ctx.createDeserializer().enableBitPacking([&res1, &r1](BPDes& des) {
+        des.ext(res1, r1);
+    });
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, Eq(t1));
@@ -101,8 +116,12 @@ TEST(SerializeExtensionValueRange, FloatUsingPrecisionConstraint1) {
 
     float res1;
 
-    ctx.createBPEnabledSerializer().ext(t1, r1);
-    ctx.createBPEnabledDeserializer().ext(res1, r1);
+    ctx.createSerializer().enableBitPacking([&t1, &r1](BPSer& ser) {
+        ser.ext(t1, r1);
+    });
+    ctx.createDeserializer().enableBitPacking([&res1, &r1](BPDes& des) {
+        des.ext(res1, r1);
+    });
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, ::testing::FloatNear(t1, (max - min) * precision));
@@ -118,8 +137,12 @@ TEST(SerializeExtensionValueRange, DoubleUsingPrecisionConstraint2) {
 
     double res1;
 
-    ctx.createBPEnabledSerializer().ext(t1, r1);
-    ctx.createBPEnabledDeserializer().ext(res1, r1);
+    ctx.createSerializer().enableBitPacking([&t1, &r1](BPSer& ser) {
+        ser.ext(t1, r1);
+    });
+    ctx.createDeserializer().enableBitPacking([&res1, &r1](BPDes& des) {
+        des.ext(res1, r1);
+    });
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(5));
     EXPECT_THAT(res1, ::testing::DoubleNear(t1, (max - min) * precision));
@@ -135,11 +158,15 @@ TEST(SerializeExtensionValueRange, FloatUsingBitsSizeConstraint1) {
 
     float res1;
 
-    ctx.createBPEnabledSerializer().ext(t1, r1);
-    ctx.createBPEnabledDeserializer().ext(res1, r1);
+    ctx.createSerializer().enableBitPacking([&t1, &r1](BPSer& ser) {
+        ser.ext(t1, r1);
+    });
+    ctx.createDeserializer().enableBitPacking([&res1, &r1](BPDes& des) {
+        des.ext(res1, r1);
+    });
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
-    EXPECT_THAT(res1, ::testing::FloatNear(t1, (max - min) / (static_cast<bitsery::details::SAME_SIZE_UNSIGNED<float>>(1) << bits)));
+    EXPECT_THAT(res1, ::testing::FloatNear(t1, (max - min) / (static_cast<bitsery::details::SameSizeUnsigned<float>>(1) << bits)));
 }
 
 TEST(SerializeExtensionValueRange, DoubleUsingBitsSizeConstraint2) {
@@ -152,11 +179,15 @@ TEST(SerializeExtensionValueRange, DoubleUsingBitsSizeConstraint2) {
 
     double res1;
 
-    ctx.createBPEnabledSerializer().ext(t1, r1);
-    ctx.createBPEnabledDeserializer().ext(res1, r1);
+    ctx.createSerializer().enableBitPacking([&t1, &r1](BPSer& ser) {
+        ser.ext(t1, r1);
+    });
+    ctx.createDeserializer().enableBitPacking([&res1, &r1](BPDes& des) {
+        des.ext(res1, r1);
+    });
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(7));
-    EXPECT_THAT(res1, ::testing::DoubleNear(t1, (max - min) / (static_cast<bitsery::details::SAME_SIZE_UNSIGNED<double>>(1) << bits)));
+    EXPECT_THAT(res1, ::testing::DoubleNear(t1, (max - min) / (static_cast<bitsery::details::SameSizeUnsigned<double>>(1) << bits)));
 }
 
 TEST(SerializeExtensionValueRange, WhenDataIsInvalidThenReturnMinimumRangeValue) {
@@ -164,8 +195,13 @@ TEST(SerializeExtensionValueRange, WhenDataIsInvalidThenReturnMinimumRangeValue)
     ValueRange<int> r1{4, 10};//6 is max, but 3bits required
     int res1;
     uint8_t tmp{0xFF};//write all 1 so when reading 3 bits we get 7
-    ctx.createBPEnabledSerializer().value1b(tmp);
-    ctx.createBPEnabledDeserializer().ext(res1, r1);
+
+    ctx.createSerializer().enableBitPacking([&tmp](BPSer& ser) {
+        ser.value1b(tmp);
+    });
+    ctx.createDeserializer().enableBitPacking([&res1, &r1](BPDes& des) {
+        des.ext(res1, r1);
+    });
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, Eq(4));

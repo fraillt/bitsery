@@ -1,5 +1,5 @@
 *document in progress*
-* NO_ERROR,
+* NoError,
 * BUFFER_OVERFLOW,
 * INVALID_BUFFER_DATA
 * write what happens when data is corrupted
