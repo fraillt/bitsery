@@ -28,13 +28,13 @@
 
 namespace bitsery {
     template<typename S, typename T, typename C>
-    void serialize(S &s, std::queue<T, C> &obj) {
-        s.ext(obj, ext::StdQueue{std::numeric_limits<size_t>::max()});
+    void serialize(S &s, std::queue<T, C> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
+        s.ext(obj, ext::StdQueue{maxSize});
     }
 
     template<typename S, typename T, typename C, typename Comp>
-    void serialize(S &s, std::priority_queue<T, C, Comp> &obj) {
-        s.ext(obj, ext::StdQueue{std::numeric_limits<size_t>::max()});
+    void serialize(S &s, std::priority_queue<T, C, Comp> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
+        s.ext(obj, ext::StdQueue{maxSize});
     }
 
 }

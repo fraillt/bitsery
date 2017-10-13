@@ -69,7 +69,6 @@ namespace bitsery {
         return {obj, max};
     }
 
-
 //define serialize function for fundamental types
     template<typename S>
     void serialize(S &s, bool &v) {

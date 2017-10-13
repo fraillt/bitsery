@@ -1,4 +1,4 @@
-# [4.0.0](https://github.com/fraillt/bitsery/compare/v3.0.0...v4.0.0) (2017-10-02)
+# [4.0.0](https://github.com/fraillt/bitsery/compare/v3.0.0...v4.0.0) (2017-10-13)
 
 I feel that current library public API is complete, and should be stable for long time.
 Most changes was made to improve performance or/and make library usage easier.

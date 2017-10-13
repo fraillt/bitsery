@@ -141,6 +141,15 @@ T procArchive(const T& testData) {
     return res;
 }
 
+template <typename T>
+T procArchiveWithMaxSize(const T& testData) {
+    SerializationContext ctx;
+    ctx.createSerializer().archive(bitsery::maxSize(testData, 100));
+    T res;
+    ctx.createDeserializer().archive(bitsery::maxSize(res, 100));
+    return res;
+}
+
 TEST(FlexibleSyntax, CStyleArrayForValueTypesAsContainer) {
     const int t1[3]{8748,-484,45};
     int r1[3]{0,0,0};
@@ -181,6 +190,8 @@ TEST(FlexibleSyntax, StdString) {
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
     EXPECT_THAT(procArchive(t2), Eq(t2));
+    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
+    EXPECT_THAT(procArchiveWithMaxSize(t2), Eq(t2));
 }
 
 TEST(FlexibleSyntax, StdArray) {
@@ -189,6 +200,7 @@ TEST(FlexibleSyntax, StdArray) {
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
     EXPECT_THAT(procArchive(t2), Eq(t2));
+
 }
 
 TEST(FlexibleSyntax, StdVector) {
@@ -197,6 +209,9 @@ TEST(FlexibleSyntax, StdVector) {
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
     EXPECT_THAT(procArchive(t2), Eq(t2));
+    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
+    EXPECT_THAT(procArchiveWithMaxSize(t2), Eq(t2));
+
 }
 
 TEST(FlexibleSyntax, StdList) {
@@ -205,6 +220,9 @@ TEST(FlexibleSyntax, StdList) {
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
     EXPECT_THAT(procArchive(t2), Eq(t2));
+    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
+    EXPECT_THAT(procArchiveWithMaxSize(t2), Eq(t2));
+
 }
 
 TEST(FlexibleSyntax, StdForwardList) {
@@ -213,6 +231,9 @@ TEST(FlexibleSyntax, StdForwardList) {
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
     EXPECT_THAT(procArchive(t2), Eq(t2));
+    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
+    EXPECT_THAT(procArchiveWithMaxSize(t2), Eq(t2));
+
 }
 
 TEST(FlexibleSyntax, StdDeque) {
@@ -221,6 +242,9 @@ TEST(FlexibleSyntax, StdDeque) {
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
     EXPECT_THAT(procArchive(t2), Eq(t2));
+    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
+    EXPECT_THAT(procArchiveWithMaxSize(t2), Eq(t2));
+
 }
 
 TEST(FlexibleSyntax, StdQueue) {
@@ -229,6 +253,8 @@ TEST(FlexibleSyntax, StdQueue) {
     t1.push("second string");
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
+    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
+
 }
 
 TEST(FlexibleSyntax, StdPriorityQueue) {
@@ -255,6 +281,8 @@ TEST(FlexibleSyntax, StdStack) {
     t1.push("second string");
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
+    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
+
 }
 
 TEST(FlexibleSyntax, StdUnorderedMap) {
@@ -263,6 +291,7 @@ TEST(FlexibleSyntax, StdUnorderedMap) {
     t1.emplace(-5484,-845);
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
+    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
 }
 
 TEST(FlexibleSyntax, StdUnorderedMultiMap) {
@@ -272,6 +301,7 @@ TEST(FlexibleSyntax, StdUnorderedMultiMap) {
     t1.emplace("one",897);
 
     EXPECT_TRUE(procArchive(t1) == t1);
+    EXPECT_TRUE(procArchiveWithMaxSize(t1) == t1);
 }
 
 TEST(FlexibleSyntax, StdMap) {
@@ -280,6 +310,7 @@ TEST(FlexibleSyntax, StdMap) {
     t1.emplace(-5484,-845);
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
+    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
 }
 
 TEST(FlexibleSyntax, StdMultiMap) {
@@ -308,6 +339,7 @@ TEST(FlexibleSyntax, StdUnorderedSet) {
     t1.emplace("three");
 
     EXPECT_TRUE(procArchive(t1) == t1);
+    EXPECT_TRUE(procArchiveWithMaxSize(t1) == t1);
 }
 
 TEST(FlexibleSyntax, StdUnorderedMultiSet) {
@@ -318,6 +350,7 @@ TEST(FlexibleSyntax, StdUnorderedMultiSet) {
     t1.emplace("one");
 
     EXPECT_TRUE(procArchive(t1) == t1);
+    EXPECT_TRUE(procArchiveWithMaxSize(t1) == t1);
 }
 
 TEST(FlexibleSyntax, StdSet) {
@@ -327,7 +360,7 @@ TEST(FlexibleSyntax, StdSet) {
     t1.emplace("three");
 
     EXPECT_TRUE(procArchive(t1) == t1);
-
+    EXPECT_TRUE(procArchiveWithMaxSize(t1) == t1);
 }
 
 TEST(FlexibleSyntax, StdMultiSet) {
@@ -339,6 +372,7 @@ TEST(FlexibleSyntax, StdMultiSet) {
     t1.emplace("two");
 
     EXPECT_TRUE(procArchive(t1) == t1);
+    EXPECT_TRUE(procArchiveWithMaxSize(t1) == t1);
 }
 
 
@@ -348,4 +382,5 @@ TEST(FlexibleSyntax, NestedTypes) {
     t1.emplace("other key", std::vector<std::string>{"just a string"});
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
+    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
 }

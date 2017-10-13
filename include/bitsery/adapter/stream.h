@@ -41,11 +41,12 @@ namespace bitsery {
                 :_ios{istream} {}
 
         void read(TValue* data, size_t size) {
-            _ios.rdbuf()->sgetn( data , size );
+            if (static_cast<size_t>(_ios.rdbuf()->sgetn( data , size )) != size)
+                *data = {};
         }
 
         ReaderError error() const {
-            if (!_ios.bad())
+            if (_ios.good())
                 return ReaderError::NoError;
             return _ios.eof()
                    ? ReaderError::DataOverflow

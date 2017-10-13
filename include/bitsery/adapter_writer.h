@@ -117,9 +117,10 @@ namespace bitsery {
 
         AdapterWriter &operator=(const AdapterWriter &) = delete;
 
-        AdapterWriter(AdapterWriter &&) noexcept = default;
+        //todo add conditional noexcept
+        AdapterWriter(AdapterWriter &&) = default;
 
-        AdapterWriter &operator=(AdapterWriter &&) noexcept = default;
+        AdapterWriter &operator=(AdapterWriter &&) = default;
 
         ~AdapterWriter() {
             flush();

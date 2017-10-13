@@ -29,13 +29,13 @@
 
 namespace bitsery {
     template<typename S, typename ... TArgs>
-    void serialize(S &s, std::unordered_set<TArgs...> &obj) {
-        s.ext(obj, ext::StdSet{std::numeric_limits<size_t>::max()});
+    void serialize(S &s, std::unordered_set<TArgs...> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
+        s.ext(obj, ext::StdSet{maxSize});
     }
 
     template<typename S, typename ... TArgs>
-    void serialize(S &s, std::unordered_multiset<TArgs...> &obj) {
-        s.ext(obj, ext::StdSet{std::numeric_limits<size_t>::max()});
+    void serialize(S &s, std::unordered_multiset<TArgs...> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
+        s.ext(obj, ext::StdSet{maxSize});
     }
 
 }

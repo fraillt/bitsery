@@ -56,9 +56,10 @@ namespace bitsery {
 
         AdapterReader &operator=(const AdapterReader &) = delete;
 
-        AdapterReader(AdapterReader &&) noexcept = default;
+        //todo add conditional noexcept
+        AdapterReader(AdapterReader &&) = default;
 
-        AdapterReader &operator=(AdapterReader &&) noexcept = default;
+        AdapterReader &operator=(AdapterReader &&) = default;
 
         ~AdapterReader() noexcept = default;
 

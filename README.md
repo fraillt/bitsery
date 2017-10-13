@@ -27,16 +27,18 @@ All cross-platform requirements are enforced at compile time, so serialized data
 
 ## Why to use bitsery
 
-Look at the numbers and features list, and decide yourself. *(benchmarked on Ubuntu with GCC 7.1)*
+Look at the numbers and features list, and decide yourself.
 
-|                                                           | serialize | deserialize | data size   | executable size |
-|-----------------------------------------------------------|-----------|-------------|-------------|-----------------|
-| flatbuffers                                               | 1852 ms.  | 777 ms.     | 27252 bytes | 74544 bytes     |
-| cereal                                                    | 1069 ms.  | 1385 ms.    | 20208 bytes | 72336 bytes     |
-| bitsery                                                   | 808 ms.   | 737 ms.     | 14803 bytes | 69784 bytes     |
-| bitsery fixed-size buffer                                 | 297 ms.   | 738 ms.     | 14803 bytes | 69928 bytes     |
-| bitsery optimized  serialization  flow                    | 686 ms.   | 997 ms.     | 6601 bytes  | 69320 bytes     |
-| bitsery optimized serialization flow  + fixed-size buffer | 446 ms.   | 996 ms.     | 6601 bytes  | 69464 bytes     |
+|                              | binary size | data size | serialize   | deserialize |
+|------------------------------|-------------|-----------|-------------|-------------|
+| **test_bitsery**             | 64704       | **7565**  | **1229 ms** | **1086 ms** |
+| **test_bitsery_compression** | 44000       | **4784**  | **1370 ms** | **2463 ms** |
+| test_yas                     | 63864       | 11311     | 1616 ms     | 1712 ms     |
+| test_yas_compression         | 72688       | 8523      | 2387 ms     | 2890 ms     |
+| test_cereal                  | 74848       | 11261     | 6708 ms     | 6799 ms     |
+| test_flatbuffers             | 67032       | 16100     | 8793 ms     | 3028 ms     |
+
+*benchmarked on Ubuntu with GCC 7.1.0, more details can be found [here](https://github.com/fraillt/cpp_serializers_benchmark.git)*
 
 If still not convinced read more in library [motivation](doc/design/README.md) section.
 

@@ -28,8 +28,8 @@
 
 namespace bitsery {
     template<typename S, typename T, typename C>
-    void serialize(S &s, std::stack<T, C> &obj) {
-        s.ext(obj, ext::StdStack{std::numeric_limits<size_t>::max()});
+    void serialize(S &s, std::stack<T, C> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
+        s.ext(obj, ext::StdStack{maxSize});
     }
 }
 
