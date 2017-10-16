@@ -32,7 +32,7 @@ Look at the numbers and features list, and decide yourself.
 |                              | binary size | data size | serialize   | deserialize |
 |------------------------------|-------------|-----------|-------------|-------------|
 | **test_bitsery**             | 64704       | **7565**  | **1229 ms** | **1086 ms** |
-| **test_bitsery_compression** | 44000       | **4784**  | **1370 ms** | **2463 ms** |
+| **test_bitsery_compression** | 64880       | **4784**  | **1641 ms** | **2462 ms** |
 | test_yas                     | 63864       | 11311     | 1616 ms     | 1712 ms     |
 | test_yas_compression         | 72688       | 8523      | 2387 ms     | 2890 ms     |
 | test_cereal                  | 74848       | 11261     | 6708 ms     | 6799 ms     |
