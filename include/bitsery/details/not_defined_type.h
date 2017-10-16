@@ -32,7 +32,7 @@ namespace bitsery {
         struct NotDefinedType {
             //just swallow anything that is passed during creating
             template <typename ... T>
-            NotDefinedType(T&& ...){};
+            NotDefinedType(T&& ...){}
             NotDefinedType() = default;
             //define operators so that we also swallow deeper errors, to reduce error stack
             //this time will be used as iterator, so define all operators nessesarry to work with iterators

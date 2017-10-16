@@ -33,7 +33,7 @@ using Deserializer = bitsery::BasicDeserializer<bitsery::AdapterReaderBitPacking
 
 TEST(SerializeBooleans, BoolAsBit) {
 
-    SerializationContext ctx;
+    SerializationContext ctx{};
     bool t1{true};
     bool t2{false};
     bool res1;

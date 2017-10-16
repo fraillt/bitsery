@@ -117,31 +117,31 @@ namespace bitsery {
         template<typename S, typename T>
         void processMaxSize(S &s, T& data, size_t maxSize, std::true_type) {
             processContainer(s, data, maxSize);
-        };
+        }
 
         //overload for const T&
         template<typename S, typename T>
         void processMaxSize(S &s, const T& data, size_t maxSize, std::true_type) {
             processContainer(s, const_cast<T&>(data), maxSize);
-        };
+        }
 
 
         //try to call serialize overload with maxsize, extensions use this technique
         template<typename S, typename T>
         void processMaxSize(S &s, T& data, size_t maxSize, std::false_type) {
             serialize(s, data, maxSize);
-        };
+        }
 
         //overload for const T&
         template<typename S, typename T>
         void processMaxSize(S &s, const T& data, size_t maxSize, std::false_type) {
             serialize(s, const_cast<T&>(data), maxSize);
-        };
+        }
 
         template<typename S, typename T>
         void serialize(S &s, const MaxSize<T> &ms) {
             processMaxSize(s, ms.data, ms.maxSize, details::IsContainerTraitsDefined<typename std::decay<T>::type>{});
-        };
+        }
 
     }
 }

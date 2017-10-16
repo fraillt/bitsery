@@ -17,7 +17,7 @@ void serialize(S& s, MyStruct& o) {
     s.value4b(o.i);
     s.value2b(o.e);
     s.value8b(o.f);
-};
+}
 
 using namespace bitsery;
 

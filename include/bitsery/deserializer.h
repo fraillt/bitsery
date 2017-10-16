@@ -46,7 +46,7 @@ namespace bitsery {
                 : _reader{std::forward<ReaderParam>(r)},
                   _context{context}
         {
-        };
+        }
 
         //copying disabled
         BasicDeserializer(const BasicDeserializer&) = delete;
@@ -76,7 +76,7 @@ namespace bitsery {
         template<typename T, typename Fnc>
         void object(T &&obj, Fnc &&fnc) {
             fnc(std::forward<T>(obj));
-        };
+        }
 
         /*
          * functionality, that enables simpler serialization syntax, by including additional header
@@ -117,7 +117,7 @@ namespace bitsery {
             static_assert(traits::ExtensionTraits<Ext,T>::SupportLambdaOverload,
                           "extension doesn't support overload with lambda");
             extension.deserialize(*this, _reader, obj, std::forward<Fnc>(fnc));
-        };
+        }
 
         template<size_t VSIZE, typename T, typename Ext>
         void ext(T &obj, const Ext &extension) {
@@ -127,7 +127,7 @@ namespace bitsery {
             using ExtVType = typename traits::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
             extension.deserialize(*this, _reader, obj, [this](VType &v) { value<VSIZE>(v);});
-        };
+        }
 
         template<typename T, typename Ext>
         void ext(T &obj, const Ext &extension) {
@@ -137,7 +137,7 @@ namespace bitsery {
             using ExtVType = typename traits::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
             extension.deserialize(*this, _reader, obj, [this](VType &v) { object(v); });
-        };
+        }
 
         /*
          * boolValue
@@ -263,16 +263,16 @@ namespace bitsery {
         void value8b(T &&v) { value<8>(std::forward<T>(v)); }
 
         template<typename T, typename Ext>
-        void ext1b(T &v, Ext &&extension) { ext<1, T, Ext>(v, std::forward<Ext>(extension)); };
+        void ext1b(T &v, Ext &&extension) { ext<1, T, Ext>(v, std::forward<Ext>(extension)); }
 
         template<typename T, typename Ext>
-        void ext2b(T &v, Ext &&extension) { ext<2, T, Ext>(v, std::forward<Ext>(extension)); };
+        void ext2b(T &v, Ext &&extension) { ext<2, T, Ext>(v, std::forward<Ext>(extension)); }
 
         template<typename T, typename Ext>
-        void ext4b(T &v, Ext &&extension) { ext<4, T, Ext>(v, std::forward<Ext>(extension)); };
+        void ext4b(T &v, Ext &&extension) { ext<4, T, Ext>(v, std::forward<Ext>(extension)); }
 
         template<typename T, typename Ext>
-        void ext8b(T &v, Ext &&extension) { ext<8, T, Ext>(v, std::forward<Ext>(extension)); };
+        void ext8b(T &v, Ext &&extension) { ext<8, T, Ext>(v, std::forward<Ext>(extension)); }
 
         template<typename T>
         void text1b(T &str, size_t maxSize) { text<1>(str, maxSize); }
@@ -328,7 +328,7 @@ namespace bitsery {
         void procContainer(It first, It last, std::false_type) {
             for (; first != last; ++first)
                 value<VSIZE>(*first);
-        };
+        }
 
         //process value types
         //true_type means, that we can copy whole buffer
@@ -338,21 +338,21 @@ namespace bitsery {
             using TIntegral = typename details::IntegralFromFundamental<TValue>::TValue;
             if (first != last)
                 _reader.template readBuffer<VSIZE>(reinterpret_cast<TIntegral*>(&(*first)), std::distance(first, last));
-        };
+        }
 
         //process by calling functions
         template<typename It, typename Fnc>
         void procContainer(It first, It last, Fnc fnc) {
             for (; first != last; ++first)
                 fnc(*first);
-        };
+        }
 
         //process object types
         template<typename It>
         void procContainer(It first, It last) {
             for (; first != last; ++first)
                 object(*first);
-        };
+        }
 
         template <size_t VSIZE, typename T>
         void procText(T& str, size_t length) {
@@ -421,7 +421,7 @@ namespace bitsery {
         des.object(value);
         auto& r = AdapterAccess::getReader(des);
         return {r.error(), r.isCompletedSuccessfully()};
-    };
+    }
 
 }
 

@@ -15,9 +15,13 @@ struct GameMode {
 namespace MyTypes {
 
     struct Monster {
-        std::string name;
-        uint32_t minDamage;
-        uint32_t maxDamage;
+        Monster() = default;
+        Monster(std::string _name, uint32_t minDmg, uint32_t maxDmg)
+                :name{_name}, minDamage{minDmg}, maxDamage{maxDmg} {}
+
+        std::string name{};
+        uint32_t minDamage{};
+        uint32_t maxDamage{};
         //...
     };
 
@@ -81,7 +85,7 @@ int main() {
     w.flush();
     auto writtenSize = w.writtenBytesCount();
 
-    MyTypes::GameState res;
+    MyTypes::GameState res{};
     Deserializer <InputAdapter> des { InputAdapter{buffer.begin(), writtenSize}, &mode};
     des.object(res);
     auto& r = AdapterAccess::getReader(des);

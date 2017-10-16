@@ -74,7 +74,7 @@ namespace bitsery {
                 obj.reserve(size);
             }
             template <typename T>
-            void reserve(T obj, size_t size) const {
+            void reserve(T& , size_t ) const {
                 //for ordered container do nothing
             }
             size_t _maxSize;

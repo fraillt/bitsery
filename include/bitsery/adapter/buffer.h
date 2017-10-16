@@ -135,8 +135,8 @@ namespace bitsery {
         using TResizable = std::integral_constant<bool, traits::ContainerTraits<Container>::isResizable>;
 
         Container &_buffer;
-        TIterator _outIt;
-        TIterator _end;
+        TIterator _outIt{};
+        TIterator _end{};
 
         /*
          * resizable buffer
@@ -153,12 +153,23 @@ namespace bitsery {
 
         void writeInternal(const TValue *data, const size_t size, std::true_type) {
             //optimization
+#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0)
+            using TDistance = typename std::iterator_traits<TIterator>::difference_type;
+            if (std::distance(_outIt , _end) >= static_cast<TDistance>(size)) {
+                std::memcpy(std::addressof(*_outIt), data, size);
+                _outIt += size;
+#else
             auto tmp = _outIt;
             _outIt += size;
             if (std::distance(_outIt , _end) >= 0) {
                 std::memcpy(std::addressof(*tmp), data, size);
+#endif
             } else {
+#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0)
+
+#else
                 _outIt -= size;
+#endif
                 //get current position before invalidating iterators
                 const auto pos = std::distance(std::begin(_buffer), _outIt);
                 //increase container size

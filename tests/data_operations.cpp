@@ -43,7 +43,7 @@ struct IntegralUnsignedTypes {
 template <typename T>
 constexpr size_t getBits(T v) {
     return bitsery::details::calcRequiredBits<T>({}, v);
-};
+}
 
 // *** bits operations
 
@@ -274,6 +274,53 @@ TEST(DataBitsAndBytesOperations, WriteAndReadBytes) {
     br.readBytes<1>(res.e);
     br.readBuffer<1>(res.f, 2);
     EXPECT_THAT(br.error(), Eq(bitsery::ReaderError::NoError));
+    //assert results
+
+    EXPECT_THAT(data.a, Eq(res.a));
+    EXPECT_THAT(data.b, Eq(res.b));
+    EXPECT_THAT(data.c, Eq(res.c));
+    EXPECT_THAT(data.d, Eq(res.d));
+    EXPECT_THAT(data.e, Eq(res.e));
+    EXPECT_THAT(data.f, ContainerEq(res.f));
+
+}
+
+TEST(DataBitsAndBytesOperations, WriteAndReadBytesWithBitPackingWrapper) {
+    //setup data
+    IntegralTypes data;
+    data.a = -4894541654564;
+    data.b = 94545646;
+    data.c = -8778;
+    data.d = 200;
+    data.e = -98;
+    data.f[0] = 43;
+    data.f[1] = -45;
+
+    //create and write to buffer
+    Buffer buf{};
+    Writer bw{buf};
+    AdapterBitPackingWriter bpw{bw};
+    bpw.writeBytes<4>(data.b);
+    bpw.writeBytes<2>(data.c);
+    bpw.writeBytes<1>(data.d);
+    bpw.writeBytes<8>(data.a);
+    bpw.writeBytes<1>(data.e);
+    bpw.writeBuffer<1>(data.f, 2);
+    bpw.flush();
+    auto writtenSize = bpw.writtenBytesCount();
+
+    EXPECT_THAT(writtenSize, Eq(18));
+    //read from buffer
+    Reader br{InputAdapter{buf.begin(), writtenSize}};
+    AdapterBitPackingReader bpr{br};
+    IntegralTypes res{};
+    bpr.readBytes<4>(res.b);
+    bpr.readBytes<2>(res.c);
+    bpr.readBytes<1>(res.d);
+    bpr.readBytes<8>(res.a);
+    bpr.readBytes<1>(res.e);
+    bpr.readBuffer<1>(res.f, 2);
+    EXPECT_THAT(bpr.error(), Eq(bitsery::ReaderError::NoError));
     //assert results
 
     EXPECT_THAT(data.a, Eq(res.a));

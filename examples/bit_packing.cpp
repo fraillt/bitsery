@@ -57,7 +57,7 @@ int main() {
     Buffer buffer{};
     auto writtenSize = quickSerialization<OutputAdapter>(buffer, data);
 
-    MyTypes::Monster res;
+    MyTypes::Monster res{};
     auto state = quickDeserialization<InputAdapter>({buffer.begin(), writtenSize}, res);
 
     assert(state.first == ReaderError::NoError && state.second);

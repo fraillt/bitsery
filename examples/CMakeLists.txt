@@ -27,6 +27,12 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 file(GLOB ExampleFiles ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 
+if (WIN32)
+    message(WARNING "Removing example `flexible_assert_linux_x64` for Windows")
+    list(REMOVE_ITEM ExampleFiles ${CMAKE_CURRENT_SOURCE_DIR}/flexible_assert_linux_x64.cpp)
+endif()
+
+
 FOREACH(ExampleFile ${ExampleFiles})
     get_filename_component(ExampleName ${ExampleFile} NAME_WE)
     add_executable(${ExampleName} ${ExampleFile})

@@ -54,6 +54,13 @@ namespace bitsery {
         class SessionsWriter {
         public:
 
+            SessionsWriter() = default;
+            SessionsWriter(const SessionsWriter&) = delete;
+            SessionsWriter& operator = (const SessionsWriter& ) = delete;
+
+            SessionsWriter(SessionsWriter&&) = default;
+            SessionsWriter& operator = (SessionsWriter&& ) = default;
+
             void begin(TWriter& ) {
                 //write position
                 _sessionIndex.push(_sessions.size());
@@ -65,7 +72,9 @@ namespace bitsery {
                 //change position to session end
                 auto sessionIt = std::next(std::begin(_sessions), _sessionIndex.top());
                 _sessionIndex.pop();
-                *sessionIt = writer.writtenBytesCount();
+                auto sessionSize = writer.writtenBytesCount();
+                assert(sessionSize > 0);
+                *sessionIt = sessionSize;
             }
 
             void flushSessions(TWriter& writer) {
@@ -85,7 +94,7 @@ namespace bitsery {
             }
         private:
             std::vector<size_t> _sessions{};
-            std::stack<size_t> _sessionIndex;
+            std::stack<size_t> _sessionIndex{};
         };
 
         template <typename TReader>
@@ -100,6 +109,13 @@ namespace bitsery {
                      _endItRef{details::SessionAccess::endIteratorRef<InputAdapter, TIterator>(adapter)}
             {
             }
+
+            SessionsReader(const SessionsReader&) = delete;
+            SessionsReader& operator = (const SessionsReader& ) = delete;
+
+            SessionsReader(SessionsReader&&) = default;
+            SessionsReader& operator = (SessionsReader&& ) = default;
+
             void begin() {
                 if (_sessions.empty()) {
                     if (!initializeSessions())
@@ -125,7 +141,7 @@ namespace bitsery {
                 } else {
                     //there is no data to read anymore
                     //pos == end or buffer overflow while session is active
-                    if (!(_posItRef == _endItRef || _reader.error() == ReaderError::NoError)) {
+                    if (!(_posItRef == _endItRef || _reader.error() == ReaderError::NoError) || !(_sessionsStack.size() > 1)) {
                         _reader.setError(ReaderError::InvalidData);
                     }
                 }

@@ -43,10 +43,10 @@ struct X {
 
 struct Y {
 	int y{};
-	int carr[3];
-	std::array<int, 3> arr;
-	std::vector<X> vx;
-	std::string s;
+	int carr[3]{};
+	std::array<int, 3> arr{};
+	std::vector<X> vx{};
+	std::string s{};
 };
 struct Z { X x{}; Y y{}; };
 

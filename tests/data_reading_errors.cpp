@@ -114,8 +114,22 @@ TEST(DataReadingErrors, WhenInitializingSessionsWhereSessionsDataOffsetIsCorrupt
     SessionsEnabledWriter bw{buf};
     bw.writeBytes<1>(uint8_t{1});
     bw.writeBytes<1>(uint8_t{1});
-    bw.writeBytes<2>(uint16_t{10});
+    bw.writeBytes<4>(uint32_t{10});
     SessionsEnabledReader br{InputAdapter{buf.begin(), bw.writtenBytesCount()}};
+    br.beginSession();
+    EXPECT_THAT(br.error(), Eq(bitsery::ReaderError::InvalidData));
+}
+
+TEST(DataReadingErrors, WhenReadingNewSessionOutsideSessionThenInvalidData) {
+    Buffer buf{};
+    SessionsEnabledWriter bw{buf};
+    bw.beginSession();
+    bw.writeBytes<1>(uint8_t{1});
+    bw.endSession();
+    bw.flush();
+    SessionsEnabledReader br{InputAdapter{buf.begin(), bw.writtenBytesCount()}};
+    br.beginSession();
+    br.endSession();
     br.beginSession();
     EXPECT_THAT(br.error(), Eq(bitsery::ReaderError::InvalidData));
 }

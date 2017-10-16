@@ -1,3 +1,14 @@
+# [4.0.1](https://github.com/fraillt/bitsery/compare/v4.0.0...v4.0.1) (2017-10-18)
+
+### Improvements
+
+* improved usage with Visual Studio:
+  * improved CMake.
+  * Visual Studio doesn't properly support expression SFINAE using std::void_t, so it was rewritten.
+* refactorings to remove compiler warnings when using *-Wextra -Wno-missing-braces -Wpedantic -Weffc++*
+* added assertion when session is empty (sessions is created via *growable* extension).
+* stream adapter manually *setstate* to *std::ios_base::eofbit* when unable to read required bytes.
+
 # [4.0.0](https://github.com/fraillt/bitsery/compare/v3.0.0...v4.0.0) (2017-10-13)
 
 I feel that current library public API is complete, and should be stable for long time.

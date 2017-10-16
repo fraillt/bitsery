@@ -19,7 +19,7 @@ struct MyStruct {
     void serialize(S& s) {
         //now we can use flexible syntax with
         s.archive(i, e, fs);
-    };
+    }
 
 };
 

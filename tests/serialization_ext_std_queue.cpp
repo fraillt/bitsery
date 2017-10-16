@@ -56,7 +56,7 @@ TEST(SerializeExtensionStdQueue, QueueDefaultContainer) {
     t1.push(-4854);
     std::queue<int32_t> r1{};
 
-    SerializationContext ctx1;
+    SerializationContext ctx1{};
     test(ctx1,t1, r1);
     EXPECT_THAT(t1, Eq(r1));
 }
@@ -67,7 +67,7 @@ TEST(SerializeExtensionStdQueue, QueueVectorContainer) {
     t1.push(-4854);
     std::queue<int32_t, std::vector<int32_t>> r1{};
 
-    SerializationContext ctx1;
+    SerializationContext ctx1{};
     test(ctx1,t1, r1);
     EXPECT_THAT(t1, Eq(r1));
 }
@@ -78,7 +78,7 @@ TEST(SerializeExtensionStdQueue, PriorityQueueDefaultContainer) {
     t1.push(-4854);
     std::priority_queue<int32_t> r1{};
 
-    SerializationContext ctx1;
+    SerializationContext ctx1{};
     test(ctx1,t1, r1);
     auto & ct1 = PriorityQueueCnt<int32_t, std::vector<int32_t>>::getContainer(t1);
     auto & cr1 = PriorityQueueCnt<int32_t, std::vector<int32_t>>::getContainer(r1);
@@ -91,7 +91,7 @@ TEST(SerializeExtensionStdQueue, PriorityQueueDequeContainer) {
     t1.push(-44);
     std::priority_queue<int32_t, std::deque<int32_t>> r1{};
 
-    SerializationContext ctx1;
+    SerializationContext ctx1{};
     test(ctx1,t1, r1);
     auto & ct1 = PriorityQueueCnt<int32_t, std::deque<int32_t>>::getContainer(t1);
     auto & cr1 = PriorityQueueCnt<int32_t, std::deque<int32_t>>::getContainer(r1);

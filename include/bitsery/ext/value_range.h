@@ -108,13 +108,13 @@ namespace bitsery {
         template<typename T, typename std::enable_if<std::is_integral<T>::value>::type * = nullptr>
         details::SameSizeUnsigned<T> getRangeValue(const T &v, const RangeSpec<T> &r) {
             return static_cast<details::SameSizeUnsigned<T>>(v - r.min);
-        };
+        }
 
         template<typename T, typename std::enable_if<std::is_enum<T>::value>::type * = nullptr>
         details::SameSizeUnsigned<T> getRangeValue(const T &v, const RangeSpec<T> &r) {
             using VT = details::SameSizeUnsigned<T>;
             return static_cast<VT>(static_cast<VT>(v) - static_cast<VT>(r.min));
-        };
+        }
 
         template<typename T, typename std::enable_if<std::is_floating_point<T>::value>::type * = nullptr>
         details::SameSizeUnsigned<T> getRangeValue(const T &v, const RangeSpec<T> &r) {
@@ -122,18 +122,18 @@ namespace bitsery {
             const VT maxUint = (static_cast<VT>(1) << r.bitsRequired) - 1;
             const auto ratio = (v - r.min) / (r.max - r.min);
             return static_cast<VT>(ratio * maxUint);
-        };
+        }
 
         template<typename T, typename std::enable_if<std::is_integral<T>::value>::type * = nullptr>
         void setRangeValue(T &v, const RangeSpec<T> &r) {
             v += r.min;
-        };
+        }
 
         template<typename T, typename std::enable_if<std::is_enum<T>::value>::type * = nullptr>
         void setRangeValue(T &v, const RangeSpec<T> &r) {
             using VT = typename std::underlying_type<T>::type;
             reinterpret_cast<VT &>(v) += static_cast<VT>(r.min);
-        };
+        }
 
         template<typename T, typename std::enable_if<std::is_floating_point<T>::value>::type * = nullptr>
         void setRangeValue(T &v, const RangeSpec<T> &r) {
@@ -141,7 +141,7 @@ namespace bitsery {
             const auto intRep = reinterpret_cast<UIT &>(v);
             const UIT maxUint = (static_cast<UIT>(1) << r.bitsRequired) - 1;
             v = r.min + (static_cast<T>(intRep) / maxUint) * (r.max - r.min);
-        };
+        }
 
         template<typename T, typename std::enable_if<std::is_arithmetic<T>::value>::type * = nullptr>
         bool isRangeValid(const T &v, const RangeSpec<T> &r) {
@@ -163,7 +163,7 @@ namespace bitsery {
         public:
 
             template<typename ... Args>
-            explicit constexpr ValueRange(Args &&... args):_range{std::forward<Args>(args)...} {};
+            explicit constexpr ValueRange(Args &&... args):_range{std::forward<Args>(args)...} {}
 
             template<typename Ser, typename Writer, typename T, typename Fnc>
             void serialize(Ser &, Writer &writer, const T &v, Fnc &&) const {

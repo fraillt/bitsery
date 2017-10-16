@@ -110,6 +110,7 @@ TEST(SerializeText, CArraySerializesTextLength) {
     EXPECT_THAT(r1, ContainerEq(t1));
 }
 
+#ifndef NDEBUG
 TEST(SerializeText, WhenCArrayNotNullterminatedThenAssert) {
     SerializationContext ctx;
     char16_t t1[CARR_LENGTH]{u"some text"};
@@ -117,3 +118,4 @@ TEST(SerializeText, WhenCArrayNotNullterminatedThenAssert) {
     t1[CARR_LENGTH-1] = 'x';
     EXPECT_DEATH(ctx.createSerializer().text<2>(t1), "");
 }
+#endif

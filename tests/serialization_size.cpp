@@ -35,7 +35,7 @@ bool SerializeDeserializeContainerSize(SerializationContext& ctx, const size_t s
 }
 
 TEST(SerializeSize, WhenLengthLessThan128Then1Byte) {
-    SerializationContext ctx1;
+    SerializationContext ctx1{};
     EXPECT_TRUE(SerializeDeserializeContainerSize(ctx1, 127));
     EXPECT_THAT(ctx1.getBufferSize(), Eq(1));
     SerializationContext ctx2;

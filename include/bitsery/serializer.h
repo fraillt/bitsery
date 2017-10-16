@@ -44,7 +44,7 @@ namespace bitsery {
                 : _writer{std::forward<WriterParam>(w)},
                   _context{context}
         {
-        };
+        }
 
         //copying disabled
         BasicSerializer(const BasicSerializer&) = delete;
@@ -73,7 +73,7 @@ namespace bitsery {
         template<typename T, typename Fnc>
         void object(const T &obj, Fnc &&fnc) {
             fnc(const_cast<T& >(obj));
-        };
+        }
 
         /*
          * functionality, that enables simpler serialization syntax, by including additional header
@@ -114,7 +114,7 @@ namespace bitsery {
             static_assert(traits::ExtensionTraits<Ext,T>::SupportLambdaOverload,
                           "extension doesn't support overload with lambda");
             extension.serialize(*this, _writer, obj, std::forward<Fnc>(fnc));
-        };
+        }
 
         template<size_t VSIZE, typename T, typename Ext>
         void ext(const T &obj, const Ext &extension) {
@@ -124,7 +124,7 @@ namespace bitsery {
             using ExtVType = typename traits::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
             extension.serialize(*this, _writer, obj, [this](VType &v) { value<VSIZE>(v); });
-        };
+        }
 
         template<typename T, typename Ext>
         void ext(const T &obj, const Ext &extension) {
@@ -134,7 +134,7 @@ namespace bitsery {
             using ExtVType = typename traits::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
             extension.serialize(*this, _writer, obj, [this](VType &v) { object(v); });
-        };
+        }
 
         /*
          * boolValue
@@ -259,16 +259,16 @@ namespace bitsery {
         void value8b(T &&v) { value<8>(std::forward<T>(v)); }
 
         template<typename T, typename Ext>
-        void ext1b(const T &v, Ext &&extension) { ext<1, T, Ext>(v, std::forward<Ext>(extension)); };
+        void ext1b(const T &v, Ext &&extension) { ext<1, T, Ext>(v, std::forward<Ext>(extension)); }
 
         template<typename T, typename Ext>
-        void ext2b(const T &v, Ext &&extension) { ext<2, T, Ext>(v, std::forward<Ext>(extension)); };
+        void ext2b(const T &v, Ext &&extension) { ext<2, T, Ext>(v, std::forward<Ext>(extension)); }
 
         template<typename T, typename Ext>
-        void ext4b(const T &v, Ext &&extension) { ext<4, T, Ext>(v, std::forward<Ext>(extension)); };
+        void ext4b(const T &v, Ext &&extension) { ext<4, T, Ext>(v, std::forward<Ext>(extension)); }
 
         template<typename T, typename Ext>
-        void ext8b(const T &v, Ext &&extension) { ext<8, T, Ext>(v, std::forward<Ext>(extension)); };
+        void ext8b(const T &v, Ext &&extension) { ext<8, T, Ext>(v, std::forward<Ext>(extension)); }
 
         template<typename T>
         void text1b(const T &str, size_t maxSize) { text<1>(str, maxSize); }
@@ -324,7 +324,7 @@ namespace bitsery {
         void procContainer(It first, It last, std::false_type) {
             for (; first != last; ++first)
                 value<VSIZE>(*first);
-        };
+        }
 
         //process value types
         //true_type means, that we can copy whole buffer
@@ -335,7 +335,7 @@ namespace bitsery {
 			if (first != last)
 				_writer.template writeBuffer<VSIZE>(reinterpret_cast<const TIntegral*>(&(*first)),
                                                     static_cast<size_t>(std::distance(first, last)));
-        };
+        }
 
         //process by calling functions
         template<typename It, typename Fnc>
@@ -344,7 +344,7 @@ namespace bitsery {
             for (; first != last; ++first) {
                 fnc(const_cast<TValue&>(*first));
             }
-        };
+        }
 
         //process text,
         template<size_t VSIZE, typename T>
@@ -354,14 +354,14 @@ namespace bitsery {
             details::writeSize(_writer, length);
             auto begin = std::begin(str);
             procContainer<VSIZE>(begin, std::next(begin, length), std::integral_constant<bool, traits::ContainerTraits<T>::isContiguous>{});
-        };
+        }
 
         //process object types
         template<typename It>
         void procContainer(It first, It last) {
             for (; first != last; ++first)
                 object(*first);
-        };
+        }
 
         //proc bool writing bit or byte, depending on if BitPackingEnabled or not
         void procBoolValue(bool v, std::true_type) {
@@ -413,7 +413,7 @@ namespace bitsery {
         auto& w = AdapterAccess::getWriter(ser);
         w.flush();
         return w.writtenBytesCount();
-    };
+    }
 
     template <typename T>
     size_t quickMeasureSize(const T& value) {

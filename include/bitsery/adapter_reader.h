@@ -142,14 +142,15 @@ namespace bitsery {
         }
 
         template<typename T>
-        void _swapDataBits(T *v, size_t count, std::false_type) {
+        void _swapDataBits(T *, size_t , std::false_type) {
             //empty function because no swap is required
         }
 
     };
 
     template<typename TReader>
-    struct AdapterReaderBitPackingWrapper {
+    class AdapterReaderBitPackingWrapper {
+    public:
         //this is required by deserializer
         static constexpr bool BitPackingEnabled = true;
         //make TValue unsigned for bitpacking

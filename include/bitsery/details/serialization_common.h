@@ -70,38 +70,88 @@ namespace bitsery {
         struct IsExtensionTraitsDefined:public IsDefined<typename traits::ExtensionTraits<Ext, T>::TValue> {
         };
 
-        //helper metafunction, that is added to c++17
-        template<typename... Ts>
-        struct make_void {
-            typedef void type;
-        };
-        template<typename... Ts>
-        using void_t = typename make_void<Ts...>::type;
+#ifdef _MSC_VER
+		//helper types for HasSerializeFunction
+		template <typename S, typename T>
+		using TrySerializeFunction = decltype(serialize(std::declval<S &>(), std::declval<T &>()));
 
-        template <typename, typename, typename = void>
-        struct HasSerializeFunction:std::false_type {};
+		template <typename S, typename T>
+		struct HasSerializeFunctionHelper {
+			template <typename Q, typename R, typename = TrySerializeFunction<Q, R>>
+			static std::true_type tester(Q&&, R&&);
+			static std::false_type tester(...);
+			using type = decltype(tester(std::declval<S>(), std::declval<T>()));
+		};
+		template <typename S, typename T>
+		struct HasSerializeFunction :HasSerializeFunctionHelper<S, T>::type {};
 
-        template <typename S, typename T>
-        struct HasSerializeFunction<S,T,
-                void_t<decltype(serialize(std::declval<S &>(), std::declval<T &>()))>
-        > : std::true_type {};
+		//helper types for HasSerializeMethod
+		template <typename S, typename T>
+		using TrySerializeMethod = decltype(Access::serialize(std::declval<S &>(), std::declval<T &>()));
+
+		template <typename S, typename T>
+		struct HasSerializeMethodHelper {
+			template <typename Q, typename R, typename = TrySerializeMethod<Q, R>>
+			static std::true_type tester(Q&&, R&&);
+			static std::false_type tester(...);
+			using type = decltype(tester(std::declval<S>(), std::declval<T>()));
+		};
+		template <typename S, typename T>
+		struct HasSerializeMethod :HasSerializeMethodHelper<S, T>::type {};
+
+		//helper types for IsFlexibleIncluded
+		template <typename S, typename T>
+		using TryArchiveProcess = decltype(archiveProcess(std::declval<S &>(), std::declval<T &&>()));
+
+		template <typename S, typename T>
+		struct IsFlexibleIncludedHelper {
+			template <typename Q, typename R, typename = TryArchiveProcess<Q, R>>
+			static std::true_type tester(Q&&, R&&);
+			static std::false_type tester(...);
+			using type = decltype(tester(std::declval<S>(), std::declval<T>()));
+		};
+
+		template <typename S, typename T>
+		struct IsFlexibleIncluded :IsFlexibleIncludedHelper<S, T>::type {};
+#else
+		//helper metafunction, that is added to c++17
+		template<typename... Ts>
+		struct make_void {
+			typedef void type;
+		};
+		template<typename... Ts>
+		using void_t = typename make_void<Ts...>::type;
+
+		template <typename, typename, typename = void>
+		struct HasSerializeFunction :std::false_type {};
+
+		template <typename S, typename T>
+		struct HasSerializeFunction<S, T,
+			void_t<decltype(serialize(std::declval<S &>(), std::declval<T &>()))>
+		> : std::true_type {};
 
 
-        template <typename, typename, typename = void>
-        struct HasSerializeMethod:std::false_type {};
+		template <typename, typename, typename = void>
+		struct HasSerializeMethod :std::false_type {};
 
-        template <typename S, typename T>
-        struct HasSerializeMethod<S,T,
-                void_t<decltype(Access::serialize(std::declval<S &>(), std::declval<T &>()))>
-        > : std::true_type {};
+		template <typename S, typename T>
+		struct HasSerializeMethod<S, T,
+			void_t<decltype(Access::serialize(std::declval<S &>(), std::declval<T &>()))>
+		> : std::true_type {};
 
-        template <typename, typename, typename = void>
-        struct IsFlexibleIncluded:std::false_type {};
+		//this solution doesn't work with visual studio, but is more elegant
+		template <typename, typename, typename = void>
+		struct IsFlexibleIncluded :std::false_type {};
 
-        template <typename S, typename T>
-        struct IsFlexibleIncluded<S,T,
-                void_t<decltype(archiveProcess(std::declval<S &>(), std::declval<T &&>()))>
-        > : std::true_type {};
+		template <typename S, typename T>
+		struct IsFlexibleIncluded<S, T,
+			void_t<decltype(archiveProcess(std::declval<S &>(), std::declval<T &&>()))>
+		> : std::true_type {};
+#endif
+
+
+
+
 
         //used for extensions, when extension TValue = void
         struct DummyType {
@@ -177,10 +227,8 @@ namespace bitsery {
         struct ArchiveFunction {
 
             static void invoke(S &s, T&& obj) {
-                static_assert(IsFlexibleIncluded<S,T>::value,
+                static_assert(IsFlexibleIncluded<S, T>::value,
                               "\nPlease include '<bitsery/flexible.h>' to use 'archive' function:\n");
-//                static_assert(HasSerializeFunction<S,T>::value || HasSerializeMethod<S,T>::value,
-//                              "\nPlease define 'serialize' function or include '<bitsery/flexible/...>' to use with 'archive'\n");
 
                 archiveProcess(s, std::forward<T>(obj));
             }

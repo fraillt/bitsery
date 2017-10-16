@@ -100,13 +100,14 @@ using Reader = bitsery::AdapterReader<InputAdapter, bitsery::DefaultConfig>;
 template <typename Config = bitsery::DefaultConfig>
 class BasicSerializationContext {
 public:
-    Buffer buf;
     using TWriter = bitsery::AdapterWriter<OutputAdapter, Config>;
     using TReader = bitsery::AdapterReader<InputAdapter, Config>;
-    std::unique_ptr<bitsery::BasicSerializer<TWriter>> ser;
-    std::unique_ptr<bitsery::BasicDeserializer<TReader>> des;
-    TWriter* bw;
-    TReader* br;
+
+    Buffer buf{};
+    std::unique_ptr<bitsery::BasicSerializer<TWriter>> ser{};
+    std::unique_ptr<bitsery::BasicDeserializer<TReader>> des{};
+    TWriter* bw{};
+    TReader* br{};
 
     bitsery::BasicSerializer<TWriter>& createSerializer() {
         if (!ser) {

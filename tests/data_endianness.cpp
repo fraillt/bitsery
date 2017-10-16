@@ -56,19 +56,19 @@ using InverseReader = bitsery::AdapterReader<InputAdapter, InverseEndiannessConf
 TEST(DataEndianness, WhenWriteBytesThenBytesAreSwapped) {
     //fill initial values
     IntegralTypes src{};
-    src.a = 0x1122334455667788;
+    src.a = static_cast<int64_t>(0x1122334455667788);
     src.b = 0xBBCCDDEE;
-    src.c = 0xCCDD;
-    src.d = 0xDD;
-    src.e = 0xEE;
+    src.c = static_cast<int16_t>(0xCCDD);
+    src.d = static_cast<uint8_t>(0xDD);
+    src.e = static_cast<int8_t>(0xEE);
 
     //fill expected result after swap
     IntegralTypes resInv{};
-    resInv.a = 0x8877665544332211;
+    resInv.a = static_cast<int64_t>(0x8877665544332211);
     resInv.b = 0xEEDDCCBB;
-    resInv.c = 0xDDCC;
-    resInv.d = 0xDD;
-    resInv.e = 0xEE;
+    resInv.c = static_cast<int16_t>(0xDDCC);
+    resInv.d = static_cast<uint8_t>(0xDD);
+    resInv.e = static_cast<int8_t>(0xEE);
 
     //create and write to buffer
     Buffer buf{};
@@ -136,7 +136,7 @@ TEST(DataEndianness, WhenWriteMoreThan1ByteValuesThenValuesAreSwapped) {
 template <typename T>
 constexpr size_t getBits(T v) {
     return bitsery::details::calcRequiredBits<T>({}, v);
-};
+}
 
 struct IntegralUnsignedTypes {
     uint64_t a;

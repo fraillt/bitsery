@@ -163,7 +163,7 @@ TYPED_TEST(SerializeContainerDynamicSizeCompositeTypes, CustomFunctionThatDoNoth
     SerializationContext ctx{};
     using TValue = typename TestFixture::TValue;
 
-    auto emptyFnc = [](TValue &v) {};
+    auto emptyFnc = [](TValue &) {};
     ctx.createSerializer().container(this->src, 1000, emptyFnc);
     ctx.createDeserializer().container(this->res, 1000, emptyFnc);
 
@@ -217,7 +217,7 @@ TYPED_TEST(SerializeContainerFixedSizeCompositeTypes, DefaultSerializationFuncti
     Container src{MyStruct1{0, 1}, MyStruct1{8, 9}, MyStruct1{11, 34}, MyStruct1{5134, 1532}};
     Container res{};
 
-    SerializationContext ctx;
+    SerializationContext ctx{};
     ctx.createSerializer().container(src);
     ctx.createDeserializer().container(res);
 
@@ -232,7 +232,7 @@ TYPED_TEST(SerializeContainerFixedSizeCompositeTypes, CustomFunctionThatSerializ
 
     using TValue = decltype(*std::begin(res));
 
-    SerializationContext ctx;
+    SerializationContext ctx{};
     auto& ser = ctx.createSerializer();
     ser.container(src, [&ser](TValue &v) {
         char tmp{};

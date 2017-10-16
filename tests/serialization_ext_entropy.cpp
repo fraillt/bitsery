@@ -37,9 +37,8 @@ using BPDes = bitsery::BasicDeserializer<bitsery::AdapterReaderBitPackingWrapper
 TEST(SerializeExtensionEntropy, WhenEntropyEncodedThenOnlyWriteIndexUsingMinRequiredBits) {
     int32_t v = 4849;
     int32_t res;
-    constexpr size_t N = 3;
     int32_t values[3] = {485,4849,89};
-    SerializationContext ctx;
+    SerializationContext ctx{};
     ctx.createSerializer().enableBitPacking([&v, &values](BPSer& ser) {
         ser.ext4b(v, Entropy<int32_t[3]>{values});
     });
@@ -50,12 +49,12 @@ TEST(SerializeExtensionEntropy, WhenEntropyEncodedThenOnlyWriteIndexUsingMinRequ
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
 
-    SerializationContext ctx1;
+    SerializationContext ctx1{};
     ctx1.createSerializer().enableBitPacking([&v, &values](BPSer& ser) {
         ser.ext4b(v, Entropy<int32_t[3]>{values});
     });
     ctx1.createDeserializer().enableBitPacking([&res](BPDes& des) {
-       des.ext(res, bitsery::ext::ValueRange<int32_t>{0, static_cast<int32_t>(N + 1)});
+       des.ext(res, bitsery::ext::ValueRange<int32_t>{0, static_cast<int32_t>(3 + 1)});
     });
     EXPECT_THAT(res, Eq(2));
 }
@@ -64,7 +63,7 @@ TEST(SerializeExtensionEntropy, WhenNoEntropyEncodedThenWriteZeroBitsAndValueOrO
     int16_t v = 8945;
     int16_t res;
     std::initializer_list<int> values{485,4849,89};
-    SerializationContext ctx;
+    SerializationContext ctx{};
     ctx.createSerializer().enableBitPacking([&v, &values](BPSer& ser) {
         ser.ext2b(v, Entropy<std::initializer_list<int>>{values});
     });
@@ -84,12 +83,12 @@ TEST(SerializeExtensionEntropy, CustomTypeEntropyEncoded) {
     MyStruct1 values[N]{
                     MyStruct1{12, 10}, MyStruct1{485, 454},
                     MyStruct1{4849, 89}, MyStruct1{0, 1}};
-    SerializationContext ctx;
+    SerializationContext ctx{};
     ctx.createSerializer().enableBitPacking([&v, &values](BPSer& ser) {
-        ser.ext(v, Entropy<MyStruct1[N]>{values});
+        ser.ext(v, Entropy<MyStruct1[4]>{values});
     });
     ctx.createDeserializer().enableBitPacking([&res, &values](BPDes& des) {
-        des.ext(res, Entropy<MyStruct1[N]>{values});
+        des.ext(res, Entropy<MyStruct1[4]>{values});
     });
     EXPECT_THAT(res, Eq(v));
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
@@ -102,7 +101,7 @@ TEST(SerializeExtensionEntropy, CustomTypeNotEntropyEncoded) {
     std::initializer_list<MyStruct1> values {
             MyStruct1{12,10}, MyStruct1{485, 454},
             MyStruct1{4849,89}, MyStruct1{0,1}};
-    SerializationContext ctx;
+    SerializationContext ctx{};
     ctx.createSerializer().enableBitPacking([&v, &values](BPSer& ser) {
         ser.ext(v, Entropy<std::initializer_list<MyStruct1>>{values});
     });

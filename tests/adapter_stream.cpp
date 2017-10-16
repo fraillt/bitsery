@@ -84,7 +84,7 @@ TEST(AdapterIOStream, ReadingMoreThanAvailableReturnsZero) {
 }
 
 //this is strange, but probably stringstream doesnt use any of the base methods that sets io_base::iostate flags
-TEST(AdapterIOStream, WhenReadingStringStreamThenErrorCodeAlwaysReturnsNoError) {
+TEST(AdapterIOStream, WhenReadingMoreThanAvailableThenDataOverflow) {
     //setup data
     uint8_t t1 = 111;
 
@@ -103,7 +103,9 @@ TEST(AdapterIOStream, WhenReadingStringStreamThenErrorCodeAlwaysReturnsNoError) 
     EXPECT_THAT(r.error(), Eq(bitsery::ReaderError::NoError));
     EXPECT_THAT(r1, Eq(t1));
     r.readBytes<1>(r1);
+    r.readBytes<1>(r1);
     EXPECT_THAT(r1, Eq(0));
-    //should by overflow error, but it all iostate flags are set to false...
-    EXPECT_THAT(r.error(), Eq(bitsery::ReaderError::NoError));
+    EXPECT_THAT(r.isCompletedSuccessfully(), Eq(false));
+    EXPECT_THAT(r.error(), Eq(bitsery::ReaderError::DataOverflow));
+
 }

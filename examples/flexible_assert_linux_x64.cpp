@@ -15,7 +15,7 @@ struct MyStruct {
         //now we can use flexible syntax with
         //member function has same name as parameter
         s.archive(this->s, i, vl, ll);
-    };
+    }
 
 };
 

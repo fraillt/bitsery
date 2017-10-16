@@ -20,7 +20,7 @@ void serialize(S& s, MyStruct& o) {
     s.value4b(o.i);//fundamental types (ints, floats, enums) of size 4b
     s.value2b(o.e);
     s.container4b(o.fs, 10);//resizable containers also requires maxSize, to make it safe from buffer-overflow attacks
-};
+}
 
 using namespace bitsery;
 

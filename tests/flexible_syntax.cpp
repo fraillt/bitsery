@@ -46,7 +46,7 @@ TEST(FlexibleSyntax, FundamentalTypesAndBool) {
     float tf = 485.042f;
     double_t td = -454184.48445;
     bool tb=true;
-    SerializationContext ctx;
+    SerializationContext ctx{};
     ctx.createSerializer().archive(ti,te,tf,td,tb);
 
     //result

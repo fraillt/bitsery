@@ -62,12 +62,12 @@ namespace bitsery {
             //contiguous hopefully will be available in c++20
             static constexpr bool isContiguous = false;
             //resize function, called only if container is resizable
-            static void resize(T& container, size_t size) {
+            static void resize(T& , size_t ) {
                 static_assert(std::is_void<T>::value,
                               "Define ContainerTraits or include from <bitsery/traits/...> to use as container");
             }
             //get container size
-            static size_t size(const T& container) {
+            static size_t size(const T& ) {
                 static_assert(std::is_void<T>::value,
                               "Define ContainerTraits or include from <bitsery/traits/...> to use as container");
                 return 0u;
@@ -80,7 +80,7 @@ namespace bitsery {
             using TValue = T;
             static constexpr bool isResizable = false;
             static constexpr bool isContiguous = true;
-            static size_t size(const T (&container)[N]) {
+            static size_t size(const T (&)[N]) {
                 return N;
             }
         };
@@ -106,7 +106,7 @@ namespace bitsery {
             static constexpr bool addNUL = true;
 
             //get length of null terminated container
-            static size_t length(const T& container) {
+            static size_t length(const T& ) {
                 static_assert(std::is_void<T>::value,
                               "Define TextTraits or include from <bitsery/traits/...> to use as text");
                 return 0u;
@@ -124,7 +124,7 @@ namespace bitsery {
             //instead of using back_insert_iterator to append each byte to buffer.
             //thats why Writer return range iterators
 
-            static void increaseBufferSize(T& container) {
+            static void increaseBufferSize(T& ) {
                 static_assert(std::is_void<T>::value,
                               "Define BufferAdapterTraits or include from <bitsery/traits/...> to use as buffer adapter container");
             }

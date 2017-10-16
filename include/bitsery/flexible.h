@@ -35,7 +35,7 @@ namespace bitsery {
         template<typename S, typename T>
         void archiveProcessImpl(S &s, T &&head, std::true_type) {
             s.object(std::forward<T>(head));
-        };
+        }
 
         //overload when T is rvalue type, only allowable for behaviour modifying functions for deserializer
         template<typename S, typename T>
@@ -43,7 +43,7 @@ namespace bitsery {
             static_assert(std::is_base_of<ArchiveWrapperFnc, T>::value,
                           "\nOnly archive behaviour modifying functions can be passed by rvalue to deserializer\n");
             serialize(s, head);
-        };
+        }
 
     }
 
@@ -57,12 +57,12 @@ namespace bitsery {
     template<typename T, size_t N>
     flexible::CArray<T, N, true> asText(T (&str)[N]) {
         return {str};
-    };
+    }
 
     template<typename T, size_t N>
     flexible::CArray<T, N, false> asContainer(T (&obj)[N]) {
         return {obj};
-    };
+    }
 
     template <typename T>
     flexible::MaxSize<T> maxSize(T& obj, size_t max) {
@@ -78,21 +78,21 @@ namespace bitsery {
     template<typename S, typename T, typename std::enable_if<details::IsFundamentalType<T>::value>::type * = nullptr>
     void serialize(S &s, T &v) {
         s.template value<sizeof(T)>(v);
-    };
+    }
 
 //define serialization for c-style container
 
     //if array is integral type, specify explicitly how to process: as text or container
     template<typename S, typename T, size_t N, typename std::enable_if<std::is_integral<T>::value>::type * = nullptr>
-    void serialize(S &s, T (&obj)[N]) {
+    void serialize(S &, T (&)[N]) {
         static_assert(N == 0,
                       "\nPlease use 'asText(obj)' or 'asContainer(obj)' when using c-style array with integral types\n");
-    };
+    }
 
     template<typename S, typename T, size_t N, typename std::enable_if<!std::is_integral<T>::value>::type * = nullptr>
     void serialize(S &s, T (&obj)[N]) {
         flexible::processContainer(s, obj);
-    };
+    }
 
     //this is a helper class that enforce fundamental type sizes, when used on multiple platforms
     template <size_t TShort, size_t TInt, size_t TLong, size_t TLongLong>
@@ -103,7 +103,7 @@ namespace bitsery {
         static_assert(sizeof(long) == TLong, "");
         static_assert(sizeof(long long) == TLongLong, "");
         //for completion we also need pointer type size, but serializer doesn't support pointer serialization.
-    };
+    }
 
 }
 

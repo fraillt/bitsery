@@ -34,14 +34,14 @@ namespace bitsery {
         public:
 
             template<typename Ser, typename Writer, typename T, typename Fnc>
-            void serialize(Ser &s, Writer &writer, const T &obj, Fnc &&fnc) const {
+            void serialize(Ser &, Writer &writer, const T &obj, Fnc &&fnc) const {
                 writer.beginSession();
                 fnc(const_cast<T&>(obj));
                 writer.endSession();
             }
 
             template<typename Des, typename Reader, typename T, typename Fnc>
-            void deserialize(Des &d, Reader &reader, T &obj, Fnc &&fnc) const {
+            void deserialize(Des &, Reader &reader, T &obj, Fnc &&fnc) const {
                 reader.beginSession();
                 fnc(obj);
                 reader.endSession();

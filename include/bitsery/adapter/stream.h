@@ -41,8 +41,13 @@ namespace bitsery {
                 :_ios{istream} {}
 
         void read(TValue* data, size_t size) {
-            if (static_cast<size_t>(_ios.rdbuf()->sgetn( data , size )) != size)
+            if (static_cast<size_t>(_ios.rdbuf()->sgetn( data , size )) != size) {
                 *data = {};
+                //check state, if not set by stream, set it manually
+                if (_ios.good())
+                    _ios.setstate(std::ios_base::eofbit);
+            }
+
         }
 
         ReaderError error() const {
@@ -58,7 +63,7 @@ namespace bitsery {
             }
             return false;
         }
-        void setError(ReaderError error) {
+        void setError(ReaderError ) {
             //has no effect when using
         }
 

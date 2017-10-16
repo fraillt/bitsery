@@ -15,8 +15,10 @@ namespace MyTypes {
     struct Vec3 { float x, y, z; };
 
     struct Weapon {
-        std::string name;
-        int16_t damage;
+        std::string name{};
+        int16_t damage{};
+        Weapon() = default;
+        Weapon(const std::string& _name, int16_t dmg):name{_name}, damage{dmg} {}
     private:
         //define serialize function as private, and give access to bitsery
         friend bitsery::Access;

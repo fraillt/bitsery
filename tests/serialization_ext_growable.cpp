@@ -46,10 +46,15 @@ struct DataV3 {
 
 TEST(SerializeExtensionGrowable, WriteSessionsDataAtBufferEndAfterFlush) {
     BasicSerializationContext<SessionsEnabledConfig> ctx;
-    ctx.createSerializer().ext(int8_t{}, Growable{}, [] (int8_t& v) { });
-    EXPECT_THAT(ctx.getBufferSize(), Eq(0));
+    auto& ser = ctx.createSerializer();
+    //session cannot be empty
+    ser.ext(int8_t{}, Growable{}, [&ser] (int8_t& v) {
+        ser.value1b(v);
+    });
+
+    EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     ctx.bw->flush();
-    EXPECT_THAT(ctx.getBufferSize(), Gt(0));
+    EXPECT_THAT(ctx.getBufferSize(), Gt(1));
 }
 
 
