@@ -43,7 +43,7 @@ It also doesn't serialize any type information, all information needed is writen
 * **Runtime error checking on deserialization** library designed to be save with untrusted network data, that's why all overloads that work on containers has *maxSize* value, unless container is static size like *std::array*, this way bitsery ensures that no malicious data crash you.
 * **Supports forward/backward compatibility for your types** library has optional forward/backward compatibility for types implemented in *BasicBufferReader/BasicBufferWriter* by allowing to have inner data sessions in inside buffer.
 This is the only functionality that requires dynamic memory allocation.
-*Glowable* extension use these sessions to add compatibility support for your types, in most basic form.
+*Growable* extension use these sessions to add compatibility support for your types, in most basic form.
 You can implement your own extensions if you want to be able to add default values.
 * **2-in-1 declarative control flow, same code for serialization and deserialization.** only one function to define, for serialization and deserialization in same manner as *cereal* does.
 It might be handy to have separate *load* and *save* functions, but Bitsery explicitly doesn't support it, to avoid any serialization deserialization divergence, because it is very hard to catch an errors if you make a bug in one of these functions.
