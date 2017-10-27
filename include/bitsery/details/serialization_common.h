@@ -25,8 +25,10 @@
 
 #include <type_traits>
 #include <utility>
+#include <tuple>
 #include "adapter_utils.h"
 #include "../traits/core/traits.h"
+
 
 namespace bitsery {
 
@@ -234,8 +236,73 @@ namespace bitsery {
             }
         };
 
+        /*
+         * function for getting context from serializer/deserializer
+         * has different behaviour when context is tuple
+         */
+
+        template <typename T, template <typename...> class Template>
+        struct IsSpecializationOf : std::false_type 
+		{};
+
+        template <template <typename...> class Template, typename... Args>
+        struct IsSpecializationOf<Template<Args...>, Template> : std::true_type 
+		{};
+
+        //helper types for better error messages
+        template <typename Find, typename ... TList>
+        struct GetTypeIndex:std::integral_constant<size_t, 0> 
+		{};
+
+        //found it
+        template <typename Find, typename ... Tail>
+        struct GetTypeIndex<Find, Find, Tail...> :std::integral_constant<size_t, 0> 
+		{};
+
+        //iteratates over types
+        template <typename Find, typename Head, typename ... Tail>
+        struct GetTypeIndex<Find, Head, Tail...> :std::integral_constant<size_t, 1 + GetTypeIndex<Find, Tail...>::value> 
+		{}; 
+
+		template <typename Find, typename ... TList>
+		struct HasType: std::integral_constant<bool, (GetTypeIndex<Find, TList...>::value < (sizeof ... (TList)))>
+		{};
+
+
+        //when context is tuple, then get object from tuple
+#if __cplusplus >= 201402L
+        template <typename TCast, typename ... Args>
+        TCast* getContextImpl(std::tuple<Args...>* ctx, std::true_type) {
+            static_assert(HasType<TCast, Args...>::value, "Invalid context cast from tuple. Type doesn't exists.");
+            return std::addressof(std::get<TCast>(*ctx));
+        }
+#else
+        //c++11 doesn't have std::get<type> overload for getting tuple element, so we need to write our selves
+
+        template <typename TCast, typename ... Args>
+        TCast* getContextImpl(std::tuple<Args...>* ctx, std::true_type) {
+            using TCastIndex = GetTypeIndex<TCast, Args...>;
+            static_assert(HasType<TCast, Args...>::value, "Invalid context cast from tuple. Type doesn't exists.");
+            return std::addressof(std::get<TCastIndex::value>(*ctx));
+        }
+#endif
+
+        template <typename TCast, typename TContext>
+        TCast* getContextImpl(TContext* ctx, std::false_type) {
+            static_assert(std::is_convertible<TContext*, TCast*>::value, "Invalid context cast");
+            return static_cast<TCast*>(ctx);
+        }
+
+        template <typename TCast, typename TContext>
+        TCast* getContext(TContext* ctx) {
+            return ctx
+                   ? getContextImpl<TCast>(ctx, IsSpecializationOf<TContext, std::tuple>{})
+                   : nullptr;
+        }
+
     }
 
 }
 
 #endif //BITSERY_DETAILS_SERIALIZATION_COMMON_H
+

@@ -24,6 +24,9 @@
 #include <bitsery/adapter/stream.h>
 #include <bitsery/adapter_writer.h>
 #include <bitsery/adapter_reader.h>
+#include <bitsery/traits/vector.h>
+#include <bitsery/traits/array.h>
+#include <bitsery/traits/string.h>
 #include <sstream>
 
 //some helper types
@@ -33,20 +36,12 @@ using InputAdapter = bitsery::InputStreamAdapter ;
 using Writer = bitsery::AdapterWriter<bitsery::OutputStreamAdapter, bitsery::DefaultConfig>;
 using Reader = bitsery::AdapterReader<bitsery::InputStreamAdapter, bitsery::DefaultConfig>;
 
+static constexpr size_t InternalBufferSize = 128;
+using BufferedAdapterInternalBuffer = std::array<char, InternalBufferSize>;
+using OutputBufferedAdapter = bitsery::BasicBufferedOutputStreamAdapter<char, std::char_traits<char>, BufferedAdapterInternalBuffer>;
+using BufferedWriter = bitsery::AdapterWriter<OutputBufferedAdapter, bitsery::DefaultConfig>;
+
 using testing::Eq;
-
-TEST(AdapterIOStream, WrittenBytesCountReturns0) {
-    //setup data
-    uint8_t t1 = 111;
-
-    Stream buf{};
-    Writer w{{buf}};
-    w.writeBytes<1>(t1);
-    w.flush();
-
-    EXPECT_THAT(buf.str().size(), Eq(1));
-    EXPECT_THAT(w.writtenBytesCount(), Eq(0));
-}
 
 TEST(AdapterIOStream, CorrectlyReturnsIsCompletedSuccessfully) {
     //setup data
@@ -108,4 +103,59 @@ TEST(AdapterIOStream, WhenReadingMoreThanAvailableThenDataOverflow) {
     EXPECT_THAT(r.isCompletedSuccessfully(), Eq(false));
     EXPECT_THAT(r.error(), Eq(bitsery::ReaderError::DataOverflow));
 
+}
+
+
+template<typename T>
+class AdapterBufferedOutputStream : public testing::Test {
+public:
+    using Buffer = T;
+    using Adapter = bitsery::BasicBufferedOutputStreamAdapter<char, std::char_traits<char>, Buffer>;
+    using Writer = bitsery::AdapterWriter<Adapter, bitsery::DefaultConfig>;
+
+    static constexpr size_t InternalBufferSize = 128;
+
+    Stream stream{};
+
+    Writer writer{{stream, 128}};
+};
+
+using BufferedAdapterInternalBufferTypes = ::testing::Types<
+        std::vector<char>,
+        std::array<char, 128>,
+        std::string
+>;
+
+TYPED_TEST_CASE(AdapterBufferedOutputStream, BufferedAdapterInternalBufferTypes);
+
+TYPED_TEST(AdapterBufferedOutputStream, WhenBufferOverflowThenWriteBufferAndRemainingDataToStream) {
+    uint8_t x{};
+    for (auto i = 0u; i < TestFixture::InternalBufferSize; ++i)
+        this->writer.template writeBytes<1>(x);
+    EXPECT_TRUE(this->stream.str().empty());
+    this->writer.template writeBytes<1>(x);
+    EXPECT_THAT(this->stream.str().size(), Eq(TestFixture::InternalBufferSize + 1));
+}
+
+TYPED_TEST(AdapterBufferedOutputStream, WhenFlushThenWriteImmediately) {
+    uint8_t x{};
+    this->writer.template writeBytes<1>(x);
+    EXPECT_THAT(this->stream.str().size(), Eq(0));
+    this->writer.flush();
+    EXPECT_THAT(this->stream.str().size(), Eq(1));
+    this->writer.flush();
+    EXPECT_THAT(this->stream.str().size(), Eq(1));
+}
+
+TYPED_TEST(AdapterBufferedOutputStream, WhenBufferIsStackAllocatedThenBufferSizeViaCtorHasNoEffect) {
+
+    //create writer with half the internal buffer size
+    //for std::vector it should overflow, and for std::array it should have no effect
+    typename TestFixture::Writer w{{this->stream, TestFixture::InternalBufferSize / 2}};
+
+    uint8_t x{};
+    for (auto i = 0u; i < TestFixture::InternalBufferSize; ++i)
+        w.template writeBytes<1>(x);
+    static constexpr bool ShouldWriteToStream = bitsery::traits::ContainerTraits<typename TestFixture::Buffer>::isResizable;
+    EXPECT_THAT(this->stream.str().empty(), ::testing::Ne(ShouldWriteToStream));
 }

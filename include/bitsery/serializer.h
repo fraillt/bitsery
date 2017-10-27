@@ -30,17 +30,17 @@
 
 namespace bitsery {
 
-    template<typename TAdapterWriter>
+    template<typename TAdapterWriter, typename TContext = void>
     class BasicSerializer {
     public:
         //this is used by AdapterAccess class
         using TWriter = TAdapterWriter;
         //helper type, that always returns bit-packing enabled type, useful inside serialize function when enabling bitpacking
         using BPEnabledType = BasicSerializer<typename std::conditional<TAdapterWriter::BitPackingEnabled,
-                TAdapterWriter, AdapterWriterBitPackingWrapper<TAdapterWriter>>::type>;
+                TAdapterWriter, AdapterWriterBitPackingWrapper<TAdapterWriter>>::type, TContext>;
 
         template <typename WriterParam>
-        explicit BasicSerializer(WriterParam&& w, void* context = nullptr)
+        explicit BasicSerializer(WriterParam&& w, TContext* context = nullptr)
                 : _writer{std::forward<WriterParam>(w)},
                   _context{context}
         {
@@ -58,8 +58,13 @@ namespace bitsery {
          * get serialization context.
          * this is optional, but might be required for some specific serialization flows.
          */
-        void* context() {
+        TContext* context() {
             return _context;
+        }
+
+        template <typename T>
+        T* context() {
+            return details::getContext<T>(_context);
         }
 
         /*
@@ -316,7 +321,7 @@ namespace bitsery {
         friend AdapterAccess;
 
         TAdapterWriter _writer;
-        void* _context;
+        TContext* _context;
 
         //process value types
         //false_type means that we must process all elements individually
@@ -381,7 +386,7 @@ namespace bitsery {
         template <typename Fnc>
         void procEnableBitPacking(const Fnc& fnc, std::false_type) {
             //create serializer using bitpacking wrapper
-            BasicSerializer<AdapterWriterBitPackingWrapper<TAdapterWriter>> tmp(_writer, _context);
+            BPEnabledType tmp(_writer, _context);
             fnc(tmp);
         }
 

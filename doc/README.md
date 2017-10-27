@@ -9,6 +9,7 @@ Library design:
 * `extending library functionality`
 * `errors handling`
 * `forward/backward compatibility via Growable extension`
+* `pointers`
 
 
 Core Serializer/Deserializer functions (alphabetical order):
@@ -24,6 +25,9 @@ Core Serializer/Deserializer functions (alphabetical order):
 Serializer/Deserializer extensions via `ext` method (alphabetical order):
 * `Entropy`
 * `Growable`
+* `PointerOwner`
+* `PointerObserver`
+* `ReferencedByPointer`
 * `StdMap`
 * `StdOptional`
 * `StdQueue`
@@ -52,7 +56,7 @@ Input adapters (buffer and stream) functions:
 Output adapters (buffer and stream) functions:
 * `write`
 * `flush`
-* `writtenBytesCount`
+* `writtenBytesCount` (buffer adapter only)
 
 
 Tips and tricks:

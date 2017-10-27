@@ -52,6 +52,7 @@ namespace bitsery {
             friend int operator - (const NotDefinedType&, const NotDefinedType&) {
                 return 0;
             }
+
             int& operator*() {
                 return data;
             }

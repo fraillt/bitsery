@@ -14,14 +14,15 @@ All cross-platform requirements are enforced at compile time, so serialized data
 
 * Cross-platform compatible.
 * Optimized for speed and space.
-* Allows flexible or/and verbose syntax for better serialization control.
 * No code generation required: no IDL or metadata, just use your types directly.
 * Runtime error checking on deserialization.
-* Supports forward/backward compatibility for your types.
-* 2-in-1 declarative control flow, same code for serialization and deserialization.
-* Allows fine-grained bit-level serialization control.
 * Can read/write from any source: stream (file, network stream. etc... ), or buffer (vector, c-array, etc...).
+* Don't pay for what you don't use! - customize your serialization via **extensions**. Some notable *extensions* allow:
+  * forward/backward compatibility for your types.
+  * raw pointers (no polymorphism yet).
+  * fine-grained bit-level serialization control.
 * Easily extendable for any type.
+* Allows flexible or/and verbose syntax for better serialization control.
 * Configurable endianess support.
 * No macros.
 
@@ -31,12 +32,12 @@ Look at the numbers and features list, and decide yourself.
 
 |                              | binary size | data size | serialize   | deserialize |
 |------------------------------|-------------|-----------|-------------|-------------|
-| **test_bitsery**             | 64704       | **7565**  | **1229 ms** | **1086 ms** |
-| **test_bitsery_compression** | 64880       | **4784**  | **1641 ms** | **2462 ms** |
-| test_yas                     | 63864       | 11311     | 1616 ms     | 1712 ms     |
-| test_yas_compression         | 72688       | 8523      | 2387 ms     | 2890 ms     |
-| test_cereal                  | 74848       | 11261     | 6708 ms     | 6799 ms     |
-| test_flatbuffers             | 67032       | 16100     | 8793 ms     | 3028 ms     |
+| **test_bitsery**             | 64704 B     | **7565 B**| **1229 ms** | **1086 ms** |
+| **test_bitsery_compression** | 64880 B     | **4784 B**| **1641 ms** | **2462 ms** |
+| test_yas                     | 63864 B     | 11311 B   | 1616 ms     | 1712 ms     |
+| test_yas_compression         | 72688 B     | 8523 B    | 2387 ms     | 2890 ms     |
+| test_cereal                  | 74848 B     | 11261 B   | 6708 ms     | 6799 ms     |
+| test_flatbuffers             | 67032 B     | 16100 B   | 8793 ms     | 3028 ms     |
 
 *benchmarked on Ubuntu with GCC 7.1.0, more details can be found [here](https://github.com/fraillt/cpp_serializers_benchmark.git)*
 

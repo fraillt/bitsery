@@ -1,3 +1,31 @@
+# [4.1.0](https://github.com/fraillt/bitsery/compare/v4.0.1...v4.1.0) (2017-10-27)
+
+### Features
+* added raw pointers support via extensions.
+In order to correctly manage pointer ownership, three extensions was created in **<bitsery/ext/pointer.h>** header:
+  * **PointerOwner** - manages life time of the pointer, creates or destroys if required.
+  * **PointerObserver** - doesn't own pointer so it doesn't create or destroy anything.
+  * **ReferencedByPointer** - when non-owning pointer (*PointerObserver*) points to reference type, this extension marks this object as a valid target for PointerObserver.
+
+  To validate and update pointers **PointerLinkingContext** have to be passed to serialization/deserialization.
+  It ensures that all pointers are valid, that same pointer doesn't have multiple owners, and non-owning pointers doesn't point outside of scope (i.e. non owning pointers points to data that is serialized/deserialized), see [raw_pointers example](examples/raw_pointers.cpp) for usage example.
+
+  *Currently polimorphism and std::shared_ptr,  std::unique_ptr is not supported.*
+
+* added **context\<T\>()** overload to *BasicSerializer/BasicDeserializer* and now serializers is typesafe.
+Also for better pointers support, added posibility to have multiple types in context with *std::tuple*.
+E.g. when using pointers together with your custom context, you can define your context as *std::tuple\<PointerLinkingContext, MyContext\>* and in serialization function you can correctly get your data via *context\<MyContext\>()*.
+
+
+### Improvements
+
+* new **OutputBufferedStreamAdapter** use internal buffer instead of directly writing to stream, can get more than 2x performance increase.
+  * can use any contiguous container as internal buffer.
+  * when using fixed-size, stack allocated container (*std::array*), buffer size via constructor is ignored.
+  * default internal buffer is *std::array<char,256>*.
+* added *static_assert* when trying to use *BufferAdapter* with non contiguous container.
+
+
 # [4.0.1](https://github.com/fraillt/bitsery/compare/v4.0.0...v4.0.1) (2017-10-18)
 
 ### Improvements

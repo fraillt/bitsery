@@ -6,12 +6,6 @@
 
 #include <bitsery/ext/value_range.h>
 
-//defines game mode parameters
-struct GameMode {
-    uint32_t maxMonsters;
-    uint32_t damageRange[2];
-};
-
 namespace MyTypes {
 
     struct Monster {
@@ -39,12 +33,16 @@ namespace MyTypes {
 
     template<typename S>
     void serialize(S& s, GameState &o) {
-        auto mode = static_cast<GameMode*>(s.context());
-        //we know max number of monsters from context
-        s.container(o.monsters, mode->maxMonsters, [&s, mode] (Monster& m) {
+        //we can have multiple types in context with std::tuple
+        //this cast also works if our context is the same as cast
+        auto maxMonsters = s.template context<int>();
+        //all data from context is always pointer
+        //if data type doesn't match then it will be compile time error
+        auto dmgRange = s.template context<std::pair<uint32_t, uint32_t>>();
+        s.container(o.monsters, *maxMonsters, [&s, dmgRange] (Monster& m) {
             s.text1b(m.name, 20);
             //we know min/max damage range for monsters, so we can use this range instead of full value
-            bitsery::ext::ValueRange<uint32_t> range{mode->damageRange[0], mode->damageRange[1]};
+            bitsery::ext::ValueRange<uint32_t> range{dmgRange->first, dmgRange->second};
             //enable bit packing
             s.enableBitPacking([&m, &range](typename S::BPEnabledType& sbp) {
                 sbp.ext(m.minDamage, range);
@@ -61,24 +59,37 @@ using namespace bitsery;
 using Buffer = std::vector<uint8_t>;
 using OutputAdapter = OutputBufferAdapter<Buffer>;
 using InputAdapter = InputBufferAdapter<Buffer>;
+//context can contain multiple types
+//it would make more sense to define separate structure for context, but for sake of this example make it more complex
+//in serialization function we can cast it like this:
+//  s.template context<int>();
+//if we want to get whole tuple, just call s.context() without template paramter.
+//this templated version also works if our context is the same as cast:
+//  struct MyContext {...};
+//  ...
+//  s.template context<MyContext>();
+using Context = std::tuple<int, std::pair<uint32_t, uint32_t>>;
 
 int main() {
+
     MyTypes::GameState data{};
     data.monsters.push_back({"weaksy", 100, 200});
     data.monsters.push_back({"bigsy", 500, 1000});
     data.monsters.push_back({"tootoo", 350, 750});
 
-    //set game mode
-    //this store game mode parameters
-    GameMode mode{};
-    mode.maxMonsters = 4;
-    mode.damageRange[0] = 100;
-    mode.damageRange[1] = 1000;
+    //set context
+    Context ctx{};
+    //max monsters
+    std::get<0>(ctx) = 4;
+    //damage range
+    std::get<1>(ctx).first = 100;
+    std::get<1>(ctx).second = 1000;
+
 
     //create buffer to store data to
     Buffer buffer{};
     //pass game mode object to serializer as context
-    Serializer<OutputAdapter> ser{buffer, &mode};
+    BasicSerializer<AdapterWriter<OutputAdapter, bitsery::DefaultConfig>, Context> ser{buffer, &ctx};
     ser.object(data);
 
     auto& w = AdapterAccess::getWriter(ser);
@@ -86,7 +97,7 @@ int main() {
     auto writtenSize = w.writtenBytesCount();
 
     MyTypes::GameState res{};
-    Deserializer <InputAdapter> des { InputAdapter{buffer.begin(), writtenSize}, &mode};
+    BasicDeserializer <AdapterReader<InputAdapter, bitsery::DefaultConfig>, Context> des { InputAdapter{buffer.begin(), writtenSize}, &ctx};
     des.object(res);
     auto& r = AdapterAccess::getReader(des);
 

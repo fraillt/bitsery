@@ -23,7 +23,6 @@ using namespace bitsery;
 
 //some helper types
 using Stream = std::fstream;
-using IOAdapter = IOStreamAdapter;
 
 int main() {
     //set some random data
@@ -37,10 +36,12 @@ int main() {
         std::cout << "cannot open " << fileName << " for writing\n";
         return 0;
     }
-    //use same quick serialization function
-    //streams do not return written size
-    quickSerialization<IOAdapter>(s, data);
-
+    //we cannot use quick serialization function, because streams cannot use writtenBytesCount method
+    //for serialization we can use buffered stream adapter, it can greatly improve performance for some streams
+    Serializer<OutputBufferedStreamAdapter> ser{s};
+    ser.object(data);
+    //flush to writer
+    AdapterAccess::getWriter(ser).flush();
     s.close();
     //reopen for reading
 
@@ -52,7 +53,7 @@ int main() {
 
     //same as serialization, but returns deserialization state as a pair
     //first = error code, second = is buffer was successfully read from begin to the end.
-    auto state = quickDeserialization<IOAdapter>(s, res);
+    auto state = quickDeserialization<InputStreamAdapter>(s, res);
 
     assert(state.first == ReaderError::NoError && state.second);
     assert(data.f == res.f && data.i == res.i && data.e == res.e);

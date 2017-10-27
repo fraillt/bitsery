@@ -85,7 +85,8 @@ namespace bitsery {
             }
         };
 
-        //specialization for initializer list, even though it cannot be deserialized to.
+        //specialization for initializer list.
+        //only serializer can use it
         template<typename T>
         struct ContainerTraits<std::initializer_list<T>> {
             using TValue = T;
@@ -93,6 +94,30 @@ namespace bitsery {
             static constexpr bool isContiguous = true;
             static size_t size(const std::initializer_list<T>& container) {
                 return container.size();
+            }
+        };
+
+        //specialization for pointer type buffer
+        //only deserializer can use it
+        template <typename T>
+        struct ContainerTraits<const T*> {
+            using TValue = T;
+            static constexpr bool isResizable = false;
+            static constexpr bool isContiguous = true;
+            static size_t size(const T* ) {
+                static_assert(std::is_void<T>::value, "cannot get size for container of type T*");
+                return 0u;
+            }
+        };
+
+        template <typename T>
+        struct ContainerTraits<T*> {
+            using TValue = T;
+            static constexpr bool isResizable = false;
+            static constexpr bool isContiguous = true;
+            static size_t size(const T* ) {
+                static_assert(std::is_void<T>::value, "cannot get size for container of type T*");
+                return 0u;
             }
         };
 

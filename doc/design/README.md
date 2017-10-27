@@ -41,9 +41,9 @@ But do it on your own risk, and static assert using *assertFundamentalTypeSizes*
 It also doesn't serialize any type information, all information needed is writen in your code!
 * **No code generation required: no IDL or metadata** since it doesn't support any other formats except binary, it doesn't need any metadata.
 * **Runtime error checking on deserialization** library designed to be save with untrusted network data, that's why all overloads that work on containers has *maxSize* value, unless container is static size like *std::array*, this way bitsery ensures that no malicious data crash you.
-* **Supports forward/backward compatibility for your types** library has optional forward/backward compatibility for types implemented in *BasicBufferReader/BasicBufferWriter* by allowing to have inner data sessions in inside buffer.
+* **Supports forward/backward compatibility for your types** library has optional forward/backward compatibility for types implemented in *AdapterReader/Writer* by allowing to have inner data sessions inside buffer.
 This is the only functionality that requires dynamic memory allocation.
-*Glowable* extension use these sessions to add compatibility support for your types, in most basic form.
+*Growable* extension use these sessions to add compatibility support for your types, in most basic form.
 You can implement your own extensions if you want to be able to add default values.
 * **2-in-1 declarative control flow, same code for serialization and deserialization.** only one function to define, for serialization and deserialization in same manner as *cereal* does.
 It might be handy to have separate *load* and *save* functions, but Bitsery explicitly doesn't support it, to avoid any serialization deserialization divergence, because it is very hard to catch an errors if you make a bug in one of these functions.
@@ -67,5 +67,3 @@ To use same container for buffer writing/reading add specialization to *BufferAd
 You want to customize serialization flow - use extensions, only two methods to define, and *ExtensionTraits* to further customize usage.
 * **Configurable endianess support.** default is *Little Endian*, but if your primary target is PowerPC architecture, eg. PlayStation3, just change your configuration to be *Big Endian*.
 * **No macros.** Not so much to say, if you are like me, then it's a feature :)
-
-*project for performance benchmark will be added to separate github project, i'll give you a link to it when its done.*

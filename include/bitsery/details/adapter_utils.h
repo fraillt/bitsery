@@ -33,7 +33,8 @@ namespace bitsery {
         NoError,
         ReadingError, // this might be used with stream adapter
         DataOverflow,
-        InvalidData
+        InvalidData,
+        InvalidPointer
     };
 
     namespace details {

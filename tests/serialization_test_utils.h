@@ -38,8 +38,8 @@ struct MyStruct1 {
 
     MyStruct1() : MyStruct1{0, 0} {}
 
-    int i1;
-    int i2;
+    int32_t i1;
+    int32_t i2;
 
     bool operator==(const MyStruct1 &rhs) const {
         return i1 == rhs.i1 && i2 == rhs.i2;
@@ -97,31 +97,33 @@ using Writer = bitsery::AdapterWriter<OutputAdapter, bitsery::DefaultConfig>;
 using Reader = bitsery::AdapterReader<InputAdapter, bitsery::DefaultConfig>;
 
 
-template <typename Config = bitsery::DefaultConfig>
+template <typename Config, typename Context>
 class BasicSerializationContext {
 public:
     using TWriter = bitsery::AdapterWriter<OutputAdapter, Config>;
     using TReader = bitsery::AdapterReader<InputAdapter, Config>;
+    using TSerializer = bitsery::BasicSerializer<TWriter, Context>;
+    using TDeserializer = bitsery::BasicDeserializer<TReader, Context>;
 
     Buffer buf{};
-    std::unique_ptr<bitsery::BasicSerializer<TWriter>> ser{};
-    std::unique_ptr<bitsery::BasicDeserializer<TReader>> des{};
+    std::unique_ptr<TSerializer> ser{};
+    std::unique_ptr<bitsery::BasicDeserializer<TReader, Context>> des{};
     TWriter* bw{};
     TReader* br{};
 
-    bitsery::BasicSerializer<TWriter>& createSerializer() {
+    TSerializer& createSerializer(Context* ctx = nullptr) {
         if (!ser) {
-            ser = std::unique_ptr<bitsery::BasicSerializer<TWriter>>(new bitsery::BasicSerializer<TWriter>(OutputAdapter{buf}));
+            ser = std::unique_ptr<TSerializer>(new TSerializer(OutputAdapter{buf}, ctx));
             bw = &bitsery::AdapterAccess::getWriter(*ser);
         }
         return *ser;
     };
 
-    bitsery::BasicDeserializer<bitsery::AdapterReader<InputAdapter, Config>>& createDeserializer() {
+    TDeserializer & createDeserializer(Context* ctx = nullptr) {
         bw->flush();
         if (!des) {
-            des = std::unique_ptr<bitsery::BasicDeserializer<TReader>>(
-                    new bitsery::BasicDeserializer<TReader>(InputAdapter{buf.begin(), bw->writtenBytesCount()}));
+            des = std::unique_ptr<TDeserializer>(
+                    new TDeserializer(InputAdapter{buf.begin(), bw->writtenBytesCount()}, ctx));
             br = &bitsery::AdapterAccess::getReader(*des);
         }
         return *des;
@@ -144,6 +146,6 @@ public:
 };
 
 //helper type
-using SerializationContext = BasicSerializationContext<bitsery::DefaultConfig>;
+using SerializationContext = BasicSerializationContext<bitsery::DefaultConfig, void>;
 
 #endif //BITSERY_SERIALIZER_TEST_UTILS_H

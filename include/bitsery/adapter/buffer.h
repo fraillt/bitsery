@@ -55,6 +55,7 @@ namespace bitsery {
         using TIterator = typename BufferIterators<Buffer>::TIterator;
         using TValue = typename traits::BufferAdapterTraits<Buffer>::TValue;
         static_assert(details::IsDefined<TValue>::value, "Please define BufferAdapterTraits or include from <bitsery/traits/...>");
+        static_assert(traits::ContainerTraits<Buffer>::isContiguous, "BufferAdapter only works with contiguous containers");
 
         InputBufferAdapter(TIterator begin, TIterator end): BufferIterators<Buffer>(begin, end)
         {
@@ -102,17 +103,18 @@ namespace bitsery {
     };
 
 
-    template<typename Container>
+    template<typename Buffer>
     class OutputBufferAdapter {
     public:
 
-        using TIterator = typename traits::BufferAdapterTraits<Container>::TIterator;
-        using TValue = typename traits::BufferAdapterTraits<Container>::TValue;
+        using TIterator = typename traits::BufferAdapterTraits<Buffer>::TIterator;
+        using TValue = typename traits::BufferAdapterTraits<Buffer>::TValue;
 
         static_assert(details::IsDefined<TValue>::value, "Please define BufferAdapterTraits or include from <bitsery/traits/...>");
+        static_assert(traits::ContainerTraits<Buffer>::isContiguous, "BufferAdapter only works with contiguous containers");
 
-        OutputBufferAdapter(Container &buffer)
-                : _buffer{buffer}
+        OutputBufferAdapter(Buffer &buffer)
+                : _buffer{std::addressof(buffer)}
         {
 
             init(TResizable{});
@@ -128,13 +130,13 @@ namespace bitsery {
         }
 
         size_t writtenBytesCount() const {
-            return static_cast<size_t>(std::distance(std::begin(_buffer), _outIt));
+            return static_cast<size_t>(std::distance(std::begin(*_buffer), _outIt));
         }
 
     private:
-        using TResizable = std::integral_constant<bool, traits::ContainerTraits<Container>::isResizable>;
+        using TResizable = std::integral_constant<bool, traits::ContainerTraits<Buffer>::isResizable>;
 
-        Container &_buffer;
+        Buffer* _buffer;
         TIterator _outIt{};
         TIterator _end{};
 
@@ -144,11 +146,11 @@ namespace bitsery {
 
         void init(std::true_type) {
             //resize buffer immediately, because we need output iterator at valid position
-            if (traits::ContainerTraits<Container>::size(_buffer) == 0u) {
-                traits::BufferAdapterTraits<Container>::increaseBufferSize(_buffer);
+            if (traits::ContainerTraits<Buffer>::size(*_buffer) == 0u) {
+                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
             }
-            _end = std::end(_buffer);
-            _outIt = std::begin(_buffer);
+            _end = std::end(*_buffer);
+            _outIt = std::begin(*_buffer);
         }
 
         void writeInternal(const TValue *data, const size_t size, std::true_type) {
@@ -171,12 +173,12 @@ namespace bitsery {
                 _outIt -= size;
 #endif
                 //get current position before invalidating iterators
-                const auto pos = std::distance(std::begin(_buffer), _outIt);
+                const auto pos = std::distance(std::begin(*_buffer), _outIt);
                 //increase container size
-                traits::BufferAdapterTraits<Container>::increaseBufferSize(_buffer);
+                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
                 //restore iterators
-                _end = std::end(_buffer);
-                _outIt = std::next(std::begin(_buffer), pos);
+                _end = std::end(*_buffer);
+                _outIt = std::next(std::begin(*_buffer), pos);
 
                 writeInternal(data, size, std::true_type{});
             }
@@ -186,8 +188,8 @@ namespace bitsery {
          * non resizable buffer
          */
         void init(std::false_type) {
-            _outIt = std::begin(_buffer);
-            _end = std::end(_buffer);
+            _outIt = std::begin(*_buffer);
+            _end = std::end(*_buffer);
         }
 
         void writeInternal(const TValue *data, size_t size, std::false_type) {

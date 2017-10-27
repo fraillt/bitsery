@@ -31,18 +31,18 @@
 namespace bitsery {
 
 
-    template<typename TAdapterReader>
+    template<typename TAdapterReader, typename TContext = void>
     class BasicDeserializer {
     public:
         //this is used by AdapterAccess class
         using TReader = TAdapterReader;
         //helper type, that always returns bit-packing enabled type, useful inside serialize function when enabling bitpacking
         using BPEnabledType = BasicDeserializer<typename std::conditional<TAdapterReader::BitPackingEnabled,
-                TAdapterReader, AdapterReaderBitPackingWrapper<TAdapterReader>>::type>;
+                TAdapterReader, AdapterReaderBitPackingWrapper<TAdapterReader>>::type, TContext>;
 
 
         template <typename ReaderParam>
-        explicit BasicDeserializer(ReaderParam&& r, void* context = nullptr)
+        explicit BasicDeserializer(ReaderParam&& r, TContext* context = nullptr)
                 : _reader{std::forward<ReaderParam>(r)},
                   _context{context}
         {
@@ -60,8 +60,13 @@ namespace bitsery {
          * get serialization context.
          * this is optional, but might be required for some specific deserialization flows.
          */
-        void* context() {
+        TContext* context() {
             return _context;
+        }
+
+        template <typename T>
+        T* context(){
+            return details::getContext<T>(_context);
         }
 
         /*
@@ -320,7 +325,7 @@ namespace bitsery {
         friend AdapterAccess;
 
         TAdapterReader _reader;
-        void* _context;
+        TContext* _context;
 
         //process value types
         //false_type means that we must process all elements individually
@@ -390,7 +395,7 @@ namespace bitsery {
         template <typename Fnc>
         void procEnableBitPacking(const Fnc& fnc, std::false_type) {
             //create serializer using bitpacking wrapper
-            BasicDeserializer<AdapterReaderBitPackingWrapper<TAdapterReader>> tmp(_reader, _context);
+            BPEnabledType tmp(_reader, _context);
             fnc(tmp);
         }
 
