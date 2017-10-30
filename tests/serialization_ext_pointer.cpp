@@ -28,6 +28,7 @@ using bitsery::ext::PointerOwner;
 using bitsery::ext::PointerObserver;
 using bitsery::ext::ReferencedByPointer;
 using bitsery::ext::PointerLinkingContext;
+using bitsery::ext::PointerType;
 
 using testing::Eq;
 
@@ -143,6 +144,12 @@ TEST_F(SerializeExtensionPointerSerialization, WhenRererencedByPointerIsSameAsPo
     ser1.ext2b(pd1, PointerOwner{});
     ser1.ext4b(d2, ReferencedByPointer{});
     EXPECT_DEATH(ser1.ext2b(d1, ReferencedByPointer{}), "");
+}
+
+TEST_F(SerializeExtensionPointerSerialization, WhenNonNullPointerIsNullThenAssert) {
+    auto& ser1 = createSerializer();
+    EXPECT_DEATH(ser1.ext2b(p1null, PointerOwner{PointerType::NotNull}), "");
+    EXPECT_DEATH(ser1.ext2b(p1null, PointerObserver{PointerType::NotNull}), "");
 }
 
 #endif
@@ -277,12 +284,24 @@ TEST_F(SerializeExtensionPointerDeserialization, ReferencedByPointer) {
     EXPECT_THAT(r3, Eq(d3));
 }
 
-TEST_F(SerializeExtensionPointerDeserialization, WhenReferencedByPointerReadsZeroPointerIdThenInvalidPointerError) {
+TEST_F(SerializeExtensionPointerDeserialization, WhenReferencedByPointerReadsNullPointerThenInvalidPointerError) {
     auto& ser = createSerializer();
     bitsery::details::writeSize(*sctx1.bw, 0u);
     ser.ext2b(d1, ReferencedByPointer{});
     auto& des = createDeserializer();
     des.ext2b(r1, ReferencedByPointer{});
+    EXPECT_THAT(sctx1.br->error(), Eq(bitsery::ReaderError::InvalidPointer));
+}
+
+TEST_F(SerializeExtensionPointerDeserialization, WhenNonNullPointerIsNullThenInvalidPointerError) {
+    createSerializer();
+    bitsery::details::writeSize(*sctx1.bw, 0u);
+    auto& des1 = createDeserializer();
+    des1.ext2b(p1null, PointerOwner{PointerType::NotNull});
+    EXPECT_THAT(sctx1.br->error(), Eq(bitsery::ReaderError::InvalidPointer));
+
+    auto& des2 = createDeserializer();
+    des2.ext2b(p1null, PointerObserver{PointerType::NotNull});
     EXPECT_THAT(sctx1.br->error(), Eq(bitsery::ReaderError::InvalidPointer));
 }
 

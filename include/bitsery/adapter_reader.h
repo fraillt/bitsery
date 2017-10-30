@@ -99,7 +99,8 @@ namespace bitsery {
         }
 
         void setError(ReaderError error) {
-            return _inputAdapter.setError(error);
+            if (this->error() == ReaderError::NoError)
+                _inputAdapter.setError(error);
         }
 
         void beginSession() {

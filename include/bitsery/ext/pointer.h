@@ -34,6 +34,11 @@ namespace bitsery {
         //forward declare
         class PointerLinkingContext;
 
+        enum PointerType {
+            Nullable,
+            NotNull
+        };
+
         namespace details_pointer {
 
             enum class PointerOwnershipType:uint8_t {
@@ -263,10 +268,13 @@ namespace bitsery {
 
         class PointerOwner {
         public:
+            explicit PointerOwner(PointerType ptrType = PointerType::Nullable):_ptrType{ptrType} {}
+
             template<typename Ser, typename Writer, typename T, typename Fnc>
             void serialize(Ser &ser, Writer &w, const T &obj, Fnc &&) const {
                 auto& ctx = details_pointer::getLinkingContext(ser);
                 auto id = ctx.createId(obj, details_pointer::PointerOwnershipType::Owner);
+                assert(id || _ptrType == PointerType::Nullable);
                 details::writeSize(w, id);
                 if (id)
                     ctx.serialize(ser, obj);
@@ -282,18 +290,27 @@ namespace bitsery {
                     ctx.deserialize(des, obj);
                     ctx.processOwnerPtr(id, obj, details_pointer::PointerOwnershipType::Owner);
                 } else {
-                    details_pointer::destroyPointer(obj);
+                    if (_ptrType == PointerType::Nullable)
+                        details_pointer::destroyPointer(obj);
+                    else
+                        r.setError(ReaderError::InvalidPointer);
                 }
             }
+        private:
+            PointerType _ptrType;
         };
 
         class PointerObserver {
         public:
 
+            explicit PointerObserver(PointerType ptrType = PointerType::Nullable):_ptrType{ptrType} {}
+
             template<typename Ser, typename Writer, typename T, typename Fnc>
             void serialize(Ser &ser, Writer &w, const T &obj, Fnc &&) const {
                 auto& ctx = details_pointer::getLinkingContext(ser);
-                details::writeSize(w, ctx.createId(obj, details_pointer::PointerOwnershipType::Observer));
+                auto id = ctx.createId(obj, details_pointer::PointerOwnershipType::Observer);
+                assert(id || _ptrType == PointerType::Nullable);
+                details::writeSize(w, id);
             }
 
             template<typename Des, typename Reader, typename T, typename Fnc>
@@ -304,10 +321,14 @@ namespace bitsery {
                     auto& ctx = details_pointer::getLinkingContext(des);
                     ctx.processObserverPtr(id, reinterpret_cast<void*&>(obj));
                 } else {
-                    obj = nullptr;
+                    if (_ptrType == PointerType::Nullable)
+                        obj = nullptr;
+                    else
+                        r.setError(ReaderError::InvalidPointer);
                 }
             }
-
+        private:
+            PointerType _ptrType;
         };
 
         class ReferencedByPointer {

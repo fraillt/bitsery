@@ -163,9 +163,12 @@ namespace bitsery {
                                 break;
                         }
                     }
-                    _posItRef = _endItRef;
-                    //restore end position
-                    _endItRef = _sessionsStack.top();
+                    //modify pointers only if no error or buffer overflow
+                    if (_reader.error() == ReaderError::NoError || _reader.error() == ReaderError::DataOverflow) {
+                        _posItRef = _endItRef;
+                        //restore end position
+                        _endItRef = _sessionsStack.top();
+                    }
                     _sessionsStack.pop();
                 }
             }
