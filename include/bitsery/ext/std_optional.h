@@ -33,6 +33,7 @@
 //    using optional = experimental::optional<T>;
 //}
 #include <type_traits>
+#include "../traits/core/traits.h"
 
 namespace bitsery {
     namespace ext {

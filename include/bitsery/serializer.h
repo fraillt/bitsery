@@ -39,10 +39,14 @@ namespace bitsery {
         using BPEnabledType = BasicSerializer<typename std::conditional<TAdapterWriter::BitPackingEnabled,
                 TAdapterWriter, AdapterWriterBitPackingWrapper<TAdapterWriter>>::type, TContext>;
 
+        static_assert(details::IsSpecializationOf<typename TWriter::TConfig::InternalContext, std::tuple>::value,
+                      "Config::InternalContext must be std::tuple");
+
         template <typename WriterParam>
         explicit BasicSerializer(WriterParam&& w, TContext* context = nullptr)
                 : _writer{std::forward<WriterParam>(w)},
-                  _context{context}
+                  _context{context},
+                  _internalContext{}
         {
         }
 
@@ -64,7 +68,12 @@ namespace bitsery {
 
         template <typename T>
         T* context() {
-            return details::getContext<T>(_context);
+            return details::getContext<T>(_context, _internalContext);
+        }
+
+        template <typename T>
+        T* contextOrNull() {
+            return details::getContextIfTypeExists<T>(_context, _internalContext);
         }
 
         /*
@@ -322,6 +331,7 @@ namespace bitsery {
 
         TAdapterWriter _writer;
         TContext* _context;
+        typename TWriter::TConfig::InternalContext _internalContext;
 
         //process value types
         //false_type means that we must process all elements individually

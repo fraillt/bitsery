@@ -24,6 +24,8 @@
 #ifndef BITSERY_COMMON_H
 #define BITSERY_COMMON_H
 
+#include <tuple>
+
 namespace bitsery {
 
 /*
@@ -41,7 +43,10 @@ namespace bitsery {
         //this functionality allows to support backward/forward compatibility
         //however reading from streams is not supported, because this functionality requires random access to buffer.
         static constexpr bool BufferSessionsEnabled = false;
-
+        //list of contexts that will be instanciated internally within serializer/deserializer.
+        //contexts must be default constructable.
+        //internal context has priority, if external context with the same type exists.
+        using InternalContext = std::tuple<>;
     };
 
 }

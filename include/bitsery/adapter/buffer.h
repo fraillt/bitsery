@@ -21,8 +21,8 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_ADAPTERS_INPUT_BUFFER_ADAPTER_H
-#define BITSERY_ADAPTERS_INPUT_BUFFER_ADAPTER_H
+#ifndef BITSERY_ADAPTER_BUFFER_H
+#define BITSERY_ADAPTER_BUFFER_H
 
 #include "../details/adapter_common.h"
 #include "../traits/core/traits.h"
@@ -204,4 +204,4 @@ namespace bitsery {
 
 }
 
-#endif //BITSERY_ADAPTERS_INPUT_BUFFER_ADAPTER_H
+#endif //BITSERY_ADAPTER_BUFFER_H

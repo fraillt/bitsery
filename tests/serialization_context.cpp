@@ -26,6 +26,19 @@
 
 using testing::Eq;
 
+template <typename ... Args>
+struct ConfigWithContext: bitsery::DefaultConfig {
+    using InternalContext = std::tuple<Args...>;
+};
+
+template <typename Context, typename ... Args>
+using SerializerConfigWithContext = bitsery::BasicSerializer<
+        bitsery::AdapterWriter<bitsery::OutputBufferAdapter<Buffer>, ConfigWithContext<Args...>>, Context>;
+
+template <typename Context, typename ... Args>
+using DeserializerConfigWithContext = bitsery::BasicDeserializer<
+        bitsery::AdapterReader<bitsery::InputBufferAdapter<Buffer>, ConfigWithContext<Args...>>, Context>;
+
 template <typename Context>
 using MySerializer = bitsery::BasicSerializer<Writer, Context>;
 
@@ -66,4 +79,55 @@ TEST(SerializationContext, WhenContextIsNotTupleThenContextCastOverloadReturnSam
     SingleTypeContext ctx{};
     MySerializer<SingleTypeContext> ser1{buf, &ctx};
     EXPECT_THAT(ser1.context<SingleTypeContext>(), Eq(&ctx));
+}
+
+TEST(SerializationContext, SerializerDeserializerCanHaveInternalContextViaConfig) {
+    Buffer buf{};
+    SerializerConfigWithContext<void, float, int> ser{buf};
+    EXPECT_THAT(ser.context<int>(), ::testing::NotNull());
+    EXPECT_THAT(*ser.context<int>(), Eq(0));
+    *ser.context<int>() = 10;
+    EXPECT_THAT(*ser.context<int>(), Eq(10));
+
+    DeserializerConfigWithContext<void, char> des{InputAdapter{buf.begin(), 1}};
+    EXPECT_THAT(des.context<char>(), ::testing::NotNull());
+    EXPECT_THAT(*des.context<char>(), Eq(0));
+    *des.context<char>() = 10;
+    EXPECT_THAT(*des.context<char>(), Eq(10));
+
+    //new instance has new context
+    SerializerConfigWithContext<void, float, int> ser2{buf};
+    EXPECT_THAT(ser2.context<int>(), ::testing::NotNull());
+    EXPECT_THAT(*ser2.context<int>(), Eq(0));
+}
+
+TEST(SerializationContext, WhenInternalAndExternalContextIsTheSamePriorityGoesToInternalContext) {
+    Buffer buf{};
+    int externalCtx = 5;
+
+    SerializerConfigWithContext<int, float, int> ser{buf, &externalCtx};
+    EXPECT_THAT(ser.context<int>(), ::testing::NotNull());
+    EXPECT_THAT(*ser.context<int>(), Eq(0));
+    *ser.context<int>() = 2;
+
+    DeserializerConfigWithContext<int, int, char> des{InputAdapter{buf.begin(), 1}, &externalCtx};
+    EXPECT_THAT(des.context<char>(), ::testing::NotNull());
+    EXPECT_THAT(*des.context<char>(), Eq(0));
+    *des.context<int>() = 3;
+
+    EXPECT_THAT(externalCtx, Eq(5));
+}
+
+TEST(SerializationContext, ContextIfExistsReturnsNullWhenTypeDoesntExists) {
+    Buffer buf{};
+    std::tuple<double, short> extCtx1{};
+
+    SerializerConfigWithContext<std::tuple<double, short>, float, int> ser{buf, &extCtx1};
+    EXPECT_THAT(ser.contextOrNull<int>(), ::testing::NotNull());
+    EXPECT_THAT(ser.contextOrNull<char>(), ::testing::IsNull());
+
+    double extCtx2{};
+    DeserializerConfigWithContext<double, int, char> des{InputAdapter{buf.begin(), 1}, &extCtx2};
+    EXPECT_THAT(des.contextOrNull<double>(), ::testing::NotNull());
+    EXPECT_THAT(des.contextOrNull<float>(), ::testing::IsNull());
 }

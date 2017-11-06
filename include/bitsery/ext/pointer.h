@@ -23,6 +23,8 @@
 #ifndef BITSERY_EXT_POINTER_H
 #define BITSERY_EXT_POINTER_H
 
+#include "../traits/core/traits.h"
+
 #include <unordered_map>
 #include <vector>
 #include <memory>
@@ -34,21 +36,93 @@ namespace bitsery {
         //forward declare
         class PointerLinkingContext;
 
-        enum PointerType {
+        enum class PointerType {
             Nullable,
             NotNull
         };
 
+        enum class PointerOwnershipType:uint8_t {
+            //is not responsible for pointer lifetime management.
+                    Observer,
+            //only ONE owner is responsible for this pointers creation/destruction
+                    Owner,
+            //MANY shared owners is responsible for pointer creation/destruction
+            //requires additional context to manage shared owners themselves.
+                    Shared
+        };
+
         namespace details_pointer {
 
-            enum class PointerOwnershipType:uint8_t {
-                //is not responsible for pointer lifetime management.
-                Observer,
-                //only ONE owner is responsible for this pointers creation/destruction
-                Owner,
-                //MANY shared owners is responsible for pointer creation/destruction
-                //requires additional context to manage shared owners themselves.
-                Shared
+            //helper functions that creates or destroys pointers
+            //useful, because can be specialized
+            template <typename T>
+            void destroyObject(T &ptr) {
+                if (ptr) {
+                    delete ptr;
+                }
+                ptr = nullptr;
+            }
+
+            template <typename T>
+            void createObject(T &ptr) {
+                using TNonPtr = typename std::remove_pointer<T>::type;
+                if (ptr == nullptr)
+                    ptr = new TNonPtr{};
+            }
+
+
+            template <typename S, typename TPtr>
+            void serializeObject(S &s, const TPtr &obj) {
+                using TNonPtr = typename std::remove_pointer<TPtr>::type;
+                static_assert(!std::is_polymorphic<TNonPtr>::value, "Polymorphic types are not supported");
+                serializeImpl(s, *obj, details::IsFundamentalType<TNonPtr>{});
+            }
+
+            template <typename S, typename T>
+            void serializeImpl(S& s, const T& obj, std::true_type) {
+                s.template value<sizeof(T)>(obj);
+            }
+
+            template <typename S, typename T>
+            void serializeImpl(S& s, const T& obj, std::false_type) {
+                s.object(obj);
+            }
+
+            template <typename S, typename TPtr>
+            void deserializeObject(S &s, TPtr &obj) {
+                using TNonPtr = typename std::remove_pointer<TPtr>::type;
+                static_assert(!std::is_polymorphic<TNonPtr>::value, "Polymorphic types are not supported");
+                deserializeImpl(s, *obj, details::IsFundamentalType<TNonPtr>{});
+            }
+
+            template <typename S, typename T>
+            void deserializeImpl(S& s, T& obj, std::true_type) {
+                s.template value<sizeof(T)>(obj);
+            }
+
+            template <typename S, typename T>
+            void deserializeImpl(S& s, T& obj, std::false_type) {
+                s.object(obj);
+            }
+
+            class RawPointerManager {
+            public:
+                template <typename Writer, typename Ser, typename T>
+                static void serializeObject(Writer& , Ser& ser, const T& obj) {
+
+                    details_pointer::serializeObject(ser, obj);
+                }
+
+                template <typename Reader, typename Des, typename T>
+                static void deserializeObject(Reader& , Des& des, T& obj) {
+                    details_pointer::createObject(obj);
+                    details_pointer::deserializeObject(des, obj);
+                }
+
+                template <typename T>
+                static void destroyObject(T& obj) {
+                    details_pointer::destroyObject(obj);
+                }
             };
 
             class PointerLinkingContextSerialization {
@@ -65,36 +139,37 @@ namespace bitsery {
                 PointerLinkingContextSerialization& operator = (PointerLinkingContextSerialization&&) = default;
                 ~PointerLinkingContextSerialization() = default;
 
+                struct PointerInfo {
+                    PointerInfo(size_t id_, PointerOwnershipType ownershipType_)
+                            :id{id_},
+                             ownershipType{ownershipType_},
+                             sharedCount{0}
+                    {};
+                    size_t id;
+                    PointerOwnershipType ownershipType;
+                    size_t sharedCount;
+                };
 
-                size_t createId(const void *ptr, PointerOwnershipType ptrType) {
-                    if (ptr == nullptr)
-                        return 0u;
-
+                const PointerInfo& getInfoByPtr(const void *ptr, PointerOwnershipType ptrType) {
                     auto res = _ptrMap.emplace(ptr, PointerInfo{_currId + 1u, ptrType});
                     auto& ptrInfo = res.first->second;
                     if (res.second) {
                         ++_currId;
-                        return ptrInfo.id;
+                        return ptrInfo;
                     }
                     //ptr already exists
                     //for observer return success
                     if (ptrType == PointerOwnershipType::Observer)
-                        return ptrInfo.id;
+                        return ptrInfo;
                     //set owner and return success
                     if (ptrInfo.ownershipType == PointerOwnershipType::Observer) {
                         ptrInfo.ownershipType = ptrType;
-                        return ptrInfo.id;
+                        return ptrInfo;
                     }
                     //only shared ownership can get here multiple times
                     assert(ptrType == PointerOwnershipType::Shared);
-                    return ptrInfo.id;
-                }
-
-                template <typename S, typename TPtr>
-                void serialize(S& s, const TPtr& obj) {
-                    using TNonPtr = typename std::remove_pointer<TPtr>::type;
-                    static_assert(!std::is_polymorphic<TNonPtr>::value, "Polymorphic types are not supported");
-                    serializeImpl(s, *obj, details::IsFundamentalType<TNonPtr>{});
+                    ptrInfo.sharedCount++;
+                    return ptrInfo;
                 }
 
                 //valid, when all pointers have owners.
@@ -106,25 +181,6 @@ namespace bitsery {
                 }
 
             private:
-                template <typename S, typename T>
-                void serializeImpl(S& s, const T& obj, std::true_type) {
-                    s.template value<sizeof(T)>(obj);
-                }
-
-                template <typename S, typename T>
-                void serializeImpl(S& s, const T& obj, std::false_type) {
-                    s.object(obj);
-                }
-
-                struct PointerInfo {
-                    PointerInfo(size_t id_, PointerOwnershipType ownershipType_)
-                            :id{id_},
-                             ownershipType{ownershipType_}
-                    {};
-                    size_t id;
-                    PointerOwnershipType ownershipType;
-                };
-
                 size_t _currId;
                 std::unordered_map<const void*, PointerInfo> _ptrMap;
 
@@ -134,23 +190,6 @@ namespace bitsery {
             struct SharedContextBase {
                 virtual ~SharedContextBase() = default;
             };
-
-            //helper functions that creates or destroys pointers
-            //useful, because can be specialized
-            template <typename T>
-            void destroyPointer(T& ptr) {
-                if (ptr) {
-                    delete ptr;
-                }
-                ptr = nullptr;
-            }
-
-            template <typename T>
-            void createPointer(T& ptr) {
-                using TNonPtr = typename std::remove_pointer<T>::type;
-                if (ptr == nullptr)
-                    ptr = new TNonPtr{};
-            }
 
             class PointerLinkingContextDeserialization {
             public:
@@ -165,36 +204,52 @@ namespace bitsery {
                 PointerLinkingContextDeserialization& operator = (PointerLinkingContextDeserialization&&) = default;
                 ~PointerLinkingContextDeserialization() = default;
 
-                void processOwnerPtr(size_t id, void* ptr, PointerOwnershipType ptrType) {
-                    assert(id != 0 && ptr != nullptr && ptrType != PointerOwnershipType::Observer);
-                    auto res = _idMap.emplace(id, PointerInfo{id, ptr, ptrType});
-                    auto& ptrInfo = res.first->second;
-                    if (!res.second) {
-                        assert(ptrInfo.ownershipType != PointerOwnershipType::Owner);
-                        //if already exists, then process observer list
-                        if (ptrInfo.ownershipType == PointerOwnershipType::Observer) {
-                            ptrInfo.ptrAddress = ptr;
-                            ptrInfo.ownershipType = ptrType;
-                            processObserverList(ptrInfo.observersList, ptr);
+
+                struct PointerInfo {
+                    PointerInfo(size_t id_, void* ptr, PointerOwnershipType ownershipType_)
+                            :id{id_},
+                             ownershipType{ownershipType_},
+                             ownerPtr{ptr},
+                             observersList{},
+                             sharedContext{}
+                    {};
+                    PointerInfo(const PointerInfo&) = delete;
+                    PointerInfo& operator = (const PointerInfo&) = delete;
+                    PointerInfo(PointerInfo&&) = default;
+                    PointerInfo&operator = (PointerInfo&&) = default;
+                    ~PointerInfo() = default;
+
+                    void processOwner(void* ptr) {
+                        ownerPtr = ptr;
+                        assert(ownershipType != PointerOwnershipType::Observer);
+                        for (auto& o:observersList)
+                            o.get() = ptr;
+                        observersList.clear();
+                        observersList.shrink_to_fit();
+                    }
+                    void processObserver(void* (&ptr)) {
+                        if (ownerPtr) {
+                            ptr = ownerPtr;
+                        } else {
+                            observersList.push_back(ptr);
                         }
                     }
-                }
+                    size_t id;
+                    PointerOwnershipType ownershipType;
+                    void* ownerPtr;
+                    std::vector<std::reference_wrapper<void*>> observersList;
+                    std::unique_ptr<SharedContextBase> sharedContext;
+                };
 
-                void processObserverPtr(size_t id, void* (&ptr)) {
-                    auto res = _idMap.emplace(id, PointerInfo{id, nullptr, PointerOwnershipType::Observer});
+                PointerInfo& getInfoById(size_t id, PointerOwnershipType ptrType) {
+                    auto res = _idMap.emplace(id, PointerInfo{id, nullptr, ptrType});
                     auto& ptrInfo = res.first->second;
-                    if (ptrInfo.ptrAddress)
-                        ptr = ptrInfo.ptrAddress;
-                    else
-                        ptrInfo.observersList.push_back(ptr);
-                }
-
-                template <typename S, typename TPtr>
-                void deserialize(S& s, TPtr& obj) {
-                    using TNonPtr = typename std::remove_pointer<TPtr>::type;
-                    static_assert(!std::is_polymorphic<TNonPtr>::value, "Polymorphic types are not supported");
-                    createPointer(obj);
-                    deserializeImpl(s, *obj, details::IsFundamentalType<TNonPtr>{});
+                    if (!res.second) {
+                        assert(ptrType != PointerOwnershipType::Owner || ptrInfo.ownershipType == PointerOwnershipType::Observer);
+                        if (ptrInfo.ownershipType == PointerOwnershipType::Observer)
+                            ptrInfo.ownershipType = ptrType;
+                    }
+                    return ptrInfo;
                 }
 
                 //valid, when all pointers has owners
@@ -205,45 +260,6 @@ namespace bitsery {
                 }
 
             private:
-
-                struct PointerInfo {
-                    PointerInfo(size_t id_, void* ptr, PointerOwnershipType ownershipType_)
-                            :id{id_},
-                             ownershipType{ownershipType_},
-                             ptrAddress{ptr},
-                             observersList{},
-                             sharedContext{}
-                    {};
-                    PointerInfo(const PointerInfo&) = delete;
-                    PointerInfo& operator = (const PointerInfo&) = delete;
-                    PointerInfo(PointerInfo&&) = default;
-                    PointerInfo&operator = (PointerInfo&&) = default;
-                    ~PointerInfo() = default;
-
-                    size_t id;
-                    PointerOwnershipType ownershipType;
-                    void* ptrAddress;
-                    std::vector<std::reference_wrapper<void*>> observersList;
-                    std::unique_ptr<SharedContextBase> sharedContext;
-                };
-
-                void processObserverList(std::vector<std::reference_wrapper<void*>>& observers, void* ptr) {
-                    for (auto& o:observers)
-                        o.get() = ptr;
-                    observers.clear();
-                    observers.shrink_to_fit();
-                }
-
-                template <typename S, typename T>
-                void deserializeImpl(S& s, T& obj, std::true_type) {
-                    s.template value<sizeof(T)>(obj);
-                }
-
-                template <typename S, typename T>
-                void deserializeImpl(S& s, T& obj, std::false_type) {
-                    s.object(obj);
-                }
-
                 std::unordered_map<size_t, PointerInfo> _idMap;
             };
 
@@ -265,7 +281,6 @@ namespace bitsery {
             }
         };
 
-
         class PointerOwner {
         public:
             explicit PointerOwner(PointerType ptrType = PointerType::Nullable):_ptrType{ptrType} {}
@@ -273,11 +288,14 @@ namespace bitsery {
             template<typename Ser, typename Writer, typename T, typename Fnc>
             void serialize(Ser &ser, Writer &w, const T &obj, Fnc &&) const {
                 auto& ctx = details_pointer::getLinkingContext(ser);
-                auto id = ctx.createId(obj, details_pointer::PointerOwnershipType::Owner);
-                assert(id || _ptrType == PointerType::Nullable);
-                details::writeSize(w, id);
-                if (id)
-                    ctx.serialize(ser, obj);
+                if (obj) {
+                    auto& ptrInfo = ctx.getInfoByPtr(obj, PointerOwnershipType::Owner);
+                    details::writeSize(w, ptrInfo.id);
+                    details_pointer::RawPointerManager::serializeObject(w, ser, obj);
+                } else {
+                    assert(_ptrType == PointerType::Nullable);
+                    details::writeSize(w, 0);
+                }
             }
 
             template<typename Des, typename Reader, typename T, typename Fnc>
@@ -287,11 +305,12 @@ namespace bitsery {
                 details::readSize(r, id, std::numeric_limits<size_t>::max());
                 if (id) {
                     auto& ctx = details_pointer::getLinkingContext(des);
-                    ctx.deserialize(des, obj);
-                    ctx.processOwnerPtr(id, obj, details_pointer::PointerOwnershipType::Owner);
+                    auto& ptrInfo = ctx.getInfoById(id, PointerOwnershipType::Owner);
+                    details_pointer::RawPointerManager::deserializeObject(r, des, obj);
+                    ptrInfo.processOwner(obj);
                 } else {
                     if (_ptrType == PointerType::Nullable)
-                        details_pointer::destroyPointer(obj);
+                        details_pointer::RawPointerManager::destroyObject(obj);
                     else
                         r.setError(ReaderError::InvalidPointer);
                 }
@@ -308,9 +327,12 @@ namespace bitsery {
             template<typename Ser, typename Writer, typename T, typename Fnc>
             void serialize(Ser &ser, Writer &w, const T &obj, Fnc &&) const {
                 auto& ctx = details_pointer::getLinkingContext(ser);
-                auto id = ctx.createId(obj, details_pointer::PointerOwnershipType::Observer);
-                assert(id || _ptrType == PointerType::Nullable);
-                details::writeSize(w, id);
+                if (obj) {
+                    details::writeSize(w, ctx.getInfoByPtr(obj, PointerOwnershipType::Observer).id);
+                } else {
+                    assert(_ptrType == PointerType::Nullable);
+                    details::writeSize(w, 0);
+                }
             }
 
             template<typename Des, typename Reader, typename T, typename Fnc>
@@ -319,7 +341,7 @@ namespace bitsery {
                 details::readSize(r, id, std::numeric_limits<size_t>::max());
                 if (id) {
                     auto& ctx = details_pointer::getLinkingContext(des);
-                    ctx.processObserverPtr(id, reinterpret_cast<void*&>(obj));
+                    ctx.getInfoById(id, PointerOwnershipType::Observer).processObserver(reinterpret_cast<void*&>(obj));
                 } else {
                     if (_ptrType == PointerType::Nullable)
                         obj = nullptr;
@@ -336,7 +358,7 @@ namespace bitsery {
             template<typename Ser, typename Writer, typename T, typename Fnc>
             void serialize(Ser &ser, Writer &w, const T &obj, Fnc && fnc) const {
                 auto& ctx = details_pointer::getLinkingContext(ser);
-                details::writeSize(w, ctx.createId(&obj, details_pointer::PointerOwnershipType::Owner));
+                details::writeSize(w, ctx.getInfoByPtr(&obj, PointerOwnershipType::Owner).id);
                 fnc(const_cast<T&>(obj));
             }
 
@@ -347,7 +369,7 @@ namespace bitsery {
                 if (id) {
                     auto& ctx = details_pointer::getLinkingContext(des);
                     fnc(obj);
-                    ctx.processOwnerPtr(id, &obj, details_pointer::PointerOwnershipType::Owner);
+                    ctx.getInfoById(id, PointerOwnershipType::Owner).processOwner(&obj);
                 } else {
                     //cannot be null for references
                     r.setError(ReaderError::InvalidPointer);

@@ -22,8 +22,8 @@
 
 
 
-#ifndef BITSERY_BASIC_WRITER_H
-#define BITSERY_BASIC_WRITER_H
+#ifndef BITSERY_ADAPTER_WRITER_H
+#define BITSERY_ADAPTER_WRITER_H
 
 #include "details/sessions.h"
 
@@ -33,10 +33,12 @@
 
 namespace bitsery {
 
-    struct MeasureSize {
+    template <typename Config>
+    struct BasicMeasureSize {
         //measure class is bit-packing enabled, no need to create wrapper for it
         static constexpr bool BitPackingEnabled = true;
 
+        using TConfig = Config;
         template<size_t SIZE, typename T>
         void writeBytes(const T &) {
             static_assert(std::is_integral<T>(), "");
@@ -95,6 +97,9 @@ namespace bitsery {
         size_t _sessionsBytesCount{};
     };
 
+    //helper type for default config
+    using MeasureSize = BasicMeasureSize<DefaultConfig>;
+
 
     template <typename TWriter>
     class AdapterWriterBitPackingWrapper;
@@ -103,7 +108,7 @@ namespace bitsery {
     struct AdapterWriter {
         //this is required by serializer
         static constexpr bool BitPackingEnabled = false;
-
+        using TConfig = Config;
         using TValue = typename OutputAdapter::TValue;
 
         static_assert(details::IsDefined<TValue>::value, "Please define adapter traits or include from <bitsery/traits/...>");
@@ -207,6 +212,7 @@ namespace bitsery {
     public:
         //this is required by serializer
         static constexpr bool BitPackingEnabled = true;
+        using TConfig = typename TWriter::TConfig;
 
         //make TValue unsigned for bit packing
         using UnsignedType = typename std::make_unsigned<typename TWriter::TValue>::type;
@@ -334,4 +340,4 @@ namespace bitsery {
     };
 }
 
-#endif //BITSERY_BASIC_WRITER_H
+#endif //BITSERY_ADAPTER_WRITER_H

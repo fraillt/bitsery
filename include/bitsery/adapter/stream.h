@@ -21,8 +21,8 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_ADAPTERS_DYNAMIC_STREAM_H
-#define BITSERY_ADAPTERS_DYNAMIC_STREAM_H
+#ifndef BITSERY_ADAPTER_STREAM_H
+#define BITSERY_ADAPTER_STREAM_H
 
 #include "../details/adapter_common.h"
 #include "../traits/array.h"
@@ -224,4 +224,4 @@ namespace bitsery {
     using OutputBufferedStreamAdapter = BasicBufferedOutputStreamAdapter<char, std::char_traits<char>>;
 }
 
-#endif //BITSERY_ADAPTERS_DYNAMIC_STREAM_H
+#endif //BITSERY_ADAPTER_STREAM_H

@@ -21,8 +21,8 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_TRAITS_CORE_NOT_DEFINED_TYPE_H
-#define BITSERY_TRAITS_CORE_NOT_DEFINED_TYPE_H
+#ifndef BITSERY_DETAILS_NOT_DEFINED_TYPE_H
+#define BITSERY_DETAILS_NOT_DEFINED_TYPE_H
 
 #include <iterator>
 
@@ -76,4 +76,4 @@ namespace std {
         using iterator_category = std::random_access_iterator_tag;
     };
 }
-#endif //BITSERY_TRAITS_CORE_NOT_DEFINED_TYPE_H
+#endif //BITSERY_DETAILS_NOT_DEFINED_TYPE_H

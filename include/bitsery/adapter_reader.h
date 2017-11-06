@@ -22,8 +22,8 @@
 
 
 
-#ifndef BITSERY_BASIC_READER_H
-#define BITSERY_BASIC_READER_H
+#ifndef BITSERY_ADAPTER_READER_H
+#define BITSERY_ADAPTER_READER_H
 
 #include "details/sessions.h"
 #include <algorithm>
@@ -39,7 +39,7 @@ namespace bitsery {
     struct AdapterReader {
         //this is required by deserializer
         static constexpr bool BitPackingEnabled = false;
-
+        using TConfig = Config;
         using TValue = typename InputAdapter::TValue;
 
         static_assert(details::IsDefined<TValue>::value, "Please define adapter traits or include from <bitsery/traits/...>");
@@ -154,6 +154,7 @@ namespace bitsery {
     public:
         //this is required by deserializer
         static constexpr bool BitPackingEnabled = true;
+        using TConfig = typename TReader::TConfig;
         //make TValue unsigned for bitpacking
         using UnsignedValue = typename std::make_unsigned<typename TReader::TValue>::type;
         using ScratchType = typename details::ScratchType<UnsignedValue>::type;
@@ -268,4 +269,4 @@ namespace bitsery {
     };
 }
 
-#endif //BITSERY_BUFFER_READER_H
+#endif //BITSERY_ADAPTER_READER_H

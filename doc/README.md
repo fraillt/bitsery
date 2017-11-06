@@ -10,6 +10,7 @@ Library design:
 * `errors handling`
 * `forward/backward compatibility via Growable extension`
 * `pointers`
+* `inheritance`
 
 
 Core Serializer/Deserializer functions (alphabetical order):
@@ -18,11 +19,14 @@ Core Serializer/Deserializer functions (alphabetical order):
 * `container`
 * `ext`
 * `context`
+* `context<T>`
+* `contextOrNull<T>`
 * `object`
 * `text`
 * `value`
 
 Serializer/Deserializer extensions via `ext` method (alphabetical order):
+* `BaseClass`
 * `Entropy`
 * `Growable`
 * `PointerOwner`
@@ -34,6 +38,7 @@ Serializer/Deserializer extensions via `ext` method (alphabetical order):
 * `StdSet`
 * `StdStack`
 * `ValueRange`
+* `VirtualBaseClass`
 
 AdapterWriter/Reader functions:
 * `writeBits/readBits`
@@ -61,9 +66,6 @@ Output adapters (buffer and stream) functions:
 
 Tips and tricks:
 * if you're getting static assert "please define 'serialize' function", most likely it is because your **serialize** function is not defined in same namespace as object.
-
-Limitations:
-* max **text** or **container** size can be 2^(n-2) (where n = sizeof(std::size_t) * 8) for 32-bit systems it is 1073741823 (0x3FFFFFF).
 
 Other:
 * [Contributing](../CONTRIBUTING.md)

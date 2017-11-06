@@ -1,3 +1,24 @@
+# [4.2.0](https://github.com/fraillt/bitsery/compare/v4.1.0...v4.2.0) (2017-11-12)
+
+### Features
+
+* serializer/deserializer can now have **internal context(s)** via configuration.
+It is convenient way to pass context, when it doesn't convey useful information outside of serializer/deserializer and is default constructable.
+* added **contextOrNull\<T\>()** overload to *BasicSerializer/BasicDeserializer*.
+Difference between *contextOrNull\<T\>()* and *context\<T\>()* is, that using *context\<T\>()* code doesn't compile if T doesn't exists at all, while using *contextOrNull\<T\>()* code compiles, but returns *nullptr* at runtime.
+* added inheritance support via extensions.
+In order to correctly manage virtual inheritance two extensions was created in **<bitsery/ext/inheritance.h>** header:
+  * **BaseClass\<TBase\>** - use when inheriting from objects without virtual inheritance.
+  * **VirtualBaseClass\<TBase\>** - ensures that only one copy of each virtual base class is serialized.
+
+  To keep track of virtual base classes **InheritanceContext** is required, but it is optional if no virtual bases exists in serialization flow.
+  I.e. if context is not defined, code will not compile only if virtual inheritance is used.
+  See [inheritance](examples/inheritance.cpp) for usage example.
+
+### Improvements
+* added optional ctor parameter for *PointerOwner* and *PointerObserver* - **PointerType**, which specifies if pointer can be null or not.
+Default is **Nullable**.
+
 # [4.1.0](https://github.com/fraillt/bitsery/compare/v4.0.1...v4.1.0) (2017-10-27)
 
 ### Features
@@ -12,9 +33,9 @@ In order to correctly manage pointer ownership, three extensions was created in 
 
   *Currently polimorphism and std::shared_ptr,  std::unique_ptr is not supported.*
 
-* added **context\<T\>()** overload to *BasicSerializer/BasicDeserializer* and now serializers is typesafe.
-Also for better pointers support, added posibility to have multiple types in context with *std::tuple*.
-E.g. when using pointers together with your custom context, you can define your context as *std::tuple\<PointerLinkingContext, MyContext\>* and in serialization function you can correctly get your data via *context\<MyContext\>()*.
+* added **context\<T\>()** overload to *BasicSerializer/BasicDeserializer* and now they became typesafe.
+For better extensions support, added posibility to have multiple types in context with *std::tuple*.
+E.g. when using multiple extensions, that requires specific contexts, together with your custom context, you can define your context as *std::tuple\<PointerLinkingContext, MyContext\>* and in serialization function you can correctly get your data via *context\<MyContext\>()*.
 
 
 ### Improvements

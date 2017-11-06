@@ -2,8 +2,8 @@
 // Created by fraillt on 17.10.5.
 //
 
-#ifndef BITSERY_BUFFER_SESSIONS_H
-#define BITSERY_BUFFER_SESSIONS_H
+#ifndef BITSERY_DETAILS_SESSIONS_H
+#define BITSERY_DETAILS_SESSIONS_H
 
 #include <vector>
 #include <stack>
@@ -225,4 +225,4 @@ namespace bitsery {
     }
 }
 
-#endif //BITSERY_BUFFER_SESSIONS_H
+#endif //BITSERY_DETAILS_SESSIONS_H

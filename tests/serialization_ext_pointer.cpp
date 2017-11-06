@@ -92,9 +92,9 @@ TEST(SerializeExtensionPointer, PointerLinkingContextAcceptsMultipleSharedOwners
     MyStruct1* sharedPtr = &data;
     //linking context
     PointerLinkingContext plctx1{};
-    EXPECT_THAT(plctx1.createId(sharedPtr, bitsery::ext::details_pointer::PointerOwnershipType::Shared), Eq(1));
-    EXPECT_THAT(plctx1.createId(sharedPtr, bitsery::ext::details_pointer::PointerOwnershipType::Shared), Eq(1));
-    EXPECT_THAT(plctx1.createId(sharedPtr, bitsery::ext::details_pointer::PointerOwnershipType::Shared), Eq(1));
+    EXPECT_THAT(plctx1.getInfoByPtr(sharedPtr, bitsery::ext::PointerOwnershipType::Shared).id, Eq(1));
+    EXPECT_THAT(plctx1.getInfoByPtr(sharedPtr, bitsery::ext::PointerOwnershipType::Shared).id, Eq(1));
+    EXPECT_THAT(plctx1.getInfoByPtr(sharedPtr, bitsery::ext::PointerOwnershipType::Shared).id, Eq(1));
 }
 
 TEST_F(SerializeExtensionPointerSerialization, WhenPointersAreNullThenIsValid) {

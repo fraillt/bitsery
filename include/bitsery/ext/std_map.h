@@ -23,6 +23,7 @@
 #ifndef BITSERY_EXT_STD_MAP_H
 #define BITSERY_EXT_STD_MAP_H
 
+#include "../traits/core/traits.h"
 #include "../details/adapter_utils.h"
 
 namespace bitsery {

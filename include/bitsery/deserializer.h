@@ -40,11 +40,14 @@ namespace bitsery {
         using BPEnabledType = BasicDeserializer<typename std::conditional<TAdapterReader::BitPackingEnabled,
                 TAdapterReader, AdapterReaderBitPackingWrapper<TAdapterReader>>::type, TContext>;
 
+        static_assert(details::IsSpecializationOf<typename TReader::TConfig::InternalContext, std::tuple>::value,
+                      "Config::InternalContext must be std::tuple");
 
         template <typename ReaderParam>
         explicit BasicDeserializer(ReaderParam&& r, TContext* context = nullptr)
                 : _reader{std::forward<ReaderParam>(r)},
-                  _context{context}
+                  _context{context},
+                  _internalContext{}
         {
         }
 
@@ -66,7 +69,12 @@ namespace bitsery {
 
         template <typename T>
         T* context(){
-            return details::getContext<T>(_context);
+            return details::getContext<T>(_context, _internalContext);
+        }
+
+        template <typename T>
+        T* contextOrNull(){
+            return details::getContextIfTypeExists<T>(_context, _internalContext);
         }
 
         /*
@@ -326,6 +334,8 @@ namespace bitsery {
 
         TAdapterReader _reader;
         TContext* _context;
+        typename TReader::TConfig::InternalContext _internalContext;
+
 
         //process value types
         //false_type means that we must process all elements individually

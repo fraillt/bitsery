@@ -27,6 +27,7 @@
 #include "../details/adapter_utils.h"
 //we need this, so we could
 #include <unordered_set>
+#include "../traits/core/traits.h"
 
 namespace bitsery {
     namespace ext {

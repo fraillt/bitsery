@@ -23,6 +23,8 @@
 #ifndef BITSERY_EXT_GROWABLE_H
 #define BITSERY_EXT_GROWABLE_H
 
+#include "../traits/core/traits.h"
+
 namespace bitsery {
 
     namespace ext {

@@ -11,6 +11,7 @@
 using bitsery::ext::ReferencedByPointer;
 using bitsery::ext::PointerObserver;
 using bitsery::ext::PointerOwner;
+using bitsery::ext::PointerType ;
 
 enum class MyEnum:uint16_t { V1,V2,V3 };
 struct MyStruct {
@@ -71,8 +72,8 @@ private:
         });
         //observer
         s.ext(po1, PointerObserver{});
-        //owner
-        s.ext4b(pi1, PointerOwner{});
+        //owner, mark it as not null
+        s.ext4b(pi1, PointerOwner{PointerType::NotNull});
 
     }
 };
