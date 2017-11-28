@@ -29,7 +29,7 @@ using bitsery::details::RangeSpec;
 using bitsery::ext::BitsConstraint;
 using bitsery::ext::ValueRange;
 
-#if __cplusplus > 201402L
+#if __cplusplus > 201103L
 
 TEST(SerializeExtensionValueRange, RequiredBitsIsConstexpr) {
     constexpr RangeSpec<int> r1{0, 31};

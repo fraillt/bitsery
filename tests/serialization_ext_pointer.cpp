@@ -111,13 +111,13 @@ TEST_F(SerializeExtensionPointerSerialization, WhenPointersAreNullThenIsValid) {
 }
 #ifndef NDEBUG
 
-TEST(SerializeExtensionPointer, WhenPointerLinkingContextIsNullThenAssert) {
-    MyStruct1* data = nullptr;
+TEST(SerializeExtensionPointer, WhenPointerLinkingContextIsNullAndPointerIsNotNullThenAssert) {
+    MyStruct1 tmp;
+    MyStruct1* data = &tmp;
     //linking context
     PointerLinkingContext plctx1{};
     SerContext sctx1;
     EXPECT_DEATH(sctx1.createSerializer(nullptr).ext(data, PointerOwner{}), "");
-    EXPECT_DEATH(sctx1.createDeserializer(nullptr).ext(data, PointerObserver{}), "");
 }
 
 TEST_F(SerializeExtensionPointerSerialization, WhenPointerOwnerIsNotUniqueThenAssert) {
