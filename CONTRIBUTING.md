@@ -8,15 +8,19 @@ you contribute:
 1. Fork the repository.
 2. Create new branch based on the *master* branch (`git checkout -b your_branch master`). If your contribution is a bug fix, you should name your branch `bugfix/xxx`; for a feature, it should be `feature/xxx`. Otherwise, just use your good judgment. Consistent naming of branches is appreciated since it makes the output of `git branch` easier to understand with a single glance.
 3. Do your modifications on that branch. Except for special cases, your contribution should include proper unit tests and documentation.
-4. Make sure your modifications did not break anything by building, running tests and checking code coverage (test coverage should not be less than 100%):
+4. Make sure your modifications did not break anything by building, running tests:
   ```shell
   mkdir build
   cd build
-  cmake ..
+  cmake -DBITSERY_BUILD_TESTS=ON ..
   make
-  ctest
-  make tests_coverage
-  x-www-browser ./coverage/index.html
+  (cd tests; ctest)
+  ```
+  or run CTest scripts and view code coverage (scripts tested on ubuntu, requires lcov for coverage):
+  ```shell
+  cd scripts
+  ctest -S build.bitsery.cmake
+  ./show_coverage.sh build
   ```
 5. Commit your changes, and push to your fork (`git push origin your_branch`). Commit message should be one line short description. When applicable, please squash adjacent *wip* commits into a single *logical* commit.
 6. Open a pull request against Bitsery *master* branch. Currently ongoing development is on *master*. At some point an integration branch will be set-up, and pull-requests should target that, but for now its all against master. You may see feature branches come and go, too.

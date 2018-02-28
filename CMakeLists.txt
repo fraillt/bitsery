@@ -1,18 +1,64 @@
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.1)
+project(bitsery
+        LANGUAGES CXX
+        VERSION 4.2.1)
 
-project(bitsery)
+#======== build options ===================================
+option(BITSERY_BUILD_EXAMPLES "Build examples" OFF)
+option(BITSERY_BUILD_TESTS "Build tests" OFF)
 
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    set(COMPILE_FLAGS "")
+#============= setup target ======================
+add_library(bitsery INTERFACE)
+# create alias, so that user could always write target_link_libraries(... Bitsery::bitsery)
+# despite of bitsery target is imported or not
+add_library(Bitsery::bitsery ALIAS bitsery)
+
+include(GNUInstallDirs)
+target_include_directories(bitsery INTERFACE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+target_compile_features(bitsery INTERFACE
+        cxx_auto_type
+        cxx_constexpr
+        cxx_lambdas
+        cxx_nullptr
+        cxx_variadic_templates)
+
+#=============== setup installation =======================
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/BitseryConfigVersion.cmake
+        COMPATIBILITY SameMajorVersion)
+install(TARGETS bitsery
+        EXPORT bitseryTargets
+        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(EXPORT bitseryTargets
+        FILE "BitseryConfig.cmake"
+        NAMESPACE Bitsery::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/bitsery)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/BitseryConfigVersion.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/bitsery)
+install(DIRECTORY include/bitsery
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+#================ handle sub-projects =====================
+# examples and tests are independend directories, that can be built separatelly.
+# make find_package to no-op, when searching for "Bitsery", because it is created here.
+macro(find_package)
+    if (NOT ${ARGV0} STREQUAL Bitsery)
+        _find_package(${ARGV})
+    endif()
+endmacro()
+
+if (BITSERY_BUILD_EXAMPLES)
+    message("build bitsery examples")
+    add_subdirectory(examples)
 else()
-    set(COMPILE_FLAGS "-Wall -Wextra -Wno-missing-braces -Wpedantic -Weffc++")
+    message("skip bitsery examples")
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMPILE_FLAGS}")
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-add_subdirectory(examples)
-
-enable_testing()
-add_subdirectory(tests)
+if (BITSERY_BUILD_TESTS)
+    message("build bitsery tests")
+    add_subdirectory(tests)
+else()
+    message("skip bitsery tests")
+endif()

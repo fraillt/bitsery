@@ -250,4 +250,20 @@ TYPED_TEST(SerializeContainerFixedSizeCompositeTypes, CustomFunctionThatSerializ
     EXPECT_THAT(res, ContainerEq(src));
 }
 
+class SerializeContainer : public ::testing::TestWithParam<size_t> {
+};
 
+TEST_P(SerializeContainer, SizeHasVariableLength) {
+    SerializationContext ctx{};
+    auto emptyFnc = [](uint8_t &) {};
+
+    std::vector<uint8_t > src(GetParam());
+    std::vector<uint8_t > res{};
+    ctx.createSerializer().container(src, std::numeric_limits<size_t>::max(), emptyFnc);
+    ctx.createDeserializer().container(res, std::numeric_limits<size_t>::max(), emptyFnc);
+
+    EXPECT_THAT(res.size(), Eq(src.size()));
+    EXPECT_THAT(ctx.getBufferSize(), Eq(ctx.containerSizeSerializedBytesCount(src.size())));
+}
+
+INSTANTIATE_TEST_CASE_P(LargeContainerSize, SerializeContainer, ::testing::Values(0x01, 0x80, 0x4000));

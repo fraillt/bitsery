@@ -20,10 +20,12 @@
 #OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #SOFTWARE.
 
+cmake_minimum_required(VERSION 3.1)
+project(bitsery_examples CXX)
 
-cmake_minimum_required(VERSION 3.2)
-
-include_directories(${CMAKE_SOURCE_DIR}/include)
+if (NOT TARGET Bitsery::bitsery)
+    message(FATAL_ERROR "Bitsery::bitsery alias not set. Please generate CMake from bitsery root directory.")
+endif()
 
 file(GLOB ExampleFiles ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 
@@ -32,10 +34,9 @@ if (WIN32)
     list(REMOVE_ITEM ExampleFiles ${CMAKE_CURRENT_SOURCE_DIR}/flexible_assert_linux_x64.cpp)
 endif()
 
-
-FOREACH(ExampleFile ${ExampleFiles})
+foreach(ExampleFile ${ExampleFiles})
     get_filename_component(ExampleName ${ExampleFile} NAME_WE)
-    add_executable(${ExampleName} ${ExampleFile})
-
-ENDFOREACH()
+    add_executable(bitsery.example.${ExampleName} ${ExampleFile})
+    target_link_libraries(bitsery.example.${ExampleName} PRIVATE Bitsery::bitsery)
+endforeach()
 

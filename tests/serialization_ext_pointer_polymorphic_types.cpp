@@ -72,7 +72,7 @@ void serialize(S& s, Derived2& o) {
 }
 
 struct MultipleVirtualInheritance: Derived1, Derived2 {
-    uint8_t z{};
+    int8_t z{};
     MultipleVirtualInheritance() = default;
 
     MultipleVirtualInheritance(uint8_t x_, uint8_t y1_, uint8_t y2_, uint8_t z_) {
@@ -90,10 +90,6 @@ struct MultipleVirtualInheritance: Derived1, Derived2 {
     }
 
 };
-
-bool operator == (const MultipleVirtualInheritance& lhs, const MultipleVirtualInheritance& rhs) {
-    return std::tie(lhs.x, lhs.y1, lhs.y2, lhs.z) == std::tie(rhs.x, rhs.y1, rhs.y2, rhs.z);
-}
 
 //define PolymorphicBase relationships for runtime polymorphism
 
@@ -129,6 +125,10 @@ public:
 
     bool isPointerContextValid() {
         return std::get<0>(plctx1).isValid();
+    }
+
+    virtual void TearDown() override {
+        EXPECT_TRUE(isPointerContextValid());
     }
 };
 
@@ -170,6 +170,7 @@ TEST_F(SerializeExtensionPointerPolymorphicTypes, Data1Result0) {
     EXPECT_THAT(res, ::testing::NotNull());
     EXPECT_THAT(res->x, Eq(data->x));
     EXPECT_THAT(res->y1, Eq(data->y1));
+    delete baseRes;
 }
 
 TEST_F(SerializeExtensionPointerPolymorphicTypes, Data1Result1) {
@@ -190,3 +191,59 @@ TEST_F(SerializeExtensionPointerPolymorphicTypes, Data1Result1) {
     EXPECT_THAT(res->x, Eq(data->x));
     EXPECT_THAT(res->y1, Eq(data->y1));
 }
+
+TEST_F(SerializeExtensionPointerPolymorphicTypes, ComplexTypeData1Result0) {
+    MultipleVirtualInheritance md1{};
+    md1.x = 3;
+    md1.y1 = 78;
+    md1.y2 = 14;
+    md1.z = -33;
+    Base* baseData = &md1;
+    createSerializer().ext(baseData, PointerOwner{});
+    Base* baseRes = nullptr;
+    createDeserializer().ext(baseRes, PointerOwner{});
+
+    auto* data = dynamic_cast<MultipleVirtualInheritance*>(baseData);
+    auto* res = dynamic_cast<MultipleVirtualInheritance*>(baseRes);
+
+    EXPECT_THAT(baseRes, ::testing::NotNull());
+    EXPECT_THAT(data, ::testing::NotNull());
+    EXPECT_THAT(res, ::testing::NotNull());
+    EXPECT_THAT(res->x, Eq(data->x));
+    EXPECT_THAT(res->y1, Eq(data->y1));
+    EXPECT_THAT(res->y2, Eq(data->y2));
+    EXPECT_THAT(res->z, Eq(data->z));
+    delete baseRes;
+}
+
+TEST_F(SerializeExtensionPointerPolymorphicTypes, WhenResultIsDifferentTypeThenRecreate) {
+    MultipleVirtualInheritance md1{};
+    md1.x = 3;
+    md1.y1 = 78;
+    md1.y2 = 14;
+    md1.z = -33;
+    Base* baseData = &md1;
+    createSerializer().ext(baseData, PointerOwner{});
+    Base* baseRes = new Derived1{};
+    EXPECT_THAT(dynamic_cast<MultipleVirtualInheritance*>(baseRes), ::testing::IsNull());
+    createDeserializer().ext(baseRes, PointerOwner{});
+    EXPECT_THAT(dynamic_cast<MultipleVirtualInheritance*>(baseRes), ::testing::NotNull());
+    delete baseRes;
+}
+
+//struct UnknownType:Base {
+//};
+//
+//template <typename S>
+//void serialize(S& s, UnknownType& o) {
+//    s.ext(o, VirtualBaseClass<Base>{});
+//}
+
+// todo reimplement whole polymorphism thing, because with current solution this test fails
+//TEST(SerializeExtensionPointerPolymorphicTypesErrors, WhenSerializingUnknownTypeThenAssert) {
+//    TContext plctx1{};
+//    SerContext sctx1{};
+//    UnknownType obj{};
+//    UnknownType* unknownPtr = &obj;
+//    EXPECT_DEATH(sctx1.createSerializer(&plctx1).ext(unknownPtr, PointerOwner{}), "");
+//}

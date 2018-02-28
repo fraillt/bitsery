@@ -2,3 +2,4 @@
 .vs/
 build/
 cmake-build-debug/
+CTestConfig.cmake

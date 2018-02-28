@@ -1,3 +1,15 @@
+# [4.2.1](https://github.com/fraillt/bitsery/compare/v4.2.0...v4.2.1) (2018-03-09)
+
+### Improvements
+* changed CMake structure, to follow **Modern CMake** principles.
+  * bitsery now has *install* target and **find_package(Bitsery)** exports **Bitsery::bitsery** target.
+  * *GTest* no longer downloads as external application, but tries to find via *find_package*.
+  * removed *ext* folder, and instead added *scripts* folder that contains few helper scripts for development, currently tested on Ubuntu.
+* fixed/added few tests cases.
+
+### Other notes
+* some work was done on polymorphism support, but current solution, although working, but has many design and performance issues, and interfaces for extensibility might change drastically.
+
 # [4.2.0](https://github.com/fraillt/bitsery/compare/v4.1.0...v4.2.0) (2017-11-12)
 
 ### Features

@@ -345,6 +345,7 @@ TEST(SerializeExtensionInheritance, CanSerializeAbstractClass) {
     ImplementedBase data{};
     data.x = 4;
     data.y = 2;
+    data.exec();
     ImplementedBase res{};
     SerContext ctx{};
     ctx.createSerializer().object(data);

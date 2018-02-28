@@ -24,7 +24,7 @@ namespace bitsery {
         //specialize for your base class by deriving from DerivedClasses with list of derivatives that DIRECTLY inherits from your base class.
 //e.g.
 // template <> PolymorphicBase<Animal>: DerivedClasses<Dog, Cat>{};
-// template <> PolymorphicBase<Dog>: DerivedClasses<Bulldog, GolderRetriever> {};
+// template <> PolymorphicBase<Dog>: DerivedClasses<Bulldog, GoldenRetriever> {};
 // IMPORTANT !!!
 // although you can add all derivates to same base like this:
 // SuperClass<Animal>:DerivedClasses<Dog, Cat, Bulldog, GoldenRetriever>{};
@@ -68,7 +68,7 @@ namespace bitsery {
             template<typename S, typename TObject, typename TDerived, typename RTTI, typename ObjectHandler>
             struct PolymorphicObjectHandlerBase : public utils::PolymorphicObjectHandlerInterface<S, TObject> {
                 void process(S &s, TObject &obj) const final {
-                    s.object(reinterpret_cast<TDerived &>(*_handler.getPtr(obj)));
+                    s.object(dynamic_cast<TDerived &>(*_handler.getPtr(obj)));
                 };
 
                 void create(TObject &obj) const final {

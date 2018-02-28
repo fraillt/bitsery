@@ -44,7 +44,7 @@ TEST(FlexibleSyntax, FundamentalTypesAndBool) {
     int ti = 8745;
     MyEnumClass te = MyEnumClass::E4;
     float tf = 485.042f;
-    double_t td = -454184.48445;
+    double td = -454184.48445;
     bool tb=true;
     SerializationContext ctx{};
     ctx.createSerializer().archive(ti,te,tf,td,tb);
@@ -53,7 +53,7 @@ TEST(FlexibleSyntax, FundamentalTypesAndBool) {
     int ri{};
     MyEnumClass re{};
     float rf{};
-    double_t rd{};
+    double rd{};
     bool rb{};
     ctx.createDeserializer().archive(ri,re,rf,rd,rb);
 
@@ -69,7 +69,7 @@ TEST(FlexibleSyntax, UseObjectFncInsteadOfValueN) {
     int ti = 8745;
     MyEnumClass te = MyEnumClass::E4;
     float tf = 485.042f;
-    double_t td = -454184.48445;
+    double td = -454184.48445;
     bool tb=true;
     SerializationContext ctx;
     auto& ser = ctx.createSerializer();
@@ -83,7 +83,7 @@ TEST(FlexibleSyntax, UseObjectFncInsteadOfValueN) {
     int ri{};
     MyEnumClass re{};
     float rf{};
-    double_t rd{};
+    double rd{};
     bool rb{};
     auto& des = ctx.createDeserializer();
     des.object(ri);
@@ -104,7 +104,7 @@ TEST(FlexibleSyntax, MixDifferentSyntax) {
     int ti = 8745;
     MyEnumClass te = MyEnumClass::E4;
     float tf = 485.042f;
-    double_t td = -454184.48445;
+    double td = -454184.48445;
     bool tb=true;
     SerializationContext ctx;
     auto& ser = ctx.createSerializer();
@@ -116,7 +116,7 @@ TEST(FlexibleSyntax, MixDifferentSyntax) {
     int ri{};
     MyEnumClass re{};
     float rf{};
-    double_t rd{};
+    double rd{};
     bool rb{};
     auto& des = ctx.createDeserializer();
     des.archive(ri, re, rf);
