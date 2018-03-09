@@ -9,15 +9,22 @@ before_install:
   - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
   - sudo apt-get update -qq
 
-install: 
+install:
   - sudo apt-get install -qq g++-5 lcov
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-5 90
   - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 90
+  - wget https://github.com/google/googletest/archive/release-1.8.0.tar.gz
+  - tar xf release-1.8.0.tar.gz
+  - cd googletest-release-1.8.0
+  - cmake -DBUILD_SHARED_LIBS=ON .
+  - make
+  - sudo make install
+  - cd ..
 
 before_script:
   - mkdir build
   - cd build
-  - cmake ..
+  - cmake -DBITSERY_BUILD_TESTS=ON ..
 
-script: make && make test
+script: make && (cd tests && ctest)
 
