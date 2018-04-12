@@ -21,10 +21,11 @@
 //SOFTWARE.
 
 
-#include <gmock/gmock.h>
-#include "serialization_test_utils.h"
 #include <bitsery/traits/string.h>
 #include <bitsery/traits/array.h>
+
+#include <gmock/gmock.h>
+#include "serialization_test_utils.h"
 
 using testing::Eq;
 using testing::StrEq;

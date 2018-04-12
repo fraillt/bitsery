@@ -21,11 +21,11 @@
 //SOFTWARE.
 
 
-#include <gmock/gmock.h>
 #include <bitsery/adapter_writer.h>
 #include <bitsery/adapter_reader.h>
 #include <bitsery/ext/value_range.h>
 #include "serialization_test_utils.h"
+#include <gmock/gmock.h>
 
 using testing::Eq;
 using testing::ContainerEq;

@@ -67,9 +67,9 @@ namespace bitsery {
     }
 
     namespace traits {
-        template<typename T>
-        struct ExtensionTraits<ext::StdStack, T> {
-            using TValue = typename T::value_type;
+        template<typename T, typename Seq>
+        struct ExtensionTraits<ext::StdStack, std::stack<T, Seq>> {
+            using TValue = T;
             static constexpr bool SupportValueOverload = true;
             static constexpr bool SupportObjectOverload = true;
             static constexpr bool SupportLambdaOverload = true;

@@ -20,9 +20,9 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
+#include <bitsery/ext/growable.h>
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
-#include <bitsery/ext/growable.h>
 
 using namespace testing;
 

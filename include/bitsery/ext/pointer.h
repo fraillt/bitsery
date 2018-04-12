@@ -23,150 +23,139 @@
 #ifndef BITSERY_EXT_POINTER_H
 #define BITSERY_EXT_POINTER_H
 
+#include <cassert>
 #include "../traits/core/traits.h"
+#include "inheritance.h"
 #include "utils/pointer_utils.h"
+#include "utils/polymorphism_utils.h"
 #include "utils/rtti_utils.h"
 
 namespace bitsery {
 
     namespace ext {
 
-        namespace details_pointer {
+        namespace pointer_details {
 
-            template<typename S>
-            PointerLinkingContext &getLinkingContext(S &s) {
-                auto res = s.template context<PointerLinkingContext>();
-                assert(res != nullptr);
-                return *res;
-            }
+            template <typename T>
+            struct PtrOwnerManager {
+                static_assert(std::is_pointer<T>::value, "");
 
+                using TElement = typename std::remove_pointer<T>::type;
 
-            template<typename TObject>
-            struct RawPointerObjectHandler {
-
-                using TPointer = TObject;
-
-                template<typename T>
-                void create(TObject &obj) const {
-                    obj = new T{};
+                static TElement* getPtr(T& obj){
+                    return obj;
                 }
 
-                void destroy(TObject &obj) const {
+                static constexpr PointerOwnershipType getOwnership() {
+                    return PointerOwnershipType::Owner;
+                }
+
+                static void assign(T& obj, TElement* valuePtr) {
+                    delete obj;
+                    obj = valuePtr;
+                }
+
+                static void clear(T& obj) {
                     delete obj;
                     obj = nullptr;
                 }
+            };
 
-                const TPointer getPtr(const TObject &obj) const {
+            template <typename T>
+            struct PtrObserverManager {
+                static_assert(std::is_pointer<T>::value, "");
+
+                using TElement = typename std::remove_pointer<T>::type;
+
+                //observer must return reference to pointer, so that it could be updated later
+                static TElement*& getPtrRef(T& obj){
                     return obj;
                 }
 
-                TPointer getPtr(TObject &obj) const {
+                static TElement* getPtr(T& obj){
                     return obj;
+                }
+
+                static constexpr PointerOwnershipType getOwnership() {
+                    return PointerOwnershipType::Observer;
+                }
+
+                static void assign(T& obj, TElement* valuePtr) {
+                    //do not delete existing object
+                    obj = valuePtr;
+                }
+
+                static void clear(T& obj) {
+                    obj = nullptr;
                 }
 
             };
 
-            template <typename TObject>
-            struct RawPointerManagerConfig {
-                using RTTI = bitsery::ext::utils::StandardRTTI;
-                static constexpr PointerOwnershipType OwnershipType = PointerOwnershipType::Owner;
-
-                using Handler = RawPointerObjectHandler<TObject>;
-
-                static std::unique_ptr<utils::PointerSharedContextBase> createSharedContext(TObject &) {
-                    return {};
+            template <typename T>
+            struct NonPtrManager {
+                
+                static_assert(!std::is_pointer<T>::value, "");
+                
+                using TElement = T;
+                
+                static TElement* getPtr(T& obj){
+                    return &obj;
                 }
 
-                static void restoreFromSharedContext(TObject &, utils::PointerSharedContextBase *) {
-
+                static constexpr PointerOwnershipType getOwnership() {
+                    return PointerOwnershipType::Owner;
                 }
+    
+                // this code is unreachable for reference type, but is necessary to compile
+                // LCOV_EXCL_START
+                static void assign(T& obj, TElement* valuePtr) {}
+                static void clear(T& obj) {}
+                // LCOV_EXCL_STOP
+                
             };
+
         }
 
-        class PointerOwner : public utils::PointerOwnerManager<details_pointer::RawPointerManagerConfig> {
+        template <typename RTTI>
+        using PointerOwnerBase = pointer_utils::PointerObjectExtensionBase<
+                pointer_details::PtrOwnerManager, PolymorphicContext, RTTI>;
+
+        using PointerOwner = PointerOwnerBase<StandardRTTI>;
+
+
+        using PointerObserver = pointer_utils::PointerObjectExtensionBase<
+                pointer_details::PtrObserverManager, PolymorphicContext, NoRTTI>;
+
+
+        //inherit from PointerObjectExtensionBase in order to specify PointerType::NotNull
+        class ReferencedByPointer: public pointer_utils::PointerObjectExtensionBase<
+                pointer_details::NonPtrManager, PolymorphicContext, NoRTTI>{
         public:
-            explicit PointerOwner(PointerType ptrType = PointerType::Nullable) : PointerOwnerManager(ptrType) {}
+            ReferencedByPointer():pointer_utils::PointerObjectExtensionBase<
+                    pointer_details::NonPtrManager, PolymorphicContext, NoRTTI>(PointerType::NotNull) {}
         };
-
-        class PointerObserver {
-        public:
-
-            explicit PointerObserver(PointerType ptrType = PointerType::Nullable) : _ptrType{ptrType} {}
-
-            template<typename Ser, typename Writer, typename T, typename Fnc>
-            void serialize(Ser &ser, Writer &w, const T &obj, Fnc &&) const {
-                auto &ctx = details_pointer::getLinkingContext(ser);
-                if (obj) {
-                    details::writeSize(w, ctx.getInfoByPtr(obj, PointerOwnershipType::Observer).id);
-                } else {
-                    assert(_ptrType == PointerType::Nullable);
-                    details::writeSize(w, 0);
-                }
-            }
-
-            template<typename Des, typename Reader, typename T, typename Fnc>
-            void deserialize(Des &des, Reader &r, T &obj, Fnc &&) const {
-                size_t id{};
-                details::readSize(r, id, std::numeric_limits<size_t>::max());
-                if (id) {
-                    auto &ctx = details_pointer::getLinkingContext(des);
-                    ctx.getInfoById(id, PointerOwnershipType::Observer).processObserver(reinterpret_cast<void *&>(obj));
-                } else {
-                    if (_ptrType == PointerType::Nullable)
-                        obj = nullptr;
-                    else
-                        r.setError(ReaderError::InvalidPointer);
-                }
-            }
-
-        private:
-            PointerType _ptrType;
-        };
-
-        class ReferencedByPointer {
-        public:
-            template<typename Ser, typename Writer, typename T, typename Fnc>
-            void serialize(Ser &ser, Writer &w, const T &obj, Fnc &&fnc) const {
-                auto &ctx = details_pointer::getLinkingContext(ser);
-                details::writeSize(w, ctx.getInfoByPtr(&obj, PointerOwnershipType::Owner).id);
-                fnc(const_cast<T &>(obj));
-            }
-
-            template<typename Des, typename Reader, typename T, typename Fnc>
-            void deserialize(Des &des, Reader &r, T &obj, Fnc &&fnc) const {
-                size_t id{};
-                details::readSize(r, id, std::numeric_limits<size_t>::max());
-                if (id) {
-                    auto &ctx = details_pointer::getLinkingContext(des);
-                    fnc(obj);
-                    ctx.getInfoById(id, PointerOwnershipType::Owner).processOwner(&obj);
-                } else {
-                    //cannot be null for references
-                    r.setError(ReaderError::InvalidPointer);
-                }
-            }
-        };
-
+        
     }
 
     namespace traits {
 
-        template<typename T>
-        struct ExtensionTraits<ext::PointerOwner, T *> {
+
+        template<typename T, typename RTTI>
+        struct ExtensionTraits<ext::PointerOwnerBase<RTTI>, T *> {
             using TValue = T;
             static constexpr bool SupportValueOverload = true;
             static constexpr bool SupportObjectOverload = true;
-            //pointers cannot have lamba overload, when polymorphism support will be added
-            static constexpr bool SupportLambdaOverload = false;
+            //if underlying type is not polymorphic, then we can enable lambda syntax
+            static constexpr bool SupportLambdaOverload = !RTTI::template isPolymorphic<TValue>();
         };
 
         template<typename T>
         struct ExtensionTraits<ext::PointerObserver, T *> {
             //although pointer observer doesn't serialize anything, but we still add value overload support to be consistent with pointer owners
+            //observer only writes/reads pointer id from pointer linking context
             using TValue = T;
             static constexpr bool SupportValueOverload = true;
             static constexpr bool SupportObjectOverload = true;
-            //pointers cannot have lamba overload, when polymorphism support will be added
             static constexpr bool SupportLambdaOverload = false;
         };
 

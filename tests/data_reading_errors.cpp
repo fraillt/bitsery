@@ -20,9 +20,11 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
+
+#include <bitsery/traits/string.h>
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
-#include <bitsery/traits/string.h>
+
 
 using testing::Eq;
 using SessionsEnabledWriter = bitsery::AdapterWriter<OutputAdapter, SessionsEnabledConfig>;

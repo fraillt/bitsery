@@ -20,59 +20,73 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
+
+#include <bitsery/ext/pointer.h>
+
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
-#include <bitsery/ext/pointer.h>
 
 using bitsery::ext::BaseClass;
 using bitsery::ext::VirtualBaseClass;
 
+
+using bitsery::ext::InheritanceContext;
+using bitsery::ext::PointerLinkingContext;
+using bitsery::ext::PolymorphicContext;
+using bitsery::ext::StandardRTTI;
+
 using bitsery::ext::PointerOwner;
 using bitsery::ext::PointerObserver;
 using bitsery::ext::ReferencedByPointer;
-using bitsery::ext::PointerLinkingContext;
+
 using bitsery::ext::PointerType;
 
 using testing::Eq;
 
-using TContext = std::tuple<PointerLinkingContext, bitsery::ext::InheritanceContext>;
+using TContext = std::tuple<PointerLinkingContext, InheritanceContext, PolymorphicContext<StandardRTTI>>;
 using SerContext = BasicSerializationContext<bitsery::DefaultConfig, TContext>;
+
+//this is useful for PolymorphicContext to bind classes to serializer/deserializer
+using TSerializer = typename SerContext::TSerializer;
+using TDeserializer = typename SerContext::TDeserializer;
 
 /*
  * base class
  */
 struct Base {
     uint8_t x{};
+
     virtual ~Base() = default;
 };
 
-template <typename S>
-void serialize(S& s, Base& o) {
+template<typename S>
+void serialize(S &s, Base &o) {
     s.value1b(o.x);
 }
 
-struct Derived1:virtual Base {
+struct Derived1 : virtual Base {
     uint8_t y1{};
 };
 
-template <typename S>
-void serialize(S& s, Derived1& o) {
+template<typename S>
+void serialize(S &s, Derived1 &o) {
     s.ext(o, VirtualBaseClass<Base>{});
     s.value1b(o.y1);
 }
 
-struct Derived2:virtual Base {
+struct Derived2 : virtual Base {
     uint8_t y2{};
 };
 
-template <typename S>
-void serialize(S& s, Derived2& o) {
+template<typename S>
+void serialize(S &s, Derived2 &o) {
     s.ext(o, VirtualBaseClass<Base>{});
     s.value1b(o.y2);
 }
 
-struct MultipleVirtualInheritance: Derived1, Derived2 {
+struct MultipleVirtualInheritance : Derived1, Derived2 {
     int8_t z{};
+
     MultipleVirtualInheritance() = default;
 
     MultipleVirtualInheritance(uint8_t x_, uint8_t y1_, uint8_t y2_, uint8_t z_) {
@@ -82,8 +96,8 @@ struct MultipleVirtualInheritance: Derived1, Derived2 {
         z = z_;
     }
 
-    template <typename S>
-    void serialize(S& s) {
+    template<typename S>
+    void serialize(S &s) {
         s.ext(*this, BaseClass<Derived1>{});
         s.ext(*this, BaseClass<Derived2>{});
         s.value1b(z);
@@ -91,40 +105,69 @@ struct MultipleVirtualInheritance: Derived1, Derived2 {
 
 };
 
-//define PolymorphicBase relationships for runtime polymorphism
+//this class has no relationships specified via PolymorphicBaseClass
+struct NoRelationshipSpecifiedDerived : Base {
+};
+
+//these classes will be used to "cheat" a little bit when testing deserialization flows
+struct BaseClone {
+    uint8_t x{};
+
+    virtual ~BaseClone() = default;
+};
+
+template<typename S>
+void serialize(S &s, BaseClone &o) {
+    s.value1b(o.x);
+}
+
+//define relationships between base class and derived classes for runtime polymorphism
 
 namespace bitsery {
     namespace ext {
 
-        template <>
-        struct PolymorphicBaseClass<Base>: DerivedClasses<Derived1, Derived2> {};
+        template<>
+        struct PolymorphicBaseClass<Base> : PolymorphicDerivedClasses<Derived1, Derived2> {
+        };
 
-        template <>
-        struct PolymorphicBaseClass<Derived1>: DerivedClasses<MultipleVirtualInheritance> {};
+        // this is commented on purpose, to test scenario when base class is registered (Base)
+        // but using instance of Derived1 which is not registered as base
+//        template<>
+//        struct PolymorphicBaseClass<Derived1> : PolymorphicDerivedClasses<MultipleVirtualInheritance> {
+//        };
 
-        template <>
-        struct PolymorphicBaseClass<Derived2>: DerivedClasses<MultipleVirtualInheritance> {};
+        template<>
+        struct PolymorphicBaseClass<Derived2> : PolymorphicDerivedClasses<MultipleVirtualInheritance> {
+        };
 
     }
 }
 
 
-class SerializeExtensionPointerPolymorphicTypes: public testing::Test {
+class SerializeExtensionPointerPolymorphicTypes : public testing::Test {
 public:
 
-    TContext plctx1{};
-    SerContext sctx1{};
+    TContext plctx{};
+    SerContext sctx{};
 
-    typename SerContext::TSerializer& createSerializer() {
-        return sctx1.createSerializer(&plctx1);
+    typename SerContext::TSerializer &createSerializer() {
+        auto &res = sctx.createSerializer(&plctx);
+        std::get<2>(plctx).clear();
+        //bind serializer with classes
+        std::get<2>(plctx).registerBasesList(res, bitsery::ext::PolymorphicClassesList<Base>{});
+        return res;
     }
 
-    typename SerContext::TDeserializer& createDeserializer() {
-        return sctx1.createDeserializer(&plctx1);
+    typename SerContext::TDeserializer &createDeserializer() {
+        auto &res = sctx.createDeserializer(&plctx);
+        std::get<2>(plctx).clear();
+        //bind deserializer with classes
+        std::get<2>(plctx).registerBasesList(res, bitsery::ext::PolymorphicClassesList<Base>{});
+        return res;
     }
 
     bool isPointerContextValid() {
-        return std::get<0>(plctx1).isValid();
+        return std::get<0>(plctx).isValid();
     }
 
     virtual void TearDown() override {
@@ -133,9 +176,9 @@ public:
 };
 
 TEST_F(SerializeExtensionPointerPolymorphicTypes, Data0Result0) {
-    Base* baseData = nullptr;
+    Base *baseData = nullptr;
     createSerializer().ext(baseData, PointerOwner{});
-    Base* baseRes = nullptr;
+    Base *baseRes = nullptr;
     createDeserializer().ext(baseRes, PointerOwner{});
 
     EXPECT_THAT(baseRes, ::testing::IsNull());
@@ -143,10 +186,10 @@ TEST_F(SerializeExtensionPointerPolymorphicTypes, Data0Result0) {
 }
 
 TEST_F(SerializeExtensionPointerPolymorphicTypes, Data0Result1) {
-    Base* baseData = nullptr;
+    Base *baseData = nullptr;
     createSerializer().ext(baseData, PointerOwner{});
 
-    Base* baseRes = new Derived1{};
+    Base *baseRes = new Derived1{};
     createDeserializer().ext(baseRes, PointerOwner{});
 
     EXPECT_THAT(baseRes, ::testing::IsNull());
@@ -157,13 +200,13 @@ TEST_F(SerializeExtensionPointerPolymorphicTypes, Data1Result0) {
     Derived1 d1{};
     d1.x = 3;
     d1.y1 = 78;
-    Base* baseData = &d1;
+    Base *baseData = &d1;
     createSerializer().ext(baseData, PointerOwner{});
-    Base* baseRes = nullptr;
+    Base *baseRes = nullptr;
     createDeserializer().ext(baseRes, PointerOwner{});
 
-    auto* data = dynamic_cast<Derived1*>(baseData);
-    auto* res = dynamic_cast<Derived1*>(baseRes);
+    auto *data = dynamic_cast<Derived1 *>(baseData);
+    auto *res = dynamic_cast<Derived1 *>(baseRes);
 
     EXPECT_THAT(baseRes, ::testing::NotNull());
     EXPECT_THAT(data, ::testing::NotNull());
@@ -177,13 +220,13 @@ TEST_F(SerializeExtensionPointerPolymorphicTypes, Data1Result1) {
     Derived1 d1{};
     d1.x = 3;
     d1.y1 = 78;
-    Base* baseData = &d1;
+    Base *baseData = &d1;
     createSerializer().ext(baseData, PointerOwner{});
-    Base* baseRes = &d1;
+    Base *baseRes = &d1;
     createDeserializer().ext(baseRes, PointerOwner{});
 
-    auto* data = dynamic_cast<Derived1*>(baseData);
-    auto* res = dynamic_cast<Derived1*>(baseRes);
+    auto *data = dynamic_cast<Derived1 *>(baseData);
+    auto *res = dynamic_cast<Derived1 *>(baseRes);
 
     EXPECT_THAT(baseRes, ::testing::NotNull());
     EXPECT_THAT(data, ::testing::NotNull());
@@ -192,19 +235,19 @@ TEST_F(SerializeExtensionPointerPolymorphicTypes, Data1Result1) {
     EXPECT_THAT(res->y1, Eq(data->y1));
 }
 
-TEST_F(SerializeExtensionPointerPolymorphicTypes, ComplexTypeData1Result0) {
+TEST_F(SerializeExtensionPointerPolymorphicTypes, ComplexTypeWithVirtualInheritanceData1Result0) {
     MultipleVirtualInheritance md1{};
     md1.x = 3;
     md1.y1 = 78;
     md1.y2 = 14;
     md1.z = -33;
-    Base* baseData = &md1;
+    Base *baseData = &md1;
     createSerializer().ext(baseData, PointerOwner{});
-    Base* baseRes = nullptr;
+    Base *baseRes = nullptr;
     createDeserializer().ext(baseRes, PointerOwner{});
 
-    auto* data = dynamic_cast<MultipleVirtualInheritance*>(baseData);
-    auto* res = dynamic_cast<MultipleVirtualInheritance*>(baseRes);
+    auto *data = dynamic_cast<MultipleVirtualInheritance *>(baseData);
+    auto *res = dynamic_cast<MultipleVirtualInheritance *>(baseRes);
 
     EXPECT_THAT(baseRes, ::testing::NotNull());
     EXPECT_THAT(data, ::testing::NotNull());
@@ -222,28 +265,66 @@ TEST_F(SerializeExtensionPointerPolymorphicTypes, WhenResultIsDifferentTypeThenR
     md1.y1 = 78;
     md1.y2 = 14;
     md1.z = -33;
-    Base* baseData = &md1;
+    Base *baseData = &md1;
     createSerializer().ext(baseData, PointerOwner{});
-    Base* baseRes = new Derived1{};
-    EXPECT_THAT(dynamic_cast<MultipleVirtualInheritance*>(baseRes), ::testing::IsNull());
+    Base *baseRes = new Derived1{};
+    EXPECT_THAT(dynamic_cast<MultipleVirtualInheritance *>(baseRes), ::testing::IsNull());
     createDeserializer().ext(baseRes, PointerOwner{});
-    EXPECT_THAT(dynamic_cast<MultipleVirtualInheritance*>(baseRes), ::testing::NotNull());
+    EXPECT_THAT(dynamic_cast<MultipleVirtualInheritance *>(baseRes), ::testing::NotNull());
     delete baseRes;
 }
 
-//struct UnknownType:Base {
-//};
-//
-//template <typename S>
-//void serialize(S& s, UnknownType& o) {
-//    s.ext(o, VirtualBaseClass<Base>{});
-//}
+#ifndef NDEBUG
 
-// todo reimplement whole polymorphism thing, because with current solution this test fails
-//TEST(SerializeExtensionPointerPolymorphicTypesErrors, WhenSerializingUnknownTypeThenAssert) {
-//    TContext plctx1{};
-//    SerContext sctx1{};
-//    UnknownType obj{};
-//    UnknownType* unknownPtr = &obj;
-//    EXPECT_DEATH(sctx1.createSerializer(&plctx1).ext(unknownPtr, PointerOwner{}), "");
-//}
+TEST_F(SerializeExtensionPointerPolymorphicTypes,
+       WhenSerializingDerivedTypeWithoutSpecifiedRelationshipsWithBaseThenAssert) {
+
+    NoRelationshipSpecifiedDerived md1;//this class has no relationships specified via PolymorphicBaseClass
+    Base *baseData = &md1;
+    EXPECT_DEATH(createSerializer().ext(baseData, PointerOwner{}), "");
+}
+
+TEST_F(SerializeExtensionPointerPolymorphicTypes,
+       WhenDeserializingDerivedTypeNotRegisteredWithPolymorphicContextThenAssert) {
+
+    Derived1 d1{};
+    Base *baseData = &d1;
+    createSerializer().ext(baseData, PointerOwner{});
+
+    BaseClone *baseRes = nullptr; //this class is not registered
+    EXPECT_DEATH(createDeserializer().ext(baseRes, PointerOwner{}), "");
+}
+
+#endif
+
+TEST_F(SerializeExtensionPointerPolymorphicTypes,
+       CompileTimeTypeIsDerivedAndReachableFromBaseRegisteredWithPolymorphicContext) {
+
+    MultipleVirtualInheritance md;
+    Derived2 *derivedData = &md;//this class is not registered via PolymorphicContext
+
+    createSerializer().ext(derivedData, PointerOwner{});
+    Derived2 *derivedRes = new Derived2{};
+    EXPECT_THAT(dynamic_cast<MultipleVirtualInheritance *>(derivedRes), ::testing::IsNull());
+    createDeserializer().ext(derivedRes, PointerOwner{});
+    EXPECT_THAT(dynamic_cast<MultipleVirtualInheritance *>(derivedRes), ::testing::NotNull());
+    delete derivedRes;
+
+}
+
+
+TEST_F(SerializeExtensionPointerPolymorphicTypes,
+       WhenPolymorphicTypeNotFoundDuringDeserializionThenInvalidPointerError) {
+
+    Derived1 d1{};
+    Base *baseData = &d1;
+    createSerializer().ext(baseData, PointerOwner{});
+
+    BaseClone *baseRes = nullptr; //this class will be registered, but it doesn't have relationships specified via PolymorphicBaseClass
+    auto &des = sctx.createDeserializer(&plctx);
+    auto &pc = std::get<2>(plctx);
+    pc.clear();
+    pc.registerBasesList(des, bitsery::ext::PolymorphicClassesList<BaseClone>{});
+    des.ext(baseRes, PointerOwner{});
+    EXPECT_THAT(sctx.br->error(), Eq(bitsery::ReaderError::InvalidPointer));
+}

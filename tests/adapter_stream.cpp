@@ -20,13 +20,14 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-#include <gmock/gmock.h>
+
 #include <bitsery/adapter/stream.h>
 #include <bitsery/adapter_writer.h>
 #include <bitsery/adapter_reader.h>
 #include <bitsery/traits/vector.h>
 #include <bitsery/traits/array.h>
 #include <bitsery/traits/string.h>
+#include <gmock/gmock.h>
 #include <sstream>
 
 //some helper types

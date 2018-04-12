@@ -21,9 +21,9 @@
 //SOFTWARE.
 
 
+#include <bitsery/traits/string.h>
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
-#include <bitsery/traits/string.h>
 
 using namespace testing;
 

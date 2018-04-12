@@ -40,6 +40,11 @@ namespace bitsery {
         BasicInputStreamAdapter(std::basic_ios<TChar, CharTraits>& istream)
                 :_ios{std::addressof(istream)} {}
 
+        template <typename T>
+        void read(T& data) {
+            read(reinterpret_cast<TValue*>(&data), sizeof(T));
+        }
+
         void read(TValue* data, size_t size) {
             if (static_cast<size_t>(_ios->rdbuf()->sgetn( data , size )) != size) {
                 *data = {};
@@ -79,6 +84,11 @@ namespace bitsery {
 
         BasicOutputStreamAdapter(std::basic_ios<TChar, CharTraits>& ostream)
                 :_ios{std::addressof(ostream)} {}
+
+        template <typename T>
+        void write(const T& data) {
+            write(reinterpret_cast<const TValue*>(&data), sizeof(T));
+        }
 
         void write(const TValue* data, size_t size) {
             //for optimization
@@ -148,6 +158,28 @@ namespace bitsery {
         };
 
         ~BasicBufferedOutputStreamAdapter() = default;
+
+        template <typename T>
+        void write(const T& data) {
+            auto tmp = _outIt;
+
+#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0)
+            using TDistance = typename std::iterator_traits<BufferIt>::difference_type;
+            if (std::distance(_outIt , std::end(_buf)) >= static_cast<TDistance>(size)) {
+                *reinterpret_cast<T*>(std::addressof(*tmp)) = data;
+                _outIt += sizeof(T);
+#else
+            _outIt += sizeof(T);
+            if (std::distance(_outIt , std::end(_buf)) >= 0) {
+                *reinterpret_cast<T*>(std::addressof(*tmp)) = data;
+#endif
+            } else {
+                //when buffer is full write out to stream
+                _outIt = std::begin(_buf);
+                _adapter.write(std::addressof(*_outIt), static_cast<size_t>(std::distance(_outIt, tmp)));
+                _adapter.write(reinterpret_cast<const TValue*>(&data), sizeof(T));
+            }
+        }
 
         void write(const TValue* data, size_t size) {
             auto tmp = _outIt;

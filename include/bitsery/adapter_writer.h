@@ -135,15 +135,17 @@ namespace bitsery {
         void writeBytes(const T &v) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
-            directWrite(&v, 1);
-
+            //do something with it, because the way it is implemented in buffer/stream adapter is probably UB,
+            //implementing it in non UB fassion, has no benefit and can be completely remove instead
+//            directWriteValue(v, SwapTag{});
+            directWriteBuffer(&v, 1, SwapTag{});
         }
 
         template<size_t SIZE, typename T>
         void writeBuffer(const T *buf, size_t count) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
-            directWrite(buf, count);
+            directWriteBuffer(buf, count, SwapTag{});
         }
 
         template<typename T>
@@ -180,14 +182,21 @@ namespace bitsery {
 
     private:
         friend class AdapterWriterBitPackingWrapper<AdapterWriter<OutputAdapter, Config>>;
-        template<typename T>
-        void directWrite(T &&v, size_t count) {
-            _directWriteSwapTag(std::forward<T>(v), count, std::integral_constant<bool,
-                    Config::NetworkEndianness != details::getSystemEndianness()>{});
+
+        using SwapTag = std::integral_constant<bool, Config::NetworkEndianness != details::getSystemEndianness()>;
+
+        template <typename T>
+        void directWriteValue(const T& v, std::true_type) {
+            _outputAdapter.write(details::swap(v));
+        }
+
+        template <typename T>
+        void directWriteValue(const T& v, std::false_type) {
+            _outputAdapter.write(v);
         }
 
         template<typename T>
-        void _directWriteSwapTag(const T *v, size_t count, std::true_type) {
+        void directWriteBuffer(const T *v, size_t count, std::true_type) {
             std::for_each(v, std::next(v, count), [this](const T &v) {
                 const auto res = details::swap(v);
                 _outputAdapter.write(reinterpret_cast<const TValue *>(&res), sizeof(T));
@@ -195,7 +204,7 @@ namespace bitsery {
         }
 
         template<typename T>
-        void _directWriteSwapTag(const T *v, size_t count, std::false_type) {
+        void directWriteBuffer(const T *v, size_t count, std::false_type) {
             _outputAdapter.write(reinterpret_cast<const TValue *>(v), count * sizeof(T));
         }
 

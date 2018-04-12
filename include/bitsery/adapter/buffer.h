@@ -30,15 +30,14 @@
 namespace bitsery {
 
     //base class that stores container iterators, and is required for session support (for reading sessions data)
-    template <typename Buffer>
+    template<typename Buffer>
     class BufferIterators {
     protected:
         using TIterator = typename traits::BufferAdapterTraits<Buffer>::TIterator;
 
         BufferIterators(TIterator begin, TIterator end)
-                :posIt{begin},
-                 endIt{end}
-        {
+                : posIt{begin},
+                  endIt{end} {
         }
 
         friend details::SessionAccess;
@@ -48,25 +47,52 @@ namespace bitsery {
     };
 
 
-    template <typename Buffer>
-    class InputBufferAdapter: public BufferIterators<Buffer> {
+    template<typename Buffer>
+    class InputBufferAdapter : public BufferIterators<Buffer> {
     public:
 
         using TIterator = typename BufferIterators<Buffer>::TIterator;
         using TValue = typename traits::BufferAdapterTraits<Buffer>::TValue;
-        static_assert(details::IsDefined<TValue>::value, "Please define BufferAdapterTraits or include from <bitsery/traits/...>");
-        static_assert(traits::ContainerTraits<Buffer>::isContiguous, "BufferAdapter only works with contiguous containers");
+        static_assert(details::IsDefined<TValue>::value,
+                      "Please define BufferAdapterTraits or include from <bitsery/traits/...>");
+        static_assert(traits::ContainerTraits<Buffer>::isContiguous,
+                      "BufferAdapter only works with contiguous containers");
 
-        InputBufferAdapter(TIterator begin, TIterator end): BufferIterators<Buffer>(begin, end)
-        {
+        InputBufferAdapter(TIterator begin, TIterator end)
+                : BufferIterators<Buffer>(begin, end) {
         }
 
         InputBufferAdapter(TIterator begin, size_t size)
-                :InputBufferAdapter(begin, std::next(begin, size))
-        {
+                : BufferIterators<Buffer>(begin, std::next(begin, size)) {
         }
 
-        void read(TValue* data, size_t size) {
+        template<typename T>
+        void read(T &data) {
+            //for optimization
+            auto tmp = this->posIt;
+            this->posIt += sizeof(T);
+            if (std::distance(this->posIt, this->endIt) >= 0) {
+                data = *reinterpret_cast<const T *>(std::addressof(*tmp));
+//                auto src = std::addressof(*tmp);
+////                std::memcpy(&data, src, sizeof(T));
+//                switch (sizeof(T)) {
+//                    case 1: std::memcpy(&data, src, sizeof(T)); break;
+//                    case 2: std::memcpy(&data, src, sizeof(T)); break;
+//                    case 4: std::memcpy(&data, src, sizeof(T)); break;
+//                    case 8: std::memcpy(&data, src, sizeof(T)); break;
+//                    case 16: std::memcpy(&data, src, sizeof(T)); break;
+//                }
+
+            } else {
+                this->posIt -= sizeof(T);
+                data = {};
+                if (error() == ReaderError::NoError)
+                    setError(ReaderError::DataOverflow);
+            }
+        }
+
+
+        void read(TValue *data, size_t size) {
             //for optimization
             auto tmp = this->posIt;
             this->posIt += size;
@@ -76,7 +102,6 @@ namespace bitsery {
                 this->posIt -= size;
                 //set everything to zeros
                 std::memset(data, 0, size);
-
                 if (error() == ReaderError::NoError)
                     setError(ReaderError::DataOverflow);
             }
@@ -102,6 +127,58 @@ namespace bitsery {
         }
     };
 
+    template<typename Buffer>
+    class UnsafeInputBufferAdapter : public BufferIterators<Buffer> {
+    public:
+
+        using TIterator = typename BufferIterators<Buffer>::TIterator;
+        using TValue = typename traits::BufferAdapterTraits<Buffer>::TValue;
+        static_assert(details::IsDefined<TValue>::value,
+                      "Please define BufferAdapterTraits or include from <bitsery/traits/...>");
+        static_assert(traits::ContainerTraits<Buffer>::isContiguous,
+                      "BufferAdapter only works with contiguous containers");
+
+        UnsafeInputBufferAdapter(TIterator begin, TIterator end) : BufferIterators<Buffer>(begin, end) {
+        }
+
+        UnsafeInputBufferAdapter(TIterator begin, size_t size)
+                : BufferIterators<Buffer>(begin, std::next(begin, size)) {
+        }
+
+        template<typename T>
+        void read(T &data) {
+            //for optimization
+            auto tmp = this->posIt;
+            this->posIt += sizeof(T);
+            assert(std::distance(this->posIt, this->endIt) >= 0);
+            data = *reinterpret_cast<const T *>(std::addressof(*tmp));
+        }
+
+
+        void read(TValue *data, size_t size) {
+            //for optimization
+            auto tmp = this->posIt;
+            this->posIt += size;
+            assert(std::distance(this->posIt, this->endIt) >= 0);
+            std::memcpy(data, std::addressof(*tmp), size);
+        }
+
+        ReaderError error() const {
+            return err;
+        }
+
+        void setError(ReaderError error) {
+            err = error;
+        }
+
+        bool isCompletedSuccessfully() const {
+            return this->posIt == this->endIt;
+        }
+
+    private:
+        ReaderError err = ReaderError::NoError;
+    };
+
 
     template<typename Buffer>
     class OutputBufferAdapter {
@@ -110,16 +187,21 @@ namespace bitsery {
         using TIterator = typename traits::BufferAdapterTraits<Buffer>::TIterator;
         using TValue = typename traits::BufferAdapterTraits<Buffer>::TValue;
 
-        static_assert(details::IsDefined<TValue>::value, "Please define BufferAdapterTraits or include from <bitsery/traits/...>");
-        static_assert(traits::ContainerTraits<Buffer>::isContiguous, "BufferAdapter only works with contiguous containers");
+        static_assert(details::IsDefined<TValue>::value,
+                      "Please define BufferAdapterTraits or include from <bitsery/traits/...>");
+        static_assert(traits::ContainerTraits<Buffer>::isContiguous,
+                      "BufferAdapter only works with contiguous containers");
 
         OutputBufferAdapter(Buffer &buffer)
-                : _buffer{std::addressof(buffer)}
-        {
+                : _buffer{std::addressof(buffer)} {
 
             init(TResizable{});
         }
 
+        template<typename T>
+        void write(const T &data) {
+            writeInternal<T>(data, TResizable{});
+        }
 
         void write(const TValue *data, size_t size) {
             writeInternal(data, size, TResizable{});
@@ -136,7 +218,7 @@ namespace bitsery {
     private:
         using TResizable = std::integral_constant<bool, traits::ContainerTraits<Buffer>::isResizable>;
 
-        Buffer* _buffer;
+        Buffer *_buffer;
         TIterator _outIt{};
         TIterator _end{};
 
@@ -153,6 +235,53 @@ namespace bitsery {
             _outIt = std::begin(*_buffer);
         }
 
+        template<typename T>
+        void writeInternal(const T &data, std::true_type) {
+            //optimization
+#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0)
+            using TDistance = typename std::iterator_traits<TIterator>::difference_type;
+            if (std::distance(_outIt , _end) >= static_cast<TDistance>(size)) {
+                *reinterpret_cast<T*>(std::addressof(*tmp)) = data;
+                _outIt += sizeof(T);
+#else
+            auto tmp = _outIt;
+            _outIt += sizeof(T);
+            if (std::distance(_outIt, _end) >= 0) {
+                *reinterpret_cast<T *>(std::addressof(*tmp)) = data;
+                auto x = reinterpret_cast<T *>(std::addressof(*tmp));
+                *x = data;
+//                auto dst = std::addressof(*tmp);
+////                std::memcpy(dst, &data, sizeof(T));
+//
+//                switch (sizeof(T)) {
+//                    case 1: std::memcpy(dst, &data, sizeof(T)); break;
+//                    case 2: std::memcpy(dst, &data, sizeof(T)); break;
+//                    case 4: std::memcpy(dst, &data, sizeof(T)); break;
+//                    case 8: std::memcpy(dst, &data, sizeof(T)); break;
+//                    case 16: std::memcpy(dst, &data, sizeof(T)); break;
+//                }
+
+
+
+#endif
+            } else {
+#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0)
+
+#else
+                _outIt -= sizeof(T);
+#endif
+                //get current position before invalidating iterators
+                const auto pos = std::distance(std::begin(*_buffer), _outIt);
+                //increase container size
+                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
+                //restore iterators
+                _end = std::end(*_buffer);
+                _outIt = std::next(std::begin(*_buffer), pos);
+
+                writeInternal(data, std::true_type{});
+            }
+        }
+
         void writeInternal(const TValue *data, const size_t size, std::true_type) {
             //optimization
 #if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0)
@@ -163,7 +292,7 @@ namespace bitsery {
 #else
             auto tmp = _outIt;
             _outIt += size;
-            if (std::distance(_outIt , _end) >= 0) {
+            if (std::distance(_outIt, _end) >= 0) {
                 std::memcpy(std::addressof(*tmp), data, size);
 #endif
             } else {
@@ -190,6 +319,15 @@ namespace bitsery {
         void init(std::false_type) {
             _outIt = std::begin(*_buffer);
             _end = std::end(*_buffer);
+        }
+
+        template<typename T>
+        void writeInternal(const T &data, std::false_type) {
+            //optimization
+            auto tmp = _outIt;
+            _outIt += sizeof(T);
+            assert(std::distance(_outIt, _end) >= 0);
+            *reinterpret_cast<T *>(std::addressof(*tmp)) = data;
         }
 
         void writeInternal(const TValue *data, size_t size, std::false_type) {

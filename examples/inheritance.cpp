@@ -11,7 +11,7 @@
 //this header contains two extensions, that specifies inheritance type of base class
 //  BaseClass - normal inheritance
 //  VirtualBaseClass - when virtual inheritance is used
-//in order for virtual inheritance to work, InheritanceContext is required.
+//in order for virtual inheritance to work, InheritanceContext is required. for normal inheritance it is not required
 //it can be created either internally (via configuration) or externally (pointer to context).
 #include <bitsery/ext/inheritance.h>
 

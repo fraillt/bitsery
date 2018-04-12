@@ -41,13 +41,6 @@ install(DIRECTORY include/bitsery
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 #================ handle sub-projects =====================
-# examples and tests are independend directories, that can be built separatelly.
-# make find_package to no-op, when searching for "Bitsery", because it is created here.
-macro(find_package)
-    if (NOT ${ARGV0} STREQUAL Bitsery)
-        _find_package(${ARGV})
-    endif()
-endmacro()
 
 if (BITSERY_BUILD_EXAMPLES)
     message("build bitsery examples")

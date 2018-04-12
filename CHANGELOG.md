@@ -1,3 +1,9 @@
+# [4.2.2]
+
+### Improvements
+* improved serialization/deserialization performance for buffer adapters up to ~20%.
+* new **UnsafeInputBufferAdapter** doesn't check for buffer size on deserialization, can improve deserialization performance up to ~50%.
+
 # [4.2.1](https://github.com/fraillt/bitsery/compare/v4.2.0...v4.2.1) (2018-03-09)
 
 ### Improvements

@@ -21,10 +21,7 @@
 //SOFTWARE.
 
 
-#include <gmock/gmock.h>
-#include "serialization_test_utils.h"
 #include <bitsery/flexible.h>
-
 #include <bitsery/flexible/string.h>
 #include <bitsery/flexible/array.h>
 #include <bitsery/flexible/vector.h>
@@ -37,6 +34,10 @@
 #include <bitsery/flexible/unordered_map.h>
 #include <bitsery/flexible/set.h>
 #include <bitsery/flexible/unordered_set.h>
+
+#include <gmock/gmock.h>
+#include "serialization_test_utils.h"
+
 
 using testing::Eq;
 

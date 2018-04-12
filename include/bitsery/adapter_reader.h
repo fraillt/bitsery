@@ -68,14 +68,17 @@ namespace bitsery {
         void readBytes(T &v) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
-            directRead(&v, 1);
+            //do something with it, because the way it is implemented in buffer/stream adapter is probably UB,
+            //implementing it in non UB fassion, has no benefit and can be completely remove instead
+//            directReadValue(v, SwapTag{});
+            directReadBuffer(&v,1, SwapTag{});
         }
 
         template<size_t SIZE, typename T>
         void readBuffer(T *buf, size_t count) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
-            directRead(buf, count);
+            directReadBuffer(buf, count, SwapTag{});
         }
 
         template<typename T>
@@ -115,10 +118,6 @@ namespace bitsery {
             }
         }
 
-        const InputAdapter& adapter() const {
-            return _inputAdapter;
-        }
-
     private:
         friend class AdapterReaderBitPackingWrapper<AdapterReader<InputAdapter, Config>>;
 
@@ -128,23 +127,28 @@ namespace bitsery {
                 session::DisabledSessionsReader<AdapterReader<InputAdapter, Config>>>::type
                 _session;
 
-        template<typename T>
-        void directRead(T *v, size_t count) {
-            static_assert(!std::is_const<T>::value, "");
-            _inputAdapter.read(reinterpret_cast<TValue *>(v), sizeof(T) * count);
-            //swap each byte if nessesarry
-            _swapDataBits(v, count, std::integral_constant<bool,
-                    Config::NetworkEndianness != details::getSystemEndianness()>{});
+        using SwapTag = std::integral_constant<bool, Config::NetworkEndianness != details::getSystemEndianness()>;
+
+        template <typename T>
+        void directReadValue(T& v, std::true_type) {
+            _inputAdapter.read(v);
+            v = details::swap(v);
+        }
+
+        template <typename T>
+        void directReadValue(T& v, std::false_type) {
+            _inputAdapter.read(v);
         }
 
         template<typename T>
-        void _swapDataBits(T *v, size_t count, std::true_type) {
+        void directReadBuffer(T *v, size_t count, std::true_type) {
+            _inputAdapter.read(reinterpret_cast<TValue *>(v), sizeof(T) * count);
             std::for_each(v, std::next(v, count), [this](T &x) { x = details::swap(x); });
         }
 
         template<typename T>
-        void _swapDataBits(T *, size_t , std::false_type) {
-            //empty function because no swap is required
+        void directReadBuffer(T *v, size_t count, std::false_type) {
+            _inputAdapter.read(reinterpret_cast<TValue *>(v), sizeof(T) * count);
         }
 
     };

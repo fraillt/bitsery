@@ -20,9 +20,10 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
+#include <bitsery/ext/std_queue.h>
+
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
-#include <bitsery/ext/std_queue.h>
 
 using StdQueue = bitsery::ext::StdQueue;
 

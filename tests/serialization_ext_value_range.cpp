@@ -21,9 +21,10 @@
 //SOFTWARE.
 
 
+#include <bitsery/ext/value_range.h>
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
-#include <bitsery/ext/value_range.h>
+
 using namespace testing;
 using bitsery::details::RangeSpec;
 using bitsery::ext::BitsConstraint;

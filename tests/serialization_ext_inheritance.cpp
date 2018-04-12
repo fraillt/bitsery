@@ -20,9 +20,9 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
+#include <bitsery/ext/inheritance.h>
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
-#include <bitsery/ext/inheritance.h>
 
 using bitsery::ext::BaseClass;
 using bitsery::ext::VirtualBaseClass;

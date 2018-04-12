@@ -1,5 +1,5 @@
 #!/bin/sh
-BUILD_DIR=$1
+BUILD_DIR=./build
 TESTS_BUILD_DIR=$BUILD_DIR/tests/CMakeFiles/
 COV_INFO=$TESTS_BUILD_DIR/bitsery_coverage.info
 lcov --directory $TESTS_BUILD_DIR --capture --output-file $COV_INFO

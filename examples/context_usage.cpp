@@ -70,6 +70,10 @@ using InputAdapter = InputBufferAdapter<Buffer>;
 //  s.template context<MyContext>();
 using Context = std::tuple<int, std::pair<uint32_t, uint32_t>>;
 
+//NOTE:
+// if your context has no additional usage outside of serialization flow,
+// then you can create it internally via configuration (see inheritance.cpp)
+
 int main() {
 
     MyTypes::GameState data{};

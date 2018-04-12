@@ -21,10 +21,11 @@
 //SOFTWARE.
 
 
-#include <gmock/gmock.h>
-#include "serialization_test_utils.h"
 #include <bitsery/ext/entropy.h>
 #include <bitsery/traits/list.h>
+
+#include <gmock/gmock.h>
+#include "serialization_test_utils.h"
 
 using namespace testing;
 

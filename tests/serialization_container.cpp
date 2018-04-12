@@ -22,15 +22,13 @@
 
 
 
-#include <gmock/gmock.h>
-#include <algorithm>
-#include <numeric>
-
-#include "serialization_test_utils.h"
 #include <bitsery/traits/array.h>
 #include <bitsery/traits/list.h>
 #include <bitsery/traits/deque.h>
 #include <bitsery/traits/forward_list.h>
+
+#include <gmock/gmock.h>
+#include "serialization_test_utils.h"
 
 using testing::ContainerEq;
 using testing::Eq;

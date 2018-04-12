@@ -25,7 +25,7 @@
 
 #include <cassert>
 #include "../details/adapter_utils.h"
-//we need this, so we could
+//we need this, so we could reserve for non ordered set
 #include <unordered_set>
 #include "../traits/core/traits.h"
 

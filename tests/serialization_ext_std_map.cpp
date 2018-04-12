@@ -20,13 +20,13 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-#include <gmock/gmock.h>
-#include "serialization_test_utils.h"
-
 #include <bitsery/ext/std_map.h>
 #include <bitsery/ext/entropy.h>
 #include <unordered_map>
 #include <bitsery/traits/string.h>
+
+#include <gmock/gmock.h>
+#include "serialization_test_utils.h"
 
 using StdMap = bitsery::ext::StdMap;
 
