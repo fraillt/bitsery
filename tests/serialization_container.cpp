@@ -264,4 +264,6 @@ TEST_P(SerializeContainer, SizeHasVariableLength) {
     EXPECT_THAT(ctx.getBufferSize(), Eq(ctx.containerSizeSerializedBytesCount(src.size())));
 }
 
-INSTANTIATE_TEST_CASE_P(LargeContainerSize, SerializeContainer, ::testing::Values(0x01, 0x80, 0x4000));
+//last comma is to suppress error that otherwise can be suppressed by clang/gcc with -Wgnu-zero-variadic-macro-arguments
+INSTANTIATE_TEST_CASE_P(LargeContainerSize, SerializeContainer, ::testing::Values(0x01, 0x80, 0x4000),);
+

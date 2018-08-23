@@ -20,7 +20,6 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-
 #ifndef BITSERY_RTTI_UTILS_H
 #define BITSERY_RTTI_UTILS_H
 
@@ -41,6 +40,7 @@ namespace bitsery {
             static size_t get(TBase &obj) {
                 return typeid(obj).hash_code();
             }
+
             template<typename TBase>
             static constexpr size_t get() {
                 return typeid(TBase).hash_code();
@@ -57,28 +57,6 @@ namespace bitsery {
                 return std::is_polymorphic<TBase>::value;
             }
 
-        };
-
-        struct NoRTTI {
-            template<typename TBase>
-            static size_t get(TBase &obj) {
-                return 0;
-            }
-            template<typename TBase>
-            static constexpr size_t get() {
-                return 0;
-            }
-
-            template<typename TBase, typename TDerived>
-            static constexpr TDerived *cast(TBase *obj) {
-                static_assert(!std::is_pointer<TDerived>::value, "");
-                return dynamic_cast<TDerived *>(obj);
-            }
-
-            template<typename TBase>
-            static constexpr bool isPolymorphic() {
-                return false;
-            }
         };
 
     }

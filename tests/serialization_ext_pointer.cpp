@@ -57,7 +57,6 @@ public:
     MyEnumClass *p2null = nullptr;
     MyStruct1 *p3null = nullptr;
 
-
     PointerLinkingContext plctx1{};
     SerContext sctx1{};
 
@@ -92,9 +91,26 @@ TEST(SerializeExtensionPointer, PointerLinkingContextAcceptsMultipleSharedOwners
     MyStruct1 *sharedPtr = &data;
     //linking context
     PointerLinkingContext plctx1{};
-    EXPECT_THAT(plctx1.getInfoByPtr(sharedPtr, bitsery::ext::PointerOwnershipType::Shared).id, Eq(1));
-    EXPECT_THAT(plctx1.getInfoByPtr(sharedPtr, bitsery::ext::PointerOwnershipType::Shared).id, Eq(1));
-    EXPECT_THAT(plctx1.getInfoByPtr(sharedPtr, bitsery::ext::PointerOwnershipType::Shared).id, Eq(1));
+    EXPECT_THAT(plctx1.getInfoByPtr(sharedPtr, bitsery::ext::PointerOwnershipType::SharedOwner).id, Eq(1));
+    EXPECT_THAT(plctx1.getInfoByPtr(sharedPtr, bitsery::ext::PointerOwnershipType::SharedObserver).id, Eq(1));
+    EXPECT_THAT(plctx1.getInfoByPtr(sharedPtr, bitsery::ext::PointerOwnershipType::SharedOwner).id, Eq(1));
+}
+
+TEST(SerializeExtensionPointer, WhenOnlySharedObserverThenPointerLinkingContextIsInvalid) {
+    MyStruct1 data1{};
+    MyStruct1 data2{};
+    //pretend that this is shared ptr
+    MyStruct1 *sharedPtr1 = &data1;
+    MyStruct1 *sharedPtr2 = &data2;
+    //linking context
+    PointerLinkingContext plctx1{};
+    EXPECT_THAT(plctx1.getInfoByPtr(sharedPtr1, bitsery::ext::PointerOwnershipType::SharedObserver).id, Eq(1));
+    EXPECT_THAT(plctx1.getInfoByPtr(sharedPtr2, bitsery::ext::PointerOwnershipType::SharedObserver).id, Eq(2));
+    EXPECT_THAT(plctx1.getInfoByPtr(sharedPtr1, bitsery::ext::PointerOwnershipType::SharedObserver).id, Eq(1));
+    EXPECT_FALSE(plctx1.isValid());
+    EXPECT_THAT(plctx1.getInfoByPtr(sharedPtr1, bitsery::ext::PointerOwnershipType::SharedOwner).id, Eq(1));
+    EXPECT_THAT(plctx1.getInfoByPtr(sharedPtr2, bitsery::ext::PointerOwnershipType::SharedOwner).id, Eq(2));
+    EXPECT_TRUE(plctx1.isValid());
 }
 
 TEST_F(SerializeExtensionPointerSerialization, WhenPointersAreNullThenIsValid) {
@@ -372,7 +388,6 @@ TEST_F(SerializeExtensionPointerDeserialization, PointerObserver) {
     EXPECT_THAT(pr3, Eq(&r3));
 }
 
-
 struct Test1Data {
     std::vector<MyStruct1> vdata;
     std::vector<MyStruct1 *> vptr;
@@ -450,7 +465,6 @@ TEST(SerializeExtensionPointer, IntegrationTest) {
     delete data.pi1;
     delete res.pi1;
 }
-
 
 TEST(SerializeExtensionPointer, PointerOwnerWithNonPolymorphicTypeCanUseLambdaOverload) {
     const int32_t NEW_VALUE = 2;

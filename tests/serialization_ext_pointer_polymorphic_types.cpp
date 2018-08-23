@@ -21,6 +21,7 @@
 //SOFTWARE.
 
 
+#include <bitsery/ext/inheritance.h>
 #include <bitsery/ext/pointer.h>
 
 #include <gmock/gmock.h>
@@ -28,7 +29,6 @@
 
 using bitsery::ext::BaseClass;
 using bitsery::ext::VirtualBaseClass;
-
 
 using bitsery::ext::InheritanceContext;
 using bitsery::ext::PointerLinkingContext;
@@ -38,8 +38,6 @@ using bitsery::ext::StandardRTTI;
 using bitsery::ext::PointerOwner;
 using bitsery::ext::PointerObserver;
 using bitsery::ext::ReferencedByPointer;
-
-using bitsery::ext::PointerType;
 
 using testing::Eq;
 

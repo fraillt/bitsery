@@ -19,7 +19,7 @@ All cross-platform requirements are enforced at compile time, so serialized data
 * Can read/write from any source: stream (file, network stream. etc... ), or buffer (vector, c-array, etc...).
 * Don't pay for what you don't use! - customize your serialization via **extensions**. Some notable *extensions* allow:
   * forward/backward compatibility for your types.
-  * raw pointers (no polymorphism yet).
+  * smart and raw pointers with customizable runtime polymorphism support.
   * fine-grained bit-level serialization control.
 * Easily extendable for any type.
 * Allows flexible or/and verbose syntax for better serialization control.

@@ -34,10 +34,10 @@
 #include <bitsery/flexible/unordered_map.h>
 #include <bitsery/flexible/set.h>
 #include <bitsery/flexible/unordered_set.h>
+#include <bitsery/flexible/memory.h>
 
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
-
 
 using testing::Eq;
 
@@ -46,9 +46,9 @@ TEST(FlexibleSyntax, FundamentalTypesAndBool) {
     MyEnumClass te = MyEnumClass::E4;
     float tf = 485.042f;
     double td = -454184.48445;
-    bool tb=true;
+    bool tb = true;
     SerializationContext ctx{};
-    ctx.createSerializer().archive(ti,te,tf,td,tb);
+    ctx.createSerializer().archive(ti, te, tf, td, tb);
 
     //result
     int ri{};
@@ -56,7 +56,7 @@ TEST(FlexibleSyntax, FundamentalTypesAndBool) {
     float rf{};
     double rd{};
     bool rb{};
-    ctx.createDeserializer().archive(ri,re,rf,rd,rb);
+    ctx.createDeserializer().archive(ri, re, rf, rd, rb);
 
     //test
     EXPECT_THAT(ri, Eq(ti));
@@ -71,9 +71,9 @@ TEST(FlexibleSyntax, UseObjectFncInsteadOfValueN) {
     MyEnumClass te = MyEnumClass::E4;
     float tf = 485.042f;
     double td = -454184.48445;
-    bool tb=true;
+    bool tb = true;
     SerializationContext ctx;
-    auto& ser = ctx.createSerializer();
+    auto &ser = ctx.createSerializer();
     ser.object(ti);
     ser.object(te);
     ser.object(tf);
@@ -86,7 +86,7 @@ TEST(FlexibleSyntax, UseObjectFncInsteadOfValueN) {
     float rf{};
     double rd{};
     bool rb{};
-    auto& des = ctx.createDeserializer();
+    auto &des = ctx.createDeserializer();
     des.object(ri);
     des.object(re);
     des.object(rf);
@@ -106,9 +106,9 @@ TEST(FlexibleSyntax, MixDifferentSyntax) {
     MyEnumClass te = MyEnumClass::E4;
     float tf = 485.042f;
     double td = -454184.48445;
-    bool tb=true;
+    bool tb = true;
     SerializationContext ctx;
-    auto& ser = ctx.createSerializer();
+    auto &ser = ctx.createSerializer();
     ser.value<sizeof(ti)>(ti);
     ser.archive(te, tf, td);
     ser.object(tb);
@@ -119,7 +119,7 @@ TEST(FlexibleSyntax, MixDifferentSyntax) {
     float rf{};
     double rd{};
     bool rb{};
-    auto& des = ctx.createDeserializer();
+    auto &des = ctx.createDeserializer();
     des.archive(ri, re, rf);
     des.value8b(rd);
     des.object(rb);
@@ -132,28 +132,27 @@ TEST(FlexibleSyntax, MixDifferentSyntax) {
     EXPECT_THAT(rb, Eq(tb));
 }
 
-
-template <typename T>
+template<typename T>
 T procArchive(const T& testData) {
     SerializationContext ctx;
     ctx.createSerializer().archive(testData);
-    T res;
+    T res{};
     ctx.createDeserializer().archive(res);
     return res;
 }
 
-template <typename T>
+template<typename T>
 T procArchiveWithMaxSize(const T& testData) {
     SerializationContext ctx;
     ctx.createSerializer().archive(bitsery::maxSize(testData, 100));
-    T res;
+    T res{};
     ctx.createDeserializer().archive(bitsery::maxSize(res, 100));
     return res;
 }
 
 TEST(FlexibleSyntax, CStyleArrayForValueTypesAsContainer) {
-    const int t1[3]{8748,-484,45};
-    int r1[3]{0,0,0};
+    const int t1[3]{8748, -484, 45};
+    int r1[3]{0, 0, 0};
 
     SerializationContext ctx;
     ctx.createSerializer().archive(bitsery::asContainer(t1));
@@ -164,7 +163,7 @@ TEST(FlexibleSyntax, CStyleArrayForValueTypesAsContainer) {
 
 TEST(FlexibleSyntax, CStyleArrayForIntegralTypesAsText) {
     const char t1[3]{"hi"};
-    char r1[3]{0,0,0};
+    char r1[3]{0, 0, 0};
 
     SerializationContext ctx;
     ctx.createSerializer().archive(bitsery::asText(t1));
@@ -184,7 +183,6 @@ TEST(FlexibleSyntax, CStyleArray) {
     EXPECT_THAT(r1, ::testing::ContainerEq(t1));
 }
 
-
 TEST(FlexibleSyntax, StdString) {
     std::string t1{"my nice string"};
     std::string t2{};
@@ -196,56 +194,51 @@ TEST(FlexibleSyntax, StdString) {
 }
 
 TEST(FlexibleSyntax, StdArray) {
-    std::array<int, 3> t1{8748,-484,45};
+    std::array<int, 3> t1{8748, -484, 45};
     std::array<int, 0> t2{};
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
     EXPECT_THAT(procArchive(t2), Eq(t2));
-
 }
 
 TEST(FlexibleSyntax, StdVector) {
-    std::vector<int> t1{8748,-484,45};
-    std::vector<float> t2{5.f,0.198f};
+    std::vector<int> t1{8748, -484, 45};
+    std::vector<float> t2{5.f, 0.198f};
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
     EXPECT_THAT(procArchive(t2), Eq(t2));
     EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
     EXPECT_THAT(procArchiveWithMaxSize(t2), Eq(t2));
-
 }
 
 TEST(FlexibleSyntax, StdList) {
-    std::list<int> t1{8748,-484,45};
-    std::list<float> t2{5.f,0.198f};
+    std::list<int> t1{8748, -484, 45};
+    std::list<float> t2{5.f, 0.198f};
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
     EXPECT_THAT(procArchive(t2), Eq(t2));
     EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
     EXPECT_THAT(procArchiveWithMaxSize(t2), Eq(t2));
-
 }
 
 TEST(FlexibleSyntax, StdForwardList) {
-    std::forward_list<int> t1{8748,-484,45};
-    std::forward_list<float> t2{5.f,0.198f};
+    std::forward_list<int> t1{8748, -484, 45};
+    std::forward_list<float> t2{5.f, 0.198f};
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
     EXPECT_THAT(procArchive(t2), Eq(t2));
     EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
     EXPECT_THAT(procArchiveWithMaxSize(t2), Eq(t2));
-
 }
 
 TEST(FlexibleSyntax, StdDeque) {
-    std::deque<int> t1{8748,-484,45};
-    std::deque<float> t2{5.f,0.198f};
+    std::deque<int> t1{8748, -484, 45};
+    std::deque<float> t2{5.f, 0.198f};
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
     EXPECT_THAT(procArchive(t2), Eq(t2));
     EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
     EXPECT_THAT(procArchiveWithMaxSize(t2), Eq(t2));
-
 }
 
 TEST(FlexibleSyntax, StdQueue) {
@@ -255,7 +248,6 @@ TEST(FlexibleSyntax, StdQueue) {
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
     EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
-
 }
 
 TEST(FlexibleSyntax, StdPriorityQueue) {
@@ -273,7 +265,6 @@ TEST(FlexibleSyntax, StdPriorityQueue) {
         r1.pop();
         t1.pop();
     }
-
 }
 
 TEST(FlexibleSyntax, StdStack) {
@@ -283,13 +274,12 @@ TEST(FlexibleSyntax, StdStack) {
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
     EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
-
 }
 
 TEST(FlexibleSyntax, StdUnorderedMap) {
     std::unordered_map<int, int> t1;
-    t1.emplace(3423,624);
-    t1.emplace(-5484,-845);
+    t1.emplace(3423, 624);
+    t1.emplace(-5484, -845);
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
     EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
@@ -297,9 +287,9 @@ TEST(FlexibleSyntax, StdUnorderedMap) {
 
 TEST(FlexibleSyntax, StdUnorderedMultiMap) {
     std::unordered_multimap<std::string, int> t1;
-    t1.emplace("one",624);
-    t1.emplace("two",-845);
-    t1.emplace("one",897);
+    t1.emplace("one", 624);
+    t1.emplace("two", -845);
+    t1.emplace("one", 897);
 
     EXPECT_TRUE(procArchive(t1) == t1);
     EXPECT_TRUE(procArchiveWithMaxSize(t1) == t1);
@@ -307,8 +297,8 @@ TEST(FlexibleSyntax, StdUnorderedMultiMap) {
 
 TEST(FlexibleSyntax, StdMap) {
     std::map<int, int> t1;
-    t1.emplace(3423,624);
-    t1.emplace(-5484,-845);
+    t1.emplace(3423, 624);
+    t1.emplace(-5484, -845);
 
     EXPECT_THAT(procArchive(t1), Eq(t1));
     EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
@@ -316,9 +306,9 @@ TEST(FlexibleSyntax, StdMap) {
 
 TEST(FlexibleSyntax, StdMultiMap) {
     std::multimap<std::string, int> t1;
-    t1.emplace("one",624);
-    t1.emplace("two",-845);
-    t1.emplace("one",897);
+    t1.emplace("one", 624);
+    t1.emplace("two", -845);
+    t1.emplace("one", 897);
 
     auto res = procArchive(t1);
     //same key values is not ordered, and operator == compares each element at same position
@@ -376,6 +366,27 @@ TEST(FlexibleSyntax, StdMultiSet) {
     EXPECT_TRUE(procArchiveWithMaxSize(t1) == t1);
 }
 
+TEST(FlexibleSyntax, StdSmartPtr) {
+    std::shared_ptr<int> dataShared1(new int{4});
+    std::weak_ptr<int> dataWeak1(dataShared1);
+    std::unique_ptr<std::string> dataUnique1{new std::string{"hello world"}};
+
+    bitsery::ext::PointerLinkingContext plctx1{};
+    BasicSerializationContext<bitsery::DefaultConfig, bitsery::ext::PointerLinkingContext> ctx;
+    ctx.createSerializer(&plctx1).archive(dataShared1, dataWeak1, dataUnique1);
+
+    std::shared_ptr<int> resShared1{};
+    std::weak_ptr<int> resWeak1{};
+    std::unique_ptr<std::string> resUnique1{};
+    ctx.createDeserializer(&plctx1).archive(resShared1, resWeak1, resUnique1);
+    //clear shared state from pointer linking context
+    plctx1.clearSharedState();
+
+    EXPECT_TRUE(plctx1.isValid());
+    EXPECT_THAT(*resShared1, Eq(*dataShared1));
+    EXPECT_THAT(*resWeak1.lock(), Eq(*dataWeak1.lock()));
+    EXPECT_THAT(*resUnique1, Eq(*dataUnique1));
+}
 
 TEST(FlexibleSyntax, NestedTypes) {
     std::unordered_map<std::string, std::vector<std::string>> t1;

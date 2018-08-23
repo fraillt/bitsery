@@ -25,7 +25,6 @@
 
 #include <cassert>
 #include "../traits/core/traits.h"
-#include "inheritance.h"
 #include "utils/pointer_utils.h"
 #include "utils/polymorphism_utils.h"
 #include "utils/rtti_utils.h"
@@ -36,13 +35,13 @@ namespace bitsery {
 
         namespace pointer_details {
 
-            template <typename T>
+            template<typename T>
             struct PtrOwnerManager {
                 static_assert(std::is_pointer<T>::value, "");
 
                 using TElement = typename std::remove_pointer<T>::type;
 
-                static TElement* getPtr(T& obj){
+                static TElement* getPtr(T &obj) {
                     return obj;
                 }
 
@@ -61,18 +60,18 @@ namespace bitsery {
                 }
             };
 
-            template <typename T>
+            template<typename T>
             struct PtrObserverManager {
                 static_assert(std::is_pointer<T>::value, "");
 
                 using TElement = typename std::remove_pointer<T>::type;
 
                 //observer must return reference to pointer, so that it could be updated later
-                static TElement*& getPtrRef(T& obj){
+                static TElement*& getPtrRef(T& obj) {
                     return obj;
                 }
 
-                static TElement* getPtr(T& obj){
+                static TElement* getPtr(T& obj) {
                     return obj;
                 }
 
@@ -91,57 +90,80 @@ namespace bitsery {
 
             };
 
-            template <typename T>
+            template<typename T>
             struct NonPtrManager {
-                
+
                 static_assert(!std::is_pointer<T>::value, "");
-                
+
                 using TElement = T;
-                
-                static TElement* getPtr(T& obj){
+
+                static TElement* getPtr(T& obj) {
                     return &obj;
                 }
 
                 static constexpr PointerOwnershipType getOwnership() {
                     return PointerOwnershipType::Owner;
                 }
-    
+
                 // this code is unreachable for reference type, but is necessary to compile
                 // LCOV_EXCL_START
-                static void assign(T& obj, TElement* valuePtr) {}
-                static void clear(T& obj) {}
+                static void assign(T& , TElement* ) {}
+
+                static void clear(T& ) {}
                 // LCOV_EXCL_STOP
-                
+
+            };
+
+            // this class is used by NonPtrManager
+            struct NoRTTI {
+                template<typename TBase>
+                static size_t get(TBase& ) {
+                    return 0;
+                }
+
+                template<typename TBase>
+                static constexpr size_t get() {
+                    return 0;
+                }
+
+                template<typename TBase, typename TDerived>
+                static constexpr TDerived* cast(TBase* obj) {
+                    static_assert(!std::is_pointer<TDerived>::value, "");
+                    return dynamic_cast<TDerived*>(obj);
+                }
+
+                template<typename TBase>
+                static constexpr bool isPolymorphic() {
+                    return false;
+                }
             };
 
         }
 
-        template <typename RTTI>
+        template<typename RTTI>
         using PointerOwnerBase = pointer_utils::PointerObjectExtensionBase<
                 pointer_details::PtrOwnerManager, PolymorphicContext, RTTI>;
 
         using PointerOwner = PointerOwnerBase<StandardRTTI>;
 
-
         using PointerObserver = pointer_utils::PointerObjectExtensionBase<
-                pointer_details::PtrObserverManager, PolymorphicContext, NoRTTI>;
-
+                pointer_details::PtrObserverManager, PolymorphicContext, pointer_details::NoRTTI>;
 
         //inherit from PointerObjectExtensionBase in order to specify PointerType::NotNull
-        class ReferencedByPointer: public pointer_utils::PointerObjectExtensionBase<
-                pointer_details::NonPtrManager, PolymorphicContext, NoRTTI>{
+        class ReferencedByPointer : public pointer_utils::PointerObjectExtensionBase<
+                pointer_details::NonPtrManager, PolymorphicContext, pointer_details::NoRTTI> {
         public:
-            ReferencedByPointer():pointer_utils::PointerObjectExtensionBase<
-                    pointer_details::NonPtrManager, PolymorphicContext, NoRTTI>(PointerType::NotNull) {}
+            ReferencedByPointer() : pointer_utils::PointerObjectExtensionBase<
+                    pointer_details::NonPtrManager, PolymorphicContext, pointer_details::NoRTTI>(
+                    PointerType::NotNull) {}
         };
-        
+
     }
 
     namespace traits {
 
-
         template<typename T, typename RTTI>
-        struct ExtensionTraits<ext::PointerOwnerBase<RTTI>, T *> {
+        struct ExtensionTraits<ext::PointerOwnerBase<RTTI>, T*> {
             using TValue = T;
             static constexpr bool SupportValueOverload = true;
             static constexpr bool SupportObjectOverload = true;
@@ -150,7 +172,7 @@ namespace bitsery {
         };
 
         template<typename T>
-        struct ExtensionTraits<ext::PointerObserver, T *> {
+        struct ExtensionTraits<ext::PointerObserver, T*> {
             //although pointer observer doesn't serialize anything, but we still add value overload support to be consistent with pointer owners
             //observer only writes/reads pointer id from pointer linking context
             using TValue = T;
@@ -170,6 +192,5 @@ namespace bitsery {
     }
 
 }
-
 
 #endif //BITSERY_EXT_POINTER_H

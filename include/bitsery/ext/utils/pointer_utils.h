@@ -20,7 +20,6 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-
 #ifndef BITSERY_POINTER_UTILS_H
 #define BITSERY_POINTER_UTILS_H
 
@@ -40,27 +39,96 @@ namespace bitsery {
             NotNull
         };
 
+        // Observer - not responsible for pointer lifetime management.
+        // Owner - only ONE owner is responsible for this pointers creation/destruction
+        // SharedOwner, SharedObserver - MANY shared owners is responsible for pointer creation/destruction
+        // requires additional context to manage shared owners themselves.
+        // SharedOwner actually manages life time e.g. std::shared_ptr
+        // SharedObserver do not manage life time of the pointer, but can observe shared state .e.. std::weak_ptr
+        // and differently from Observer, creates new object if necessary and saves to shared state
         enum class PointerOwnershipType : uint8_t {
-            //is not responsible for pointer lifetime management.
-                    Observer,
-            //only ONE owner is responsible for this pointers creation/destruction
-                    Owner,
-            //MANY shared owners is responsible for pointer creation/destruction
-            //requires additional context to manage shared owners themselves.
-                    Shared
+            Observer,
+            Owner,
+            SharedOwner,
+            SharedObserver
         };
 
         //forward declaration
         class PointerLinkingContext;
 
         namespace pointer_utils {
-            
-            enum SharedSerializationStatus {
-                NotSerialized,
-                SerializedWeak,
-                SerializedShared
+
+            //this class is used to store context for shared ptr owners
+            struct PointerSharedStateBase {
+                virtual ~PointerSharedStateBase() = default;
             };
-            
+
+            //PLC info is internal classes for serializer, and deserializer
+            struct PLCInfo {
+                explicit PLCInfo(PointerOwnershipType ownershipType_)
+                        : ownershipType{ownershipType_},
+                          isSharedProcessed{false} {};
+                PointerOwnershipType ownershipType;
+                bool isSharedProcessed;
+            };
+
+            struct PLCInfoSerializer: PLCInfo {
+                PLCInfoSerializer(size_t id_, PointerOwnershipType ownershipType_)
+                        : PLCInfo(ownershipType_), id{id_} {}
+                size_t id;
+            };
+
+            struct PLCInfoDeserializer : PLCInfo {
+                PLCInfoDeserializer(void *ptr, PointerOwnershipType ownershipType_)
+                        : PLCInfo(ownershipType_),
+                          ownerPtr{ptr} {};
+
+                //need to override these explicitly because we have pointer member
+                PLCInfoDeserializer(const PLCInfoDeserializer&) = delete;
+                PLCInfoDeserializer(PLCInfoDeserializer&&) = default;
+                PLCInfoDeserializer& operator =(const PLCInfoDeserializer&) = delete;
+                PLCInfoDeserializer& operator =(PLCInfoDeserializer&&) = default;
+
+                void processOwner(void *ptr) {
+                    ownerPtr = ptr;
+                    assert(ownershipType != PointerOwnershipType::Observer);
+                    for (auto &o:observersList)
+                        o.get() = ptr;
+                    observersList.clear();
+                    observersList.shrink_to_fit();
+                }
+
+                void processObserver(void *(&ptr)) {
+                    if (ownerPtr) {
+                        ptr = ownerPtr;
+                    } else {
+                        observersList.emplace_back(ptr);
+                    }
+                }
+
+                void *ownerPtr;
+                std::vector<std::reference_wrapper<void *>> observersList{};
+                std::unique_ptr<PointerSharedStateBase> sharedState{};
+            };
+
+            void updatePLCInfo(PLCInfo &ptrInfo, PointerOwnershipType ptrType) {
+                //do nothing for observer
+                if (ptrType == PointerOwnershipType::Observer)
+                    return;
+                if (ptrInfo.ownershipType == PointerOwnershipType::Observer) {
+                    //set ownership type
+                    ptrInfo.ownershipType = ptrType;
+                    return;
+                }
+                //only shared ownership can get here multiple times
+                assert(ptrType == PointerOwnershipType::SharedOwner || ptrType == PointerOwnershipType::SharedObserver);
+                //check if need to update to SharedOwner
+                if (ptrType == PointerOwnershipType::SharedOwner)
+                    ptrInfo.ownershipType = ptrType;
+                //mark that object already processed, so we do not serialize/deserialize duplicate objects
+                ptrInfo.isSharedProcessed = true;
+            }
+
             class PointerLinkingContextSerialization {
             public:
                 explicit PointerLinkingContextSerialization()
@@ -77,35 +145,14 @@ namespace bitsery {
 
                 ~PointerLinkingContextSerialization() = default;
 
-                struct PointerInfo {
-                    PointerInfo(size_t id_, PointerOwnershipType ownershipType_)
-                            : id{id_},
-                              ownershipType{ownershipType_},
-                              sharedCount{0} {};
-                    size_t id;
-                    PointerOwnershipType ownershipType;
-                    size_t sharedCount;
-                };
-
-                const PointerInfo &getInfoByPtr(const void *ptr, PointerOwnershipType ptrType) {
-                    auto res = _ptrMap.emplace(ptr, PointerInfo{_currId + 1u, ptrType});
+                const PLCInfoSerializer &getInfoByPtr(const void *ptr, PointerOwnershipType ptrType) {
+                    auto res = _ptrMap.emplace(ptr, PLCInfoSerializer{_currId + 1u, ptrType});
                     auto &ptrInfo = res.first->second;
                     if (res.second) {
                         ++_currId;
                         return ptrInfo;
                     }
-                    //ptr already exists
-                    //for observer return success
-                    if (ptrType == PointerOwnershipType::Observer)
-                        return ptrInfo;
-                    //set owner and return success
-                    if (ptrInfo.ownershipType == PointerOwnershipType::Observer) {
-                        ptrInfo.ownershipType = ptrType;
-                        return ptrInfo;
-                    }
-                    //only shared ownership can get here multiple times
-                    assert(ptrType == PointerOwnershipType::Shared);
-                    ptrInfo.sharedCount++;
+                    updatePLCInfo(ptrInfo, ptrType);
                     return ptrInfo;
                 }
 
@@ -113,20 +160,16 @@ namespace bitsery {
                 //we cannot serialize pointers, if we haven't serialized objects themselves
                 bool isPointerSerializationValid() const {
                     return std::all_of(_ptrMap.begin(), _ptrMap.end(),
-                                       [](const std::pair<const void *, PointerInfo> &p) {
-                                           return p.second.ownershipType != PointerOwnershipType::Observer;
+                                       [](const std::pair<const void *, PLCInfoSerializer> &p) {
+                                           return p.second.ownershipType == PointerOwnershipType::SharedOwner ||
+                                                  p.second.ownershipType == PointerOwnershipType::Owner;
                                        });
                 }
 
             private:
                 size_t _currId;
-                std::unordered_map<const void *, PointerInfo> _ptrMap;
+                std::unordered_map<const void *, PLCInfoSerializer> _ptrMap;
 
-            };
-
-            //this class is used to store context for shared ptr owners
-            struct PointerSharedStateBase {
-                virtual ~PointerSharedStateBase() = default;
             };
 
             class PointerLinkingContextDeserialization {
@@ -144,107 +187,51 @@ namespace bitsery {
 
                 ~PointerLinkingContextDeserialization() = default;
 
-
-                struct PointerInfo {
-                    PointerInfo(size_t id_, void *ptr, PointerOwnershipType ownershipType_)
-                            : id{id_},
-                              ownershipType{ownershipType_},
-                              ownerPtr{ptr},
-                              observersList{},
-                              sharedContext{},
-                              sharedCount{}
-                    {};
-
-                    PointerInfo(const PointerInfo &) = delete;
-
-                    PointerInfo &operator=(const PointerInfo &) = delete;
-
-                    PointerInfo(PointerInfo &&) = default;
-
-                    PointerInfo &operator=(PointerInfo &&) = default;
-
-                    ~PointerInfo() = default;
-
-                    void processOwner(void *ptr) {
-                        ownerPtr = ptr;
-                        assert(ownershipType != PointerOwnershipType::Observer);
-                        for (auto &o:observersList)
-                            o.get() = ptr;
-                        observersList.clear();
-                        observersList.shrink_to_fit();
-                    }
-
-                    void processObserver(void *(&ptr)) {
-                        if (ownerPtr) {
-                            ptr = ownerPtr;
-                        } else {
-                            observersList.push_back(ptr);
-                        }
-                    }
-
-                    size_t id;
-                    PointerOwnershipType ownershipType;
-                    void *ownerPtr;
-                    std::vector<std::reference_wrapper<void *>> observersList;
-                    std::unique_ptr<PointerSharedStateBase> sharedContext;
-                    size_t sharedCount;
-                };
-
-                PointerInfo &getInfoById(size_t id, PointerOwnershipType ptrType) {
-                    auto res = _idMap.emplace(id, PointerInfo{id, nullptr, ptrType});
+                PLCInfoDeserializer &getInfoById(size_t id, PointerOwnershipType ptrType) {
+                    auto res = _idMap.emplace(id, PLCInfoDeserializer{nullptr, ptrType});
                     auto &ptrInfo = res.first->second;
-                    if (!res.second) {
-                        //id already exists
-                        //for observer return success
-                        if (ptrType == PointerOwnershipType::Observer)
-                            return ptrInfo;
-
-                        //set owner and return success
-                        if (ptrInfo.ownershipType == PointerOwnershipType::Observer) {
-                            ptrInfo.ownershipType = ptrType;
-                            return ptrInfo;
-                        }
-                        //only shared ownership can get here multiple times
-                        assert(ptrType == PointerOwnershipType::Shared);
-                        ptrInfo.sharedCount++;
-                    }
+                    if (!res.second)
+                        updatePLCInfo(ptrInfo, ptrType);
                     return ptrInfo;
                 }
 
                 void clearSharedState() {
-                    _idMap.clear();
+                    for (auto &item: _idMap)
+                        item.second.sharedState.reset();
                 }
 
                 //valid, when all pointers has owners
                 bool isPointerDeserializationValid() const {
-                    return std::all_of(_idMap.begin(), _idMap.end(), [](const std::pair<const size_t, PointerInfo> &p) {
-                        return p.second.ownershipType != PointerOwnershipType::Observer;
-                    });
+                    return std::all_of(_idMap.begin(), _idMap.end(),
+                                       [](const std::pair<const size_t, PLCInfoDeserializer> &p) {
+                                           return p.second.ownershipType == PointerOwnershipType::SharedOwner ||
+                                                  p.second.ownershipType == PointerOwnershipType::Owner;
+                                       });
                 }
 
             private:
-                std::unordered_map<size_t, PointerInfo> _idMap;
+                std::unordered_map<size_t, PLCInfoDeserializer> _idMap;
             };
 
-            template<template <typename> typename TPtrManager, template <typename> typename TPolymorphicContext, typename RTTI>
+            template<template<typename> class TPtrManager,
+                    template<typename> class TPolymorphicContext, typename RTTI>
             class PointerObjectExtensionBase {
             public:
 
                 explicit PointerObjectExtensionBase(PointerType ptrType = PointerType::Nullable) :
-                        _ptrType{ptrType}
-                {}
+                        _ptrType{ptrType} {}
 
                 template<typename Ser, typename Writer, typename T, typename Fnc>
                 void serialize(Ser &ser, Writer &w, const T &obj, Fnc &&fnc) const {
 
-                    auto ptr = TPtrManager<T>::getPtr(const_cast<T&>(obj));
+                    auto ptr = TPtrManager<T>::getPtr(const_cast<T &>(obj));
                     if (ptr) {
                         auto ctx = ser.template context<PointerLinkingContext>();
                         assert(ctx != nullptr);
                         auto &ptrInfo = ctx->getInfoByPtr(getBasePtr(ptr), TPtrManager<T>::getOwnership());
                         details::writeSize(w, ptrInfo.id);
                         if (TPtrManager<T>::getOwnership() != PointerOwnershipType::Observer) {
-                            if (ptrInfo.sharedCount == 0)
+                            if (!ptrInfo.isSharedProcessed)
                                 serializeImpl(ser, ptr, std::forward<Fnc>(fnc), w, IsPolymorphic<T>{});
                         }
                     } else {
@@ -273,18 +260,20 @@ namespace bitsery {
                 }
 
             private:
-                
-                template <typename T>
-                struct IsPolymorphic:std::integral_constant<bool, RTTI::template isPolymorphic<typename TPtrManager<T>::TElement>()> {
+
+                template<typename T>
+                struct IsPolymorphic : std::integral_constant<bool,
+                        RTTI::template isPolymorphic<typename TPtrManager<T>::TElement>()> {
                 };
-                
-                template <typename T>
-                const void* getBasePtr(const T* ptr) const {
+
+                template<typename T>
+                const void *getBasePtr(const T *ptr) const {
                     // todo implement handling of types with virtual inheritance
-                    // this is required to correctly track same shared object, e.g. shared_ptr<Base> and shared_ptr<Derived>
+                    // this is required to correctly track same object, when one object is derived and other is base class
+                    // e.g. shared_ptr<Base> and weak_ptr<Derived> or pointer observer Base*
                     return ptr;
                 }
-                
+
                 template<typename Ser, typename TPtr, typename Fnc, typename Writer>
                 void serializeImpl(Ser &ser, TPtr &ptr, Fnc &&, Writer &w, std::true_type) const {
                     const auto &ctx = ser.template context<TPolymorphicContext<RTTI>>();
@@ -295,21 +284,23 @@ namespace bitsery {
                 void serializeImpl(Ser &, TPtr &ptr, Fnc &&fnc, Writer &, std::false_type) const {
                     fnc(*ptr);
                 }
-                
+
                 template<typename Des, typename T, typename Fnc, typename Reader>
-                void deserializeImpl(PointerLinkingContextDeserialization::PointerInfo& ptrInfo, Des &des, T &obj, Fnc &&,
-                                     Reader &r, std::true_type polymorph, std::integral_constant<PointerOwnershipType, PointerOwnershipType::Owner>) const {
+                void deserializeImpl(PLCInfoDeserializer &ptrInfo, Des &des, T &obj, Fnc &&,
+                                     Reader &r, std::true_type ,
+                                     std::integral_constant<PointerOwnershipType, PointerOwnershipType::Owner>) const {
                     const auto &ctx = des.template context<TPolymorphicContext<RTTI>>();
-                    ctx->deserialize(des,r, TPtrManager<T>::getPtr(obj),
+                    ctx->deserialize(des, r, TPtrManager<T>::getPtr(obj),
                                      [&obj, this](typename TPtrManager<T>::TElement *valuePtr) {
                                          TPtrManager<T>::assign(obj, valuePtr);
                                      });
                     ptrInfo.processOwner(TPtrManager<T>::getPtr(obj));
                 }
-                
+
                 template<typename Des, typename T, typename Fnc, typename Reader>
-                void deserializeImpl(PointerLinkingContextDeserialization::PointerInfo& ptrInfo, Des &, T &obj, Fnc &&fnc,
-                                     Reader &, std::false_type polymorph, std::integral_constant<PointerOwnershipType, PointerOwnershipType::Owner>) const {
+                void deserializeImpl(PLCInfoDeserializer &ptrInfo, Des &, T &obj, Fnc &&fnc,
+                                     Reader &, std::false_type ,
+                                     std::integral_constant<PointerOwnershipType, PointerOwnershipType::Owner>) const {
                     auto ptr = TPtrManager<T>::getPtr(obj);
                     if (ptr) {
                         fnc(*ptr);
@@ -320,14 +311,15 @@ namespace bitsery {
                     }
                     ptrInfo.processOwner(ptr);
                 }
-                
+
                 template<typename Des, typename T, typename Fnc, typename Reader>
-                void deserializeImpl(PointerLinkingContextDeserialization::PointerInfo& ptrInfo, Des &des, T &obj, Fnc &&,
-                                     Reader &r, std::true_type polymorph, std::integral_constant<PointerOwnershipType, PointerOwnershipType::Shared> ) const {
-                    auto& sharedState = ptrInfo.sharedContext;
+                void deserializeImpl(PLCInfoDeserializer &ptrInfo, Des &des, T &obj, Fnc &&,
+                                     Reader &r, std::true_type ,
+                                     std::integral_constant<PointerOwnershipType, PointerOwnershipType::SharedOwner>) const {
+                    auto &sharedState = ptrInfo.sharedState;
                     if (!sharedState) {
                         const auto &ctx = des.template context<TPolymorphicContext<RTTI>>();
-                        ctx->deserialize(des,r, TPtrManager<T>::getPtr(obj),
+                        ctx->deserialize(des, r, TPtrManager<T>::getPtr(obj),
                                          [&obj, &sharedState](typename TPtrManager<T>::TElement *valuePtr) {
                                              sharedState = TPtrManager<T>::createSharedState(valuePtr);
                                          });
@@ -337,11 +329,12 @@ namespace bitsery {
                     TPtrManager<T>::loadFromSharedState(sharedState.get(), obj);
                     ptrInfo.processOwner(TPtrManager<T>::getPtr(obj));
                 }
-                
+
                 template<typename Des, typename T, typename Fnc, typename Reader>
-                void deserializeImpl(PointerLinkingContextDeserialization::PointerInfo& ptrInfo, Des &, T &obj, Fnc &&fnc,
-                                     Reader &, std::false_type polymorph, std::integral_constant<PointerOwnershipType, PointerOwnershipType::Shared>) const {
-                    auto& sharedState = ptrInfo.sharedContext;
+                void deserializeImpl(PLCInfoDeserializer &ptrInfo, Des &, T &obj, Fnc &&fnc,
+                                     Reader &, std::false_type ,
+                                     std::integral_constant<PointerOwnershipType, PointerOwnershipType::SharedOwner>) const {
+                    auto &sharedState = ptrInfo.sharedState;
                     if (!sharedState) {
                         if (auto ptr = TPtrManager<T>::getPtr(obj)) {
                             fnc(*ptr);
@@ -355,10 +348,19 @@ namespace bitsery {
                     TPtrManager<T>::loadFromSharedState(sharedState.get(), obj);
                     ptrInfo.processOwner(TPtrManager<T>::getPtr(obj));
                 }
-                
+
+                template<typename Des, typename T, typename Fnc, typename Reader, typename isPolymorph>
+                void deserializeImpl(PLCInfoDeserializer &ptrInfo, Des &des, T &obj, Fnc &&fnc,
+                                     Reader &r, isPolymorph polymorph,
+                                     std::integral_constant<PointerOwnershipType, PointerOwnershipType::SharedObserver>) const {
+                    deserializeImpl(ptrInfo, des, obj, fnc, r, polymorph,
+                                    std::integral_constant<PointerOwnershipType, PointerOwnershipType::SharedOwner>{});
+                }
+
                 template<typename Des, typename T, typename Fnc, typename Reader, typename isPolymorphic>
-                void deserializeImpl(PointerLinkingContextDeserialization::PointerInfo& ptrInfo, Des &, T &obj, Fnc &&fnc,
-                                     Reader &, isPolymorphic, std::integral_constant<PointerOwnershipType, PointerOwnershipType::Observer>) const {
+                void deserializeImpl(PLCInfoDeserializer &ptrInfo, Des &, T &obj, Fnc &&,
+                                     Reader &, isPolymorphic,
+                                     std::integral_constant<PointerOwnershipType, PointerOwnershipType::Observer>) const {
                     ptrInfo.processObserver(reinterpret_cast<void *&>(TPtrManager<T>::getPtrRef(obj)));
                 }
 

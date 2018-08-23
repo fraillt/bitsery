@@ -20,8 +20,6 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-
-
 #ifndef BITSERY_ADAPTER_WRITER_H
 #define BITSERY_ADAPTER_WRITER_H
 
@@ -29,7 +27,6 @@
 
 #include <cassert>
 #include <utility>
-
 
 namespace bitsery {
 
@@ -100,7 +97,6 @@ namespace bitsery {
     //helper type for default config
     using MeasureSize = BasicMeasureSize<DefaultConfig>;
 
-
     template <typename TWriter>
     class AdapterWriterBitPackingWrapper;
 
@@ -135,17 +131,15 @@ namespace bitsery {
         void writeBytes(const T &v) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
-            //do something with it, because the way it is implemented in buffer/stream adapter is probably UB,
-            //implementing it in non UB fassion, has no benefit and can be completely remove instead
-//            directWriteValue(v, SwapTag{});
-            directWriteBuffer(&v, 1, SwapTag{});
+            directWrite(&v, 1);
+
         }
 
         template<size_t SIZE, typename T>
         void writeBuffer(const T *buf, size_t count) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
-            directWriteBuffer(buf, count, SwapTag{});
+            directWrite(buf, count);
         }
 
         template<typename T>
@@ -176,27 +170,16 @@ namespace bitsery {
             _session.end(*this);
         }
 
-        const OutputAdapter& adapter() const {
-            return _outputAdapter;
-        }
-
     private:
         friend class AdapterWriterBitPackingWrapper<AdapterWriter<OutputAdapter, Config>>;
-
-        using SwapTag = std::integral_constant<bool, Config::NetworkEndianness != details::getSystemEndianness()>;
-
-        template <typename T>
-        void directWriteValue(const T& v, std::true_type) {
-            _outputAdapter.write(details::swap(v));
-        }
-
-        template <typename T>
-        void directWriteValue(const T& v, std::false_type) {
-            _outputAdapter.write(v);
+        template<typename T>
+        void directWrite(T &&v, size_t count) {
+            _directWriteSwapTag(std::forward<T>(v), count, std::integral_constant<bool,
+                    Config::NetworkEndianness != details::getSystemEndianness()>{});
         }
 
         template<typename T>
-        void directWriteBuffer(const T *v, size_t count, std::true_type) {
+        void _directWriteSwapTag(const T *v, size_t count, std::true_type) {
             std::for_each(v, std::next(v, count), [this](const T &v) {
                 const auto res = details::swap(v);
                 _outputAdapter.write(reinterpret_cast<const TValue *>(&res), sizeof(T));
@@ -204,7 +187,7 @@ namespace bitsery {
         }
 
         template<typename T>
-        void directWriteBuffer(const T *v, size_t count, std::false_type) {
+        void _directWriteSwapTag(const T *v, size_t count, std::false_type) {
             _outputAdapter.write(reinterpret_cast<const TValue *>(v), count * sizeof(T));
         }
 

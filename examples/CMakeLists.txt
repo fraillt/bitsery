@@ -38,5 +38,8 @@ foreach(ExampleFile ${ExampleFiles})
     get_filename_component(ExampleName ${ExampleFile} NAME_WE)
     add_executable(bitsery.example.${ExampleName} ${ExampleFile})
     target_link_libraries(bitsery.example.${ExampleName} PRIVATE Bitsery::bitsery)
+    if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(bitsery.example.${ExampleName} PRIVATE -Wextra -Wno-missing-braces -Wpedantic -Weffc++)
+    endif()
 endforeach()
 

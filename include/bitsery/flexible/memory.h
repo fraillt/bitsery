@@ -1,6 +1,6 @@
 //MIT License
 //
-//Copyright (c) 2017 Mindaugas Vinkelis
+//Copyright (c) 2018 Mindaugas Vinkelis
 //
 //Permission is hereby granted, free of charge, to any person obtaining a copy
 //of this software and associated documentation files (the "Software"), to deal
@@ -20,24 +20,26 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
+#ifndef BITSERY_FLEXIBLE_TYPE_STD_MEMORY_H
+#define BITSERY_FLEXIBLE_TYPE_STD_MEMORY_H
 
-#ifndef BITSERY_BITSERY_H
-#define BITSERY_BITSERY_H
+#include "../ext/std_smart_ptr.h"
 
-#define BITSERY_MAJOR_VERSION 4
-#define BITSERY_MINOR_VERSION 3
-#define BITSERY_PATCH_VERSION 0
+namespace bitsery {
+    template<typename S, typename T, typename D>
+    void serialize(S &s, std::unique_ptr<T, D> &obj) {
+        s.ext(obj, ext::StdSmartPtr{});
+    }
 
-#define BITSERY_QUOTE_MACRO(name) #name
-#define BITSERY_BUILD_VERSION_STR(major,minor, patch) \
-BITSERY_QUOTE_MACRO(major) "." \
-BITSERY_QUOTE_MACRO(minor) "." \
-BITSERY_QUOTE_MACRO(patch)
+    template<typename S, typename T>
+    void serialize(S &s, std::shared_ptr<T> &obj) {
+        s.ext(obj, ext::StdSmartPtr{});
+    }
 
-#define BITSERY_VERSION \
-BITSERY_BUILD_VERSION_STR(BITSERY_MAJOR_VERSION, BITSERY_MINOR_VERSION, BITSERY_PATCH_VERSION)
+    template<typename S, typename T>
+    void serialize(S &s, std::weak_ptr<T> &obj) {
+        s.ext(obj, ext::StdSmartPtr{});
+    }
+}
 
-#include "serializer.h"
-#include "deserializer.h"
-
-#endif //BITSERY_BITSERY_H
+#endif //BITSERY_FLEXIBLE_TYPE_STD_MEMORY_H

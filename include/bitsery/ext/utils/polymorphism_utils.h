@@ -20,7 +20,6 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-
 #ifndef BITSERY_EXT_POLYMORPHISM_UTILS_H
 #define BITSERY_EXT_POLYMORPHISM_UTILS_H
 
@@ -61,9 +60,8 @@ namespace bitsery {
         class PolymorphicHandlerBase {
         public:
             virtual void *create() const = 0;
-
             virtual void process(void *ser, void *obj) const = 0;
-
+            virtual ~PolymorphicHandlerBase() = default;
         };
 
         template<typename RTTI, typename TSerializer, typename TBase, typename TDerived>
@@ -89,7 +87,6 @@ namespace bitsery {
             }
 
         };
-
 
         template<typename RTTI>
         class PolymorphicContext {
@@ -137,17 +134,18 @@ namespace bitsery {
                 if (_baseToDerivedMap.emplace(key, std::unique_ptr<PolymorphicHandlerBase>(
                         new PolymorphicHandler<RTTI, TSerializer, TBase, TDerived>{})).second)
                     _baseToDerivedArray[key.baseHash].push_back(key.derivedHash);
-            };
+            }
+
             template<typename TSerializer, typename TBase, typename TDerived>
             void addToMap(std::true_type) {
                 //cannot add abstract class
-            };
+            }
 
-            std::unordered_map<BaseToDerivedKey, std::unique_ptr<PolymorphicHandlerBase>, BaseToDerivedKeyHashier> _baseToDerivedMap;
+            std::unordered_map<BaseToDerivedKey, std::unique_ptr<PolymorphicHandlerBase>, BaseToDerivedKeyHashier> _baseToDerivedMap{};
             // this will allow convert from platform specific type information, to platform independent base->derived index
             // this only works if all polymorphic relationships (PolymorphicBaseClass<TBase> -> PolymorphicDerivedClasses<TDerived...>)
             // is equal between platforms.
-            std::unordered_map<size_t, std::vector<size_t>> _baseToDerivedArray;
+            std::unordered_map<size_t, std::vector<size_t>> _baseToDerivedArray{};
 
         public:
 
@@ -173,15 +171,15 @@ namespace bitsery {
                 auto it = _baseToDerivedMap.find(key);
                 assert(it != _baseToDerivedMap.end());
 
-
                 //convert derived hash to derived index, to make it work in cross-platform environment
                 auto &vec = _baseToDerivedArray.find(key.baseHash)->second;
-                auto derivedIndex = static_cast<size_t>(std::distance(vec.begin(), std::find(vec.begin(), vec.end(), key.derivedHash)));
+                auto derivedIndex = static_cast<size_t>(std::distance(vec.begin(), std::find(vec.begin(), vec.end(),
+                                                                                             key.derivedHash)));
                 details::writeSize(writer, derivedIndex);
 
                 //serialize
                 it->second->process(&ser, &obj);
-            };
+            }
 
             template<typename Deserializer, typename Reader, typename TBase, typename TAssignFnc>
             void deserialize(Deserializer &des, Reader &reader, TBase *obj, TAssignFnc assignFnc) {
@@ -199,14 +197,14 @@ namespace bitsery {
                             BaseToDerivedKey{RTTI::template get<TBase>(), derivedHash})->second;
                     //if object is null or different type, create new and assign it
                     if (obj == nullptr || RTTI::template get<TBase>(*obj) != derivedHash) {
-                        obj = static_cast<TBase*>(handler->create());
+                        obj = static_cast<TBase *>(handler->create());
                         assignFnc(obj);
                     }
                     handler->process(&des, obj);
                 } else
                     reader.setError(ReaderError::InvalidPointer);
-            };
-            
+            }
+
         };
 
     }

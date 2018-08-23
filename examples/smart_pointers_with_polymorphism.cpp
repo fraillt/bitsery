@@ -7,6 +7,7 @@
 #include <bitsery/traits/vector.h>
 #include <bitsery/adapter/buffer.h>
 #include <bitsery/ext/pointer.h>
+#include <bitsery/ext/inheritance.h>
 #include <bitsery/ext/std_smart_ptr.h>
 
 //in order to work with polymorphic types, we need to describe few steps:
@@ -18,39 +19,50 @@
 
 using bitsery::ext::BaseClass;
 
-using bitsery::ext::PointerOwner;
-
-using bitsery::ext::PointerType;
+using bitsery::ext::PointerObserver;
+using bitsery::ext::StdSmartPtr;
 
 //define our data structures
 struct Color {
-    float r, g, b;
+    float r{}, g{}, b{};
+    bool operator == (const Color& o) const {
+        return std::tie(r, g, b) ==
+               std::tie(o.r, o.g, b);
+    }
+
 };
 
 struct Shape {
-    Color clr;
-
+    Color clr{};
     virtual ~Shape() = 0;
 };
 
 Shape::~Shape() = default;
 
 struct Circle : Shape {
-    int32_t radius;
+    int32_t radius{};
+    bool operator == (const Circle& o) const {
+        return std::tie(radius, clr) ==
+               std::tie(o.radius, o.clr);
+    }
+
 };
 
 struct Rectangle : Shape {
-    int32_t width;
-    int32_t height;
+    int32_t width{};
+    int32_t height{};
+    bool operator == (const Rectangle& o) const {
+        return std::tie(width, height, clr) ==
+               std::tie(o.width, o.height, o.clr);
+    }
 };
 
 struct RoundedRectangle : Rectangle {
-    int32_t radius;
-};
-
-struct SomeShapes {
-    std::unique_ptr<Shape> main;
-    std::vector<Shape *> list;
+    int32_t radius{};
+    bool operator == (const RoundedRectangle& o) const {
+        return std::tie(radius, static_cast<const Rectangle&>(*this)) ==
+               std::tie(o.radius, static_cast<const Rectangle&>(o));
+    }
 };
 
 //define serialization functions
@@ -87,11 +99,62 @@ void serialize(S &s, RoundedRectangle &o) {
     s.value4b(o.radius);
 }
 
+//define our test structure
+struct SomeShapes {
+    std::vector<std::shared_ptr<Shape>> sharedList;
+    std::unique_ptr<Shape> uniquePtr;
+    //weak ptr and refPtr will point to sharedList
+    std::weak_ptr<Shape> weakPtr;
+    Shape* refPtr;
+};
+
+//creates object, and populates some data
+SomeShapes createData() {
+    SomeShapes data{};
+    {
+        auto tmp = new RoundedRectangle{};
+        tmp->height = 151572;
+        tmp->width = 488795;
+        tmp->radius = 898;
+        tmp->clr.r = 0.5f;
+        tmp->clr.g = 1.0f;
+        tmp->clr.b = 1.0f;
+        data.uniquePtr.reset(tmp);
+    }
+    {
+        auto tmp = new Circle{};
+        tmp->radius = 75987;
+        tmp->clr.r = 0.5f;
+        tmp->clr.g = 0.0f;
+        tmp->clr.b = 1.0f;
+        data.sharedList.emplace_back(tmp);
+    }
+    {
+        auto tmp = new Rectangle{};
+        tmp->height = 15157;
+        tmp->width = 48879;
+        tmp->clr.r = 1.0f;
+        tmp->clr.g = 0.0f;
+        tmp->clr.b = 0.0f;
+        data.sharedList.emplace_back(tmp);
+    }
+    data.weakPtr = data.sharedList[0];
+    data.refPtr = data.sharedList[1].get();
+
+    return data;
+}
+
+
 template<typename S>
 void serialize(S &s, SomeShapes &o) {
-    s.ext(o.main, bitsery::ext::StdUniquePtr{});
-    s.container(o.list, 100, [&s](Shape *(&item)) {
-        s.ext(item, bitsery::ext::PointerOwner{});
+    s.ext(o.uniquePtr, StdSmartPtr{});
+    // to make things more interesting first serialize weakPtr and refPtr,
+    // even though objects that weakPtr and refPtr is serialized later,
+    // bitsery will work regardless
+    s.ext(o.weakPtr, StdSmartPtr{});
+    s.ext(o.refPtr, PointerObserver{});
+    s.container(o.sharedList, 100, [&s](std::shared_ptr<Shape> &item) {
+        s.ext(item, StdSmartPtr{});
     });
 }
 
@@ -101,6 +164,9 @@ void serialize(S &s, SomeShapes &o) {
 namespace bitsery {
     namespace ext {
 
+        //for each base class define DIRECTLY derived classes
+        //e.g. PolymorphicBaseClass<Shape> : PolymorphicDerivedClasses<Circle, Rectangle, RoundedRectangle>
+        // is incorrect, because RoundedRectangle does not directly derive from Shape
         template<>
         struct PolymorphicBaseClass<Shape> : PolymorphicDerivedClasses<Circle, Rectangle> {
         };
@@ -129,73 +195,29 @@ using TContext = std::tuple<ext::PointerLinkingContext, ext::PolymorphicContext<
 using MySerializer = BasicSerializer<AdapterWriter<OutputAdapter, DefaultConfig>, TContext>;
 using MyDeserializer = BasicDeserializer<AdapterReader<InputAdapter, DefaultConfig>, TContext>;
 
-//creates object, and populates some data
-SomeShapes createData() {
-    SomeShapes data{};
-    {
-        auto tmp = new RoundedRectangle{};
-        tmp->height = 151572;
-        tmp->width = 488795;
-        tmp->radius = 898;
-        tmp->clr.r = 0.5f;
-        tmp->clr.g = 1.0f;
-        tmp->clr.b = 1.0f;
-        data.main.reset(tmp);
-    }
-    {
-        auto tmp = new Circle{};
-        tmp->radius = 75987;
-        tmp->clr.r = 0.5f;
-        tmp->clr.g = 0.0f;
-        tmp->clr.b = 1.0f;
-        data.list.push_back(tmp);
-    }
-    {
-        auto tmp = new Rectangle{};
-        tmp->height = 15157;
-        tmp->width = 48879;
-        tmp->clr.r = 1.0f;
-        tmp->clr.g = 0.0f;
-        tmp->clr.b = 0.0f;
-        data.list.push_back(tmp);
-    }
-
-    return data;
-}
 
 //checks if deserialized data is equal
 void assertSameShapes(const SomeShapes &data, const SomeShapes &res) {
     {
-        auto d = dynamic_cast<RoundedRectangle *>(data.main.get());
-        auto r = dynamic_cast<RoundedRectangle *>(res.main.get());
+        auto d = dynamic_cast<RoundedRectangle *>(data.uniquePtr.get());
+        auto r = dynamic_cast<RoundedRectangle *>(res.uniquePtr.get());
         assert(r != nullptr);
-        assert(d->clr.r == r->clr.r);
-        assert(d->clr.g == r->clr.g);
-        assert(d->clr.b == r->clr.b);
-        assert(d->radius == r->radius);
-        assert(d->width == r->width);
-        assert(d->height == r->height);
+        assert(*d == *r);
     }
     {
-        auto d = dynamic_cast<Circle *>(data.list[0]);
-        auto r = dynamic_cast<Circle *>(res.list[0]);
+        auto d = dynamic_cast<Circle *>(data.sharedList[0].get());
+        auto r = dynamic_cast<Circle *>(res.sharedList[0].get());
         assert(r != nullptr);
-        assert(d->clr.r == r->clr.r);
-        assert(d->clr.g == r->clr.g);
-        assert(d->clr.b == r->clr.b);
-        assert(d->radius == r->radius);
+        assert(*d == *r);
     }
     {
-        auto d = dynamic_cast<Rectangle *>(data.list[1]);
-        auto r = dynamic_cast<Rectangle *>(res.list[1]);
+        auto d = dynamic_cast<Rectangle *>(data.sharedList[1].get());
+        auto r = dynamic_cast<Rectangle *>(res.sharedList[1].get());
         assert(r != nullptr);
-        assert(d->clr.r == r->clr.r);
-        assert(d->clr.g == r->clr.g);
-        assert(d->clr.b == r->clr.b);
-        assert(d->width == r->width);
-        assert(d->height == r->height);
+        assert(*d == *r);
     }
-
+    assert(res.weakPtr.lock().get() == res.sharedList[0].get());
+    assert(res.refPtr == res.sharedList[1].get());
 }
 
 int main() {
@@ -236,12 +258,12 @@ int main() {
         assert(r.error() == ReaderError::NoError && r.isCompletedSuccessfully());
         //also check for dangling pointers, after deserialization
         assert(std::get<0>(ctx).isValid());
+        // clear shared state from pointer linking context,
+        // it is only required if there are any pointers that manage shared state, e.g. std::shared_ptr
+        assert(res.weakPtr.use_count() == 2);//one in sharedList and one in pointer linking context
+        std::get<0>(ctx).clearSharedState();
+        assert(res.weakPtr.use_count() == 1);
     }
     assertSameShapes(data, res);
-    //delete raw pointers
-    for (auto &s:res.list)
-        delete s;
-    for (auto &s:data.list)
-        delete s;
     return 0;
 }

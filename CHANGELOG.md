@@ -1,8 +1,28 @@
-# [4.2.2]
+# [4.3.0](https://github.com/fraillt/bitsery/compare/v4.2.1...v4.3.0) (2018-08-23)
+
+### Features
+
+* added runtime polymorphism support for pointer like types (raw and smart pointers).
+In order to enable polymorphism new **PolymorphicContext** was created. It provides capability to register classes with serializer/deserializer.
+  * runtime polymorphism can be customized, by replacing **StandardRTTI** from <bitsery/ext/utils/rtti_utils.h> header.
+* added smart pointers support for std::unique_ptr, std::shared_ptr and std::weak_ptr via **StdSmartPtr** extension.
+* new **UnsafeInputBufferAdapter** doesn't check for buffer size on deserialization, on some compilers can improve deserialization performance up to ~40%.
 
 ### Improvements
-* improved serialization/deserialization performance for buffer adapters up to ~20%.
-* new **UnsafeInputBufferAdapter** doesn't check for buffer size on deserialization, can improve deserialization performance up to ~50%.
+* creatly improved interface for extending/implementing support for pointer like types. Now all pointer like types extends from **PointerObjectExtensionBase** and implements/configures required details.
+* reimplemented **PointerOwner**, **PointerObserver**, **ReferencedByPointer**.
+* reimplemented **PointerLinkingContext** to properly support shared objects and runtime polymorphism, pointer ownership for shared objects now has two states: SharedOwner e.g. std::shared_ptr and SharedObserver std::weak_ptr.
+
+### Other notes
+There is one *minor?* issue/limitation for pointer like types that uses virtual inheritance. When several pointers points to same object through different static type. it will not work correctly e.g.:
+```cpp
+struct Derived: virtual Base {...};
+struct MyData {
+    std::shared_ptr<Derived> sptr;
+    std::weak_ptr<Base> wptddr;
+}
+```
+In this example wptr and sptr have different static type, and *Derived* is virtually inherited from *Base*, so I get different pointer address for different types.
 
 # [4.2.1](https://github.com/fraillt/bitsery/compare/v4.2.0...v4.2.1) (2018-03-09)
 

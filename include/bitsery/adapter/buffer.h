@@ -20,7 +20,6 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-
 #ifndef BITSERY_ADAPTER_BUFFER_H
 #define BITSERY_ADAPTER_BUFFER_H
 
@@ -46,7 +45,6 @@ namespace bitsery {
         TIterator endIt;
     };
 
-
     template<typename Buffer>
     class InputBufferAdapter : public BufferIterators<Buffer> {
     public:
@@ -65,32 +63,6 @@ namespace bitsery {
         InputBufferAdapter(TIterator begin, size_t size)
                 : BufferIterators<Buffer>(begin, std::next(begin, size)) {
         }
-
-        template<typename T>
-        void read(T &data) {
-            //for optimization
-            auto tmp = this->posIt;
-            this->posIt += sizeof(T);
-            if (std::distance(this->posIt, this->endIt) >= 0) {
-                data = *reinterpret_cast<const T *>(std::addressof(*tmp));
-//                auto src = std::addressof(*tmp);
-////                std::memcpy(&data, src, sizeof(T));
-//                switch (sizeof(T)) {
-//                    case 1: std::memcpy(&data, src, sizeof(T)); break;
-//                    case 2: std::memcpy(&data, src, sizeof(T)); break;
-//                    case 4: std::memcpy(&data, src, sizeof(T)); break;
-//                    case 8: std::memcpy(&data, src, sizeof(T)); break;
-//                    case 16: std::memcpy(&data, src, sizeof(T)); break;
-//                }
-
-            } else {
-                this->posIt -= sizeof(T);
-                data = {};
-                if (error() == ReaderError::NoError)
-                    setError(ReaderError::DataOverflow);
-            }
-        }
-
 
         void read(TValue *data, size_t size) {
             //for optimization
@@ -145,16 +117,6 @@ namespace bitsery {
                 : BufferIterators<Buffer>(begin, std::next(begin, size)) {
         }
 
-        template<typename T>
-        void read(T &data) {
-            //for optimization
-            auto tmp = this->posIt;
-            this->posIt += sizeof(T);
-            assert(std::distance(this->posIt, this->endIt) >= 0);
-            data = *reinterpret_cast<const T *>(std::addressof(*tmp));
-        }
-
-
         void read(TValue *data, size_t size) {
             //for optimization
             auto tmp = this->posIt;
@@ -179,7 +141,6 @@ namespace bitsery {
         ReaderError err = ReaderError::NoError;
     };
 
-
     template<typename Buffer>
     class OutputBufferAdapter {
     public:
@@ -196,11 +157,6 @@ namespace bitsery {
                 : _buffer{std::addressof(buffer)} {
 
             init(TResizable{});
-        }
-
-        template<typename T>
-        void write(const T &data) {
-            writeInternal<T>(data, TResizable{});
         }
 
         void write(const TValue *data, size_t size) {
@@ -233,53 +189,6 @@ namespace bitsery {
             }
             _end = std::end(*_buffer);
             _outIt = std::begin(*_buffer);
-        }
-
-        template<typename T>
-        void writeInternal(const T &data, std::true_type) {
-            //optimization
-#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0)
-            using TDistance = typename std::iterator_traits<TIterator>::difference_type;
-            if (std::distance(_outIt , _end) >= static_cast<TDistance>(size)) {
-                *reinterpret_cast<T*>(std::addressof(*tmp)) = data;
-                _outIt += sizeof(T);
-#else
-            auto tmp = _outIt;
-            _outIt += sizeof(T);
-            if (std::distance(_outIt, _end) >= 0) {
-                *reinterpret_cast<T *>(std::addressof(*tmp)) = data;
-                auto x = reinterpret_cast<T *>(std::addressof(*tmp));
-                *x = data;
-//                auto dst = std::addressof(*tmp);
-////                std::memcpy(dst, &data, sizeof(T));
-//
-//                switch (sizeof(T)) {
-//                    case 1: std::memcpy(dst, &data, sizeof(T)); break;
-//                    case 2: std::memcpy(dst, &data, sizeof(T)); break;
-//                    case 4: std::memcpy(dst, &data, sizeof(T)); break;
-//                    case 8: std::memcpy(dst, &data, sizeof(T)); break;
-//                    case 16: std::memcpy(dst, &data, sizeof(T)); break;
-//                }
-
-
-
-#endif
-            } else {
-#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0)
-
-#else
-                _outIt -= sizeof(T);
-#endif
-                //get current position before invalidating iterators
-                const auto pos = std::distance(std::begin(*_buffer), _outIt);
-                //increase container size
-                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
-                //restore iterators
-                _end = std::end(*_buffer);
-                _outIt = std::next(std::begin(*_buffer), pos);
-
-                writeInternal(data, std::true_type{});
-            }
         }
 
         void writeInternal(const TValue *data, const size_t size, std::true_type) {
@@ -321,15 +230,6 @@ namespace bitsery {
             _end = std::end(*_buffer);
         }
 
-        template<typename T>
-        void writeInternal(const T &data, std::false_type) {
-            //optimization
-            auto tmp = _outIt;
-            _outIt += sizeof(T);
-            assert(std::distance(_outIt, _end) >= 0);
-            *reinterpret_cast<T *>(std::addressof(*tmp)) = data;
-        }
-
         void writeInternal(const TValue *data, size_t size, std::false_type) {
             //optimization
             auto tmp = _outIt;
@@ -338,7 +238,6 @@ namespace bitsery {
             memcpy(std::addressof(*tmp), data, size);
         }
     };
-
 
 }
 
