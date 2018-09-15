@@ -240,7 +240,7 @@ namespace bitsery {
             auto bitsLeft = size;
             T res{};
             while (bitsLeft > 0) {
-                auto bits = std::min(bitsLeft, details::BitsSize<UnsignedValue>::value);
+                auto bits = (std::min)(bitsLeft, details::BitsSize<UnsignedValue>::value);
                 if (m_scratchBits < bits) {
                     UnsignedValue tmp;
                     _reader.template readBytes<sizeof(UnsignedValue), UnsignedValue>(tmp);
