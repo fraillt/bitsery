@@ -27,7 +27,7 @@ struct Color {
     float r{}, g{}, b{};
     bool operator == (const Color& o) const {
         return std::tie(r, g, b) ==
-               std::tie(o.r, o.g, b);
+               std::tie(o.r, o.g, o.b);
     }
 
 };

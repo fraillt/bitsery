@@ -73,7 +73,7 @@ namespace bitsery {
                 auto newSize = static_cast<size_t>(container.size() * 1.5 + 128);
                 //make data cache friendly
                 newSize -= newSize % 64;//64 is cache line size
-                container.resize(std::max(newSize, container.capacity()));
+                container.resize((std::max)(newSize, container.capacity()));
             }
             using TIterator = typename T::iterator;
             using TValue = typename ContainerTraits<T>::TValue;

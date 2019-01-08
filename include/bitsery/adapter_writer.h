@@ -295,7 +295,7 @@ namespace bitsery {
             auto value = v;
             auto bitsLeft = size;
             while (bitsLeft > 0) {
-                auto bits = std::min(bitsLeft, valueSize);
+                auto bits = (std::min)(bitsLeft, valueSize);
                 _scratch |= static_cast<ScratchType>( value ) << _scratchBits;
                 _scratchBits += bits;
                 if (_scratchBits >= valueSize) {
@@ -324,7 +324,7 @@ namespace bitsery {
             }
         }
 
-        const UnsignedType _MASK = std::numeric_limits<UnsignedType>::max();
+        const UnsignedType _MASK = (std::numeric_limits<UnsignedType>::max)();
         ScratchType _scratch{};
         size_t _scratchBits{};
         TWriter& _writer;
