@@ -5,12 +5,38 @@
 E.g. `int64_t money = 8000;` will only use 2 bytes, instead of 8. **CompactValueAsObject** allows to use `ext()` overload, without specifying size of underlying type and sets BUFFER_OVERFLOW error if value doesn't fit in underlying type during deserialization.
 
 ### Improvements
-* improved **PolymorphicContext** for registering base class hierarchies from different translation units.
-Previously there was only one symbol for `PolymorphicBaseClass`, but now a primary template for this type lives in anonymous namespace, so each translation unit could get their own symbol.
-`registerBasesList` was modified, so that where invocation happens, it will bind to correct symbol for `PolymorphicBaseClass`.
+* improved **PolymorphicContext**, allows to extend already registered hierarchy in one translation unit, using different type other than `PolymorphicBaseClass` to avoid symbol collision between translation units or libraries.
+`registerBasesList` was modified, so that it could accept user defined type (instead of `PolymorphicBaseClass`) that is used to declare hierarchy, by default it is `PolymorphicBaseClass`.
 This introduced breaking change, for those who used this syntax (`registerBasesList<MySerializer, Shape>({})`) during registration.
 It is encouraged to define helper type, that could be used for registering hierarchy for serialization and deserialization [example](examples/smart_pointers_with_polymorphism.cpp).
-* **PolymorphicContext** also get optional method `registerSingleBaseBranch`, that allows manually register hierarchies, but it is not recommended as it is error-prone.
+`This is only relevant then you want to use **PolymorphicContext** between different translation units or libraries`.
+```cpp
+//libA
+namespace bitsery {
+    namespace ext {
+        template<>
+        struct PolymorphicBaseClass<Shape> : PolymorphicDerivedClasses<Circle, Rectangle> {};
+    }
+}
+using MyPolymorphicClassesForRegistering = bitsery::ext::PolymorphicClassesList<Shape>;
+...
+    ctx.registerBasesList<MySerializer>(MyPolymorphicClassesForRegistering{}).
+
+//otherLib
+struct MySquare: Shape {...}
+//now it must define different type (exactly the same as PolymorphicBaseClass) to declare hierarchy
+template<typename TBase>
+struct MyHierarchy {
+    using Childs = PolymorphicClassesList<>;
+};
+
+template <>
+struct MyHierarchy<Shape>: bitsery::ext::bitsery::ext::PolymorphicClassesList<MySquare> {};
+...
+//notice that we pass MyHierarchy as second argument
+    ctx.registerBasesList<MySerializer, MyHierarchy>(MyPolymorphicClassesForRegistering{}).
+```
+* **PolymorphicContext** also get optional method `registerSingleBaseBranch`, that allows manually register hierarchies, this might be more convenient when using you need to register in different translation units (or libraries), but it is error-prone.
 
 # [4.3.0](https://github.com/fraillt/bitsery/compare/v4.2.1...v4.3.0) (2018-08-23)
 

@@ -44,14 +44,10 @@ namespace bitsery {
 // although you can add all derivates to same base like this:
 // template <> PolymorphicBaseClass<Animal>:PolymorphicDerivedClasses<Dog, Cat, Bulldog, GoldenRetriever>{};
 // it will not work when you try to serialize Dog*, because it will not find Bulldog and GoldenRetriever
-        namespace {
-            // this class must be in anonymous namespace, so that it would generate different symbols when defining different hierarchies in different translation units
-            // https://github.com/fraillt/bitsery/issues/9
-            template<typename TBase>
-            struct PolymorphicBaseClass {
-                using Childs = PolymorphicClassesList<>;
-            };
-        }
+        template<typename TBase>
+        struct PolymorphicBaseClass {
+            using Childs = PolymorphicClassesList<>;
+        };
 
 //derive from this class when specifying childs for your base class, atleast one child must exists, hence T1
 //e.g.
@@ -74,11 +70,11 @@ namespace bitsery {
 
             void *create() const final {
                 return toBase(new TDerived{});
-            };
+            }
 
             void process(void *ser, void *obj) const final {
                 static_cast<TSerializer *>(ser)->object(*static_cast<TDerived *>(fromBase(obj)));
-            };
+            }
 
         private:
 
@@ -188,7 +184,7 @@ namespace bitsery {
                 static_assert(std::is_base_of<TBase, TDerived>::value, "TDerived must be derived from TBase");
                 static_assert(!std::is_abstract<TDerived>::value, "TDerived cannot be abstract");
                 addToMap<TSerializer, TBase, TDerived>(std::false_type{});
-            };
+            }
 
 
             template<typename Serializer, typename Writer, typename TBase>
