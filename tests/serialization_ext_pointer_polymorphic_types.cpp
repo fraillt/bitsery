@@ -152,7 +152,7 @@ public:
         auto &res = sctx.createSerializer(&plctx);
         std::get<2>(plctx).clear();
         //bind serializer with classes
-        std::get<2>(plctx).registerBasesList(res, bitsery::ext::PolymorphicClassesList<Base>{});
+        std::get<2>(plctx).registerBasesList<SerContext::TSerializer>(bitsery::ext::PolymorphicClassesList<Base>{});
         return res;
     }
 
@@ -160,7 +160,7 @@ public:
         auto &res = sctx.createDeserializer(&plctx);
         std::get<2>(plctx).clear();
         //bind deserializer with classes
-        std::get<2>(plctx).registerBasesList(res, bitsery::ext::PolymorphicClassesList<Base>{});
+        std::get<2>(plctx).registerBasesList<SerContext::TDeserializer>(bitsery::ext::PolymorphicClassesList<Base>{});
         return res;
     }
 
@@ -322,7 +322,7 @@ TEST_F(SerializeExtensionPointerPolymorphicTypes,
     auto &des = sctx.createDeserializer(&plctx);
     auto &pc = std::get<2>(plctx);
     pc.clear();
-    pc.registerBasesList(des, bitsery::ext::PolymorphicClassesList<BaseClone>{});
+    pc.registerBasesList<SerContext::TDeserializer>(bitsery::ext::PolymorphicClassesList<BaseClone>{});
     des.ext(baseRes, PointerOwner{});
     EXPECT_THAT(sctx.br->error(), Eq(bitsery::ReaderError::InvalidPointer));
 }

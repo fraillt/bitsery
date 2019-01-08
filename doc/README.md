@@ -28,6 +28,8 @@ Core Serializer/Deserializer functions (alphabetical order):
 
 Serializer/Deserializer extensions via `ext` method (alphabetical order):
 * `BaseClass` (4.2.0)
+* `CompactValue` (4.4.0)
+* `CompactValueAsObject` (4.4.0)
 * `Entropy` (3.0.0)
 * `Growable` (3.0.0)
 * `PointerOwner` (4.1.0)

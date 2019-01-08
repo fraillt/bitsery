@@ -177,6 +177,11 @@ namespace bitsery {
     }
 }
 
+// convenient type that stores all our types, so that we could easily register and
+// also it automatically ensures, that classes is registered in the same order for serialization and deserialization
+using MyPolymorphicClassesForRegistering = bitsery::ext::PolymorphicClassesList<Shape>;
+
+
 //use bitsery namespace for convenience
 using namespace bitsery;
 
@@ -228,13 +233,13 @@ int main() {
     Buffer buffer{};
     size_t writtenSize{};
     {
-        TContext ctx{};
-        MySerializer ser{OutputAdapter{buffer}, &ctx};
         //STEP 2
         //bind serializer with base polymorphic types, it will go through all reachable classes that is defined in first step.
         //so you dont need to add Rectangle to reach for RoundedRectangle
-        std::get<1>(ctx).registerBasesList(ser, ext::PolymorphicClassesList<Shape>{});
+        TContext ctx{};
+        std::get<1>(ctx).registerBasesList<MySerializer>(MyPolymorphicClassesForRegistering{});
         //serialize our data
+        MySerializer ser{OutputAdapter{buffer}, &ctx};
         ser.object(data);
         auto &w = AdapterAccess::getWriter(ser);
         w.flush();
@@ -248,10 +253,9 @@ int main() {
     SomeShapes res{};
     {
         TContext ctx{};
-        MyDeserializer des{InputAdapter{buffer.begin(), writtenSize}, &ctx};
-        //same as in serialization
-        std::get<1>(ctx).registerBasesList(des, ext::PolymorphicClassesList<Shape>{});
+        std::get<1>(ctx).registerBasesList<MyDeserializer>(MyPolymorphicClassesForRegistering{});
         //serialize our data
+        MyDeserializer des{InputAdapter{buffer.begin(), writtenSize}, &ctx};
         des.object(res);
         auto &r = AdapterAccess::getReader(des);
         //check if everything went find

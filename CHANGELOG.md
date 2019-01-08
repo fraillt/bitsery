@@ -1,3 +1,17 @@
+# [4.4.0](https://github.com/fraillt/bitsery/compare/v4.3.0...v4.4.0) (2019-01-08)
+
+### Features
+* new extensions **CompactValue** and **CompactValueAsObject**, stores integral values in less space if possible. This is useful when you're working with mostly small values, that in rare cases can be large.
+E.g. `int64_t money = 8000;` will only use 2 bytes, instead of 8. **CompactValueAsObject** allows to use `ext()` overload, without specifying size of underlying type and sets BUFFER_OVERFLOW error if value doesn't fit in underlying type during deserialization.
+
+### Improvements
+* improved **PolymorphicContext** for registering base class hierarchies from different translation units.
+Previously there was only one symbol for `PolymorphicBaseClass`, but now a primary template for this type lives in anonymous namespace, so each translation unit could get their own symbol.
+`registerBasesList` was modified, so that where invocation happens, it will bind to correct symbol for `PolymorphicBaseClass`.
+This introduced breaking change, for those who used this syntax (`registerBasesList<MySerializer, Shape>({})`) during registration.
+It is encouraged to define helper type, that could be used for registering hierarchy for serialization and deserialization [example](examples/smart_pointers_with_polymorphism.cpp).
+* **PolymorphicContext** also get optional method `registerSingleBaseBranch`, that allows manually register hierarchies, but it is not recommended as it is error-prone.
+
 # [4.3.0](https://github.com/fraillt/bitsery/compare/v4.2.1...v4.3.0) (2018-08-23)
 
 ### Features
@@ -132,7 +146,7 @@ Be careful when using deserializing untrusted data and make sure to enforce fund
 ### Features
 
 * refactored interface, now works with C++11 compiler.
-* new new extension **Growable**, that allows to have forward/backward compatability within this functions serialization flow. It only allows to append new data at the end of to existing flow without breaking old consumers.
+* new extension **Growable**, that allows to have forward/backward compatability within this functions serialization flow. It only allows to append new data at the end of to existing flow without breaking old consumers.
   * old consumer: correctly read old interfce and ignore new data.
   * new consumer: get defaults (zero values) for new fields, when reading old data.
 * added new extension for associative *map* containers **ContainerMap**.

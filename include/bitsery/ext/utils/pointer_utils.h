@@ -70,6 +70,24 @@ namespace bitsery {
                           isSharedProcessed{false} {};
                 PointerOwnershipType ownershipType;
                 bool isSharedProcessed;
+
+                void update(PointerOwnershipType ptrType) {
+                    //do nothing for observer
+                    if (ptrType == PointerOwnershipType::Observer)
+                        return;
+                    if (ownershipType == PointerOwnershipType::Observer) {
+                        //set ownership type
+                        ownershipType = ptrType;
+                        return;
+                    }
+                    //only shared ownership can get here multiple times
+                    assert(ptrType == PointerOwnershipType::SharedOwner || ptrType == PointerOwnershipType::SharedObserver);
+                    //check if need to update to SharedOwner
+                    if (ptrType == PointerOwnershipType::SharedOwner)
+                        ownershipType = ptrType;
+                    //mark that object already processed, so we do not serialize/deserialize duplicate objects
+                    isSharedProcessed = true;
+                }
             };
 
             struct PLCInfoSerializer: PLCInfo {
@@ -111,24 +129,6 @@ namespace bitsery {
                 std::unique_ptr<PointerSharedStateBase> sharedState{};
             };
 
-            void updatePLCInfo(PLCInfo &ptrInfo, PointerOwnershipType ptrType) {
-                //do nothing for observer
-                if (ptrType == PointerOwnershipType::Observer)
-                    return;
-                if (ptrInfo.ownershipType == PointerOwnershipType::Observer) {
-                    //set ownership type
-                    ptrInfo.ownershipType = ptrType;
-                    return;
-                }
-                //only shared ownership can get here multiple times
-                assert(ptrType == PointerOwnershipType::SharedOwner || ptrType == PointerOwnershipType::SharedObserver);
-                //check if need to update to SharedOwner
-                if (ptrType == PointerOwnershipType::SharedOwner)
-                    ptrInfo.ownershipType = ptrType;
-                //mark that object already processed, so we do not serialize/deserialize duplicate objects
-                ptrInfo.isSharedProcessed = true;
-            }
-
             class PointerLinkingContextSerialization {
             public:
                 explicit PointerLinkingContextSerialization()
@@ -152,7 +152,7 @@ namespace bitsery {
                         ++_currId;
                         return ptrInfo;
                     }
-                    updatePLCInfo(ptrInfo, ptrType);
+                    ptrInfo.update(ptrType);
                     return ptrInfo;
                 }
 
@@ -191,7 +191,7 @@ namespace bitsery {
                     auto res = _idMap.emplace(id, PLCInfoDeserializer{nullptr, ptrType});
                     auto &ptrInfo = res.first->second;
                     if (!res.second)
-                        updatePLCInfo(ptrInfo, ptrType);
+                        ptrInfo.update(ptrType);
                     return ptrInfo;
                 }
 

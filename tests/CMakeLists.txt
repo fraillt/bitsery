@@ -44,7 +44,7 @@ foreach (TestFile ${TestSourceFiles})
     add_executable(${TestName} ${TestFile})
     target_link_libraries(${TestName} PRIVATE GTest::Main Bitsery::bitsery)
     if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        target_compile_options(${TestName} PRIVATE -Wextra -Wno-missing-braces -Wpedantic -Weffc++)
+        target_compile_options(${TestName} PRIVATE -Wextra -Wno-missing-braces -Wpedantic -Weffc++ -Wno-c++14-extensions)
     endif()
 
     add_test(NAME ${TestName} COMMAND $<TARGET_FILE:${TestName}>)

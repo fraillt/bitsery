@@ -44,10 +44,14 @@ namespace bitsery {
 // although you can add all derivates to same base like this:
 // template <> PolymorphicBaseClass<Animal>:PolymorphicDerivedClasses<Dog, Cat, Bulldog, GoldenRetriever>{};
 // it will not work when you try to serialize Dog*, because it will not find Bulldog and GoldenRetriever
-        template<typename TBase>
-        struct PolymorphicBaseClass {
-            using Childs = PolymorphicClassesList<>;
-        };
+        namespace {
+            // this class must be in anonymous namespace, so that it would generate different symbols when defining different hierarchies in different translation units
+            // https://github.com/fraillt/bitsery/issues/9
+            template<typename TBase>
+            struct PolymorphicBaseClass {
+                using Childs = PolymorphicClassesList<>;
+            };
+        }
 
 //derive from this class when specifying childs for your base class, atleast one child must exists, hence T1
 //e.g.
@@ -108,23 +112,23 @@ namespace bitsery {
                 }
             };
 
-            template<typename TSerializer, typename TBase, typename TDerived>
+            template<typename TSerializer, template<typename> class THierarchy, typename TBase, typename TDerived>
             void add() {
                 addToMap<TSerializer, TBase, TDerived>(std::is_abstract<TDerived>{});
-                addChilds<TSerializer, TBase, TDerived>(typename PolymorphicBaseClass<TDerived>::Childs{});
+                addChilds<TSerializer, THierarchy, TBase, TDerived>(typename THierarchy<TDerived>::Childs{});
             }
 
-            template<typename TSerializer, typename TBase, typename TDerived, typename T1, typename ... Tn>
+            template<typename TSerializer, template<typename> class THierarchy, typename TBase, typename TDerived, typename T1, typename ... Tn>
             void addChilds(PolymorphicClassesList<T1, Tn...>) {
                 static_assert(std::is_base_of<TDerived, T1>::value,
                               "PolymorphicBaseClass<TBase> must derive a list of derived classes from TBase.");
-                add<TSerializer, TBase, T1>();
-                addChilds<TSerializer, TBase, TDerived>(PolymorphicClassesList<Tn...>{});
+                add<TSerializer, THierarchy, TBase, T1>();
+                addChilds<TSerializer, THierarchy, TBase, TDerived>(PolymorphicClassesList<Tn...>{});
                 //iterate through derived class hierarchy as well
-                add<TSerializer, T1, T1>();
+                add<TSerializer, THierarchy, T1, T1>();
             }
 
-            template<typename TSerializer, typename TBase, typename TDerived>
+            template<typename TSerializer, template<typename> class THierarchy, typename TBase, typename TDerived>
             void addChilds(PolymorphicClassesList<>) {
             }
 
@@ -154,15 +158,38 @@ namespace bitsery {
                 _baseToDerivedArray.clear();
             }
 
-            template<typename TSerializer, typename T1, typename ...Tn>
-            void registerBasesList(const TSerializer &s, PolymorphicClassesList<T1, Tn...>) {
-                add<TSerializer, T1, T1>();
-                registerBasesList<TSerializer>(s, PolymorphicClassesList<Tn...>{});
+            template<typename TSerializer, template<typename> class THierarchy = PolymorphicBaseClass, typename T1, typename ...Tn>
+            [[deprecated("de/serializer instance is not required")]] void registerBasesList(const TSerializer &s, PolymorphicClassesList<T1, Tn...>) {
+                add<TSerializer, THierarchy, T1, T1>();
+                registerBasesList<TSerializer, THierarchy>(s, PolymorphicClassesList<Tn...>{});
             }
 
-            template<typename TSerializer>
-            void registerBasesList(const TSerializer &, PolymorphicClassesList<>) {
+            template<typename TSerializer, template<typename> class THierarchy>
+            [[deprecated]] void registerBasesList(const TSerializer &, PolymorphicClassesList<>) {
             }
+
+            // THierarchy is the name of class, that defines hierarchy
+            // PolymorphicBaseClass is defined as default parameter, so that at instantiation time
+            // it will get unique symbol in translation unit for PolymorphicBaseClass (which is defined in anonymous namespace)
+            // https://github.com/fraillt/bitsery/issues/9
+            template<typename TSerializer, template<typename> class THierarchy = PolymorphicBaseClass, typename T1, typename ...Tn>
+            void registerBasesList(PolymorphicClassesList<T1, Tn...>) {
+                add<TSerializer, THierarchy, T1, T1>();
+                registerBasesList<TSerializer, THierarchy>(PolymorphicClassesList<Tn...>{});
+            }
+
+            template<typename TSerializer, template<typename> class THierarchy>
+            void registerBasesList(PolymorphicClassesList<>) {
+            }
+
+            // optional method, in case you want to construct base class hierarchy your self
+            template <typename TSerializer, typename TBase, typename TDerived>
+            void registerSingleBaseBranch() {
+                static_assert(std::is_base_of<TBase, TDerived>::value, "TDerived must be derived from TBase");
+                static_assert(!std::is_abstract<TDerived>::value, "TDerived cannot be abstract");
+                addToMap<TSerializer, TBase, TDerived>(std::false_type{});
+            };
+
 
             template<typename Serializer, typename Writer, typename TBase>
             void serialize(Serializer &ser, Writer &writer, TBase &obj) {

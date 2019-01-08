@@ -29,6 +29,7 @@
 #include <vector>
 #include <stack>
 #include <cstring>
+#include <climits>
 #include "adapter_utils.h"
 #include "not_defined_type.h"
 
@@ -40,7 +41,7 @@ namespace bitsery {
 
         template<typename T>
         struct BitsSize:public std::integral_constant<size_t, sizeof(T) * 8> {
-
+            static_assert(CHAR_BIT == 8, "only support systems with byte size of 8 bits");
         };
 
         //add swap functions to class, to avoid compilation warning about unused functions
