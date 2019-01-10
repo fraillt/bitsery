@@ -25,6 +25,9 @@
 
 #include "../traits/core/traits.h"
 #include "../details/adapter_utils.h"
+#include "../details/serialization_common.h"
+//we need this, so we could reserve for non ordered map
+#include <unordered_map>
 
 namespace bitsery {
     namespace ext {
@@ -53,17 +56,30 @@ namespace bitsery {
 
                 size_t size{};
                 details::readSize(reader, size, _maxSize);
-                auto hint = obj.begin();
                 obj.clear();
+                reserve(obj, size);
 
+                auto hint = obj.begin();
                 for (auto i = 0u; i < size; ++i) {
-                    TKey key;
-                    TValue value;
+                    auto key{bitsery::Access::create<TKey>()};
+                    auto value{bitsery::Access::create<TValue>()};
                     fnc(key, value);
                     hint = obj.emplace_hint(hint, std::move(key), std::move(value));
                 }
             }
         private:
+            template <typename ... TArgs>
+            void reserve(std::unordered_map<TArgs...>& obj, size_t size) const {
+                obj.reserve(size);
+            }
+            template <typename ... TArgs>
+            void reserve(std::unordered_multimap<TArgs...>& obj, size_t size) const {
+                obj.reserve(size);
+            }
+            template <typename T>
+            void reserve(T& , size_t ) const {
+                //for ordered container do nothing
+            }
             size_t _maxSize;
         };
     }

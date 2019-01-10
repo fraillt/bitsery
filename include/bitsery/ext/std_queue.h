@@ -51,15 +51,15 @@ namespace bitsery {
                 }
             };
             //inherit from queue so we could take underlying container
-            template <typename T, typename C>
-            struct PriorityQueueCnt : public std::priority_queue<T, C>
+            template <typename T, typename Seq, typename Cmp>
+            struct PriorityQueueCnt : public std::priority_queue<T, Seq, Cmp>
             {
-                static const C& getContainer(const std::priority_queue<T, C>& s )
+                static const Seq& getContainer(const std::priority_queue<T, Seq, Cmp>& s )
                 {
                     //get address of underlying container
                     return s.*(&PriorityQueueCnt::c);
                 }
-                static C& getContainer(std::priority_queue<T, C>& s )
+                static Seq& getContainer(std::priority_queue<T, Seq, Cmp>& s )
                 {
                     //get address of underlying container
                     return s.*(&PriorityQueueCnt::c);
@@ -82,14 +82,14 @@ namespace bitsery {
             }
 
             //for priority_queue
-            template<typename Ser, typename Writer, typename T, typename C, typename Fnc>
-            void serialize(Ser &ser, Writer &, const std::priority_queue<T,C> &obj, Fnc &&fnc) const {
-                ser.container(PriorityQueueCnt<T,C>::getContainer(obj), _maxSize, std::forward<Fnc>(fnc));
+            template<typename Ser, typename Writer, typename T, typename C, typename Comp, typename Fnc>
+            void serialize(Ser &ser, Writer &, const std::priority_queue<T,C, Comp> &obj, Fnc &&fnc) const {
+                ser.container(PriorityQueueCnt<T,C, Comp>::getContainer(obj), _maxSize, std::forward<Fnc>(fnc));
             }
 
-            template<typename Des, typename Reader, typename T, typename C, typename Fnc>
-            void deserialize(Des &des, Reader &, std::priority_queue<T,C> &obj, Fnc &&fnc) const {
-                des.container(PriorityQueueCnt<T,C>::getContainer(obj), _maxSize, std::forward<Fnc>(fnc));
+            template<typename Des, typename Reader, typename T, typename C, typename Comp, typename Fnc>
+            void deserialize(Des &des, Reader &, std::priority_queue<T,C, Comp> &obj, Fnc &&fnc) const {
+                des.container(PriorityQueueCnt<T,C, Comp>::getContainer(obj), _maxSize, std::forward<Fnc>(fnc));
             }
 
         };

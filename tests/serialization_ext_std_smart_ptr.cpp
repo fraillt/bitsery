@@ -653,6 +653,7 @@ TEST_F(SerializeExtensionStdSmartSharedPtr, WhenOnlyWeakPtrIsDeserializedThenPoi
 
 struct TestSharedFromThis : public std::enable_shared_from_this<TestSharedFromThis> {
     float x{};
+    explicit TestSharedFromThis(): std::enable_shared_from_this<TestSharedFromThis>() {}
 
     template<typename S>
     void serialize(S &s) {
@@ -669,4 +670,21 @@ TEST_F(SerializeExtensionStdSmartSharedPtr, EnableSharedFromThis) {
     auto resPtr2 = resPtr->shared_from_this();
     EXPECT_THAT(resPtr->x, Eq(dataPtr->x));
     EXPECT_THAT(resPtr2.use_count(), Eq(2));
+}
+
+struct CustomDeleter {
+    void operator()(Base*p) {
+        delete p;
+    }
+};
+class SerializeExtensionStdSmartUniquePtr:public SerializeExtensionStdSmartSharedPtr{};
+
+TEST_F(SerializeExtensionStdSmartUniquePtr, WithCustomDeleter) {
+    std::unique_ptr<Base, CustomDeleter> dataPtr(new Derived{87,7});
+    std::unique_ptr<Base, CustomDeleter> resPtr{};
+    createSerializer().ext(dataPtr, StdSmartPtr{});
+    createDeserializer().ext(resPtr, StdSmartPtr{});
+    clearSharedState();
+    EXPECT_THAT(resPtr->x, Eq(dataPtr->x));
+    EXPECT_THAT(dynamic_cast<Derived *>(resPtr.get()), ::testing::NotNull());
 }

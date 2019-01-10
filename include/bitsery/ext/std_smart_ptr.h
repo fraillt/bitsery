@@ -46,7 +46,8 @@ namespace bitsery {
 
                 using TElement = typename T::element_type;
 
-                static TElement *getPtr(std::unique_ptr<TElement> &obj) {
+                template <typename TDeleter>
+                static TElement *getPtr(std::unique_ptr<TElement, TDeleter> &obj) {
                     return obj.get();
                 }
 
@@ -61,7 +62,7 @@ namespace bitsery {
                 }
 
                 static constexpr PointerOwnershipType getOwnership() {
-                    return std::is_same<std::unique_ptr<TElement>, T>::value
+                    return ::bitsery::details::IsSpecializationOf<T, std::unique_ptr>::value
                            ? PointerOwnershipType::Owner
                            : std::is_same<std::shared_ptr<TElement>, T>::value
                              ? PointerOwnershipType::SharedOwner

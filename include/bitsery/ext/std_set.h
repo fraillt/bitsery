@@ -25,9 +25,9 @@
 
 #include <cassert>
 #include "../details/adapter_utils.h"
+#include "../details/serialization_common.h"
 //we need this, so we could reserve for non ordered set
 #include <unordered_set>
-#include "../traits/core/traits.h"
 
 namespace bitsery {
     namespace ext {
@@ -54,24 +54,23 @@ namespace bitsery {
 
                 size_t size{};
                 details::readSize(reader, size, _maxSize);
-                auto hint = obj.begin();
                 obj.clear();
                 reserve(obj, size);
-
+                auto hint = obj.begin();
                 for (auto i = 0u; i < size; ++i) {
-                    TKey key;
+                    auto key{bitsery::Access::create<TKey>()};
                     fnc(key);
                     hint = obj.emplace_hint(hint, std::move(key));
                 }
             }
         private:
 
-            template <typename T>
-            void reserve(std::unordered_set<T>& obj, size_t size) const {
+            template <typename ... TArgs>
+            void reserve(std::unordered_set<TArgs...>& obj, size_t size) const {
                 obj.reserve(size);
             }
-            template <typename T>
-            void reserve(std::unordered_multiset<T>& obj, size_t size) const {
+            template <typename ... TArgs>
+            void reserve(std::unordered_multiset<TArgs...>& obj, size_t size) const {
                 obj.reserve(size);
             }
             template <typename T>

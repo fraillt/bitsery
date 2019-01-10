@@ -26,6 +26,7 @@
 #include <unordered_map>
 #include <memory>
 #include "../../details/adapter_common.h"
+#include "../../details/serialization_common.h"
 
 namespace bitsery {
 
@@ -69,7 +70,7 @@ namespace bitsery {
         public:
 
             void *create() const final {
-                return toBase(new TDerived{});
+                return toBase(::bitsery::Access::createInHeap<TDerived>());
             }
 
             void process(void *ser, void *obj) const final {

@@ -24,7 +24,7 @@
 #define BITSERY_TRAITS_CORE_STD_DEFAULTS_H
 
 #include "traits.h"
-#include <iostream>
+#include "../../details/serialization_common.h"
 
 namespace bitsery {
     namespace traits {
@@ -53,8 +53,22 @@ namespace bitsery {
                 return container.size();
             }
             static void resize(T& container, size_t size) {
+                resizeImpl(container, size, std::is_default_constructible<TValue>{});
+            }
+        private:
+            static void resizeImpl(T& container, size_t size, std::true_type) {
                 container.resize(size);
             }
+            static void resizeImpl(T& container, size_t newSize, std::false_type) {
+                const auto oldSize = size(container);
+                for (auto it = oldSize; it < newSize; ++it) {
+                    container.push_back(::bitsery::Access::create<TValue>());
+                }
+                if (oldSize > newSize) {
+                    container.erase(std::next(std::begin(container), newSize));
+                }
+            }
+
         };
 
         template <typename T, bool Resizable = ContainerTraits<T>::isResizable>

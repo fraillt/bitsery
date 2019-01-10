@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <cassert>
 #include "../../details/adapter_utils.h"
+#include "../../details/serialization_common.h"
 
 namespace bitsery {
     namespace ext {
@@ -305,7 +306,7 @@ namespace bitsery {
                     if (ptr) {
                         fnc(*ptr);
                     } else {
-                        ptr = new typename TPtrManager<T>::TElement{};
+                        ptr = ::bitsery::Access::createInHeap<typename TPtrManager<T>::TElement>();
                         fnc(*ptr);
                         TPtrManager<T>::assign(obj, ptr);
                     }
@@ -340,7 +341,7 @@ namespace bitsery {
                             fnc(*ptr);
                             sharedState = TPtrManager<T>::saveToSharedState(obj);
                         } else {
-                            auto res = new typename TPtrManager<T>::TElement{};
+                            auto res = ::bitsery::Access::createInHeap<typename TPtrManager<T>::TElement>();
                             fnc(*res);
                             sharedState = TPtrManager<T>::createSharedState(res);
                         }
@@ -374,6 +375,7 @@ namespace bitsery {
                 public pointer_utils::PointerLinkingContextSerialization,
                 public pointer_utils::PointerLinkingContextDeserialization {
         public:
+            explicit PointerLinkingContext() = default;
             bool isValid() {
                 return isPointerSerializationValid() && isPointerDeserializationValid();
             }

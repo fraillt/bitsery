@@ -34,6 +34,7 @@
 //}
 #include <type_traits>
 #include "../traits/core/traits.h"
+#include "../details/serialization_common.h"
 
 namespace bitsery {
     namespace ext {
@@ -54,8 +55,7 @@ namespace bitsery {
                 using TOpt = typename std::remove_cv<T>::type;
                 using TVal = typename TOpt::value_type;
                 static_assert(std::is_same<TOpt, std_optional<TVal>>(), "");
-                static_assert(std::is_default_constructible<TVal>::value, "");
-            };
+            }
 
             template<typename Ser, typename Writer, typename T, typename Fnc>
             void serialize(Ser &ser, Writer &, const T &obj, Fnc &&fnc) const {
@@ -75,7 +75,7 @@ namespace bitsery {
                 if (_alignBeforeData)
                     des.align();
                 if (exists) {
-                    typename T::value_type tmp{};
+                    auto tmp{::bitsery::Access::create<typename T::value_type>()};
                     fnc(tmp);
                     obj = tmp;
                 } else {

@@ -32,17 +32,28 @@
 
 namespace bitsery {
 
-    //this allows to call private serialize method for the class
-    //just make friend it to that class
+    //this allows to call private serialize method, and construct instance (if no default constructor is provided) for your type
+    //just make friend it in your class
     struct Access {
         template<typename S, typename T>
         static auto serialize(S &s, T &obj) -> decltype(obj.serialize(s)) {
             obj.serialize(s);
         }
+
+        template <typename T>
+        static T create() {
+            //if you get an error here, please create default constructor
+            return T{};
+        }
+        template <typename T>
+        static T* createInHeap() {
+            return new T{};
+        }
+
     };
 
     //when call to serialize function is ambiguous (member and non-member serialize function exists for a type)
-    //specialize this class, by inheriting from either UseNonMemberFnc or UseMemberFnc
+    //specialize this class by inheriting from either UseNonMemberFnc or UseMemberFnc
     //e.g.
     //template <> struct SelectSerializeFnc<MyDerivedClass>:UseMemberFnc {};
     template<typename T>
@@ -56,7 +67,7 @@ namespace bitsery {
     };
 
 
-    //serializer/deserializer, does not public interface to get underlying writer/reader
+    //serializer/deserializer, does not have public interface to get underlying writer/reader
     //to prevent users from using writer/reader directly, because they have different interface
     //and they cannot be used describing serialization flows.: use extensions for this reason.
     //this class allows to get underlying adapter writer/reader, and only should be used outside serialization functions.
@@ -173,12 +184,12 @@ namespace bitsery {
 #endif
 
 
-        //used for extensions, when extension TValue = void
+        //used for extensions when extension TValue = void
         struct DummyType {
         };
 
 /*
- * this includes all integral types floats and enums(except bool)
+ * this includes all integral types, floats and enums(except bool)
  */
         template<typename T>
         struct IsFundamentalType : std::integral_constant<bool,
@@ -312,13 +323,13 @@ namespace bitsery {
         template<typename TCast, typename ... Args>
         TCast *getContextImpl(std::tuple<Args...> *ctx, std::true_type) {
             using TCastIndex = GetTypeIndex<TCast, Args...>;
-            static_assert(HasType<TCast, Args...>::value, "Invalid context cast. Type doesn't exists.");
+            static_assert(HasType<TCast, Args...>::value, "Invalid context cast. Context type doesn't exists.\nSome functionality requires (de)seserializer to have specific context.");
             return std::addressof(std::get<TCastIndex::value>(*ctx));
         }
 
         template<typename TCast, typename TContext>
         TCast *getContextImpl(TContext *ctx, std::false_type) {
-            static_assert(std::is_convertible<TContext *, TCast *>::value, "Invalid context cast. Type doesn't exists.");
+            static_assert(std::is_convertible<TContext *, TCast *>::value, "Invalid context cast. Context type doesn't exists.\nSome functionality requires (de)seserializer to have specific context.");
             return static_cast<TCast *>(ctx);
         }
 

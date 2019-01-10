@@ -35,7 +35,7 @@ class SerializeExtensionStdSet : public testing::Test {
 public:
     using TContainer = T;
     const TContainer src = {4, 8, 48, 4, 9845, 64, 8};
-    TContainer res{};
+    TContainer res{78,74,154,8};
 };
 
 using SerializeExtensionStdSetTypes = ::testing::Types<
@@ -65,7 +65,7 @@ TEST(SerializeExtensionStdSet, ObjectSyntax) {
 TEST(SerializeExtensionStdSet, FunctionSyntax) {
     SerializationContext ctx1;
     std::unordered_multiset<int32_t> t1{54,-484,841,79};
-    std::unordered_multiset<int32_t> r1{};
+    std::unordered_multiset<int32_t> r1{74,878,15,16,-7,5,-4,8,7};
     auto& ser = ctx1.createSerializer();
     ser.ext(t1, StdSet{10}, [&ser](int32_t& v) {
         ser.value4b(v);

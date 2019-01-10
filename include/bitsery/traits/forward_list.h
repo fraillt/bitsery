@@ -24,6 +24,8 @@
 #ifndef BITSERY_TRAITS_STD_FORWARD_LIST_H
 #define BITSERY_TRAITS_STD_FORWARD_LIST_H
 
+#include "core/traits.h"
+#include "../details/serialization_common.h"
 #include <forward_list>
 
 namespace bitsery {
@@ -39,7 +41,24 @@ namespace bitsery {
                 return static_cast<size_t>(std::distance(container.begin(), container.end()));
             }
             static void resize(std::forward_list<TArgs...>& container, size_t size) {
+                resizeImpl(container, size, std::is_default_constructible<TValue>{});
+            }
+        private:
+            static void resizeImpl(std::forward_list<TArgs...>& container, size_t size, std::true_type) {
                 container.resize(size);
+            }
+            static void resizeImpl(std::forward_list<TArgs...>& container, size_t newSize, std::false_type) {
+                const auto oldSize = size(container);
+                for (auto it = oldSize; it < newSize; ++it) {
+                    container.push_front(::bitsery::Access::create<TValue>());
+                }
+                if (oldSize > newSize) {
+                    //erase_after must have atleast one element to work
+                    if (newSize > 0)
+                        container.erase_after(std::next(std::begin(container), newSize-1));
+                    else
+                        container.clear();
+                }
             }
         };
     }

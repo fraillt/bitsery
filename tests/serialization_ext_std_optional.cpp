@@ -33,10 +33,10 @@
 
 using StdOptional = bitsery::ext::StdOptional;
 
-using testing::Eq;
+using BPSer = SerializationContext::TSerializer::BPEnabledType;
+using BPDes = SerializationContext::TDeserializer::BPEnabledType;
 
-using BPSer = bitsery::BasicSerializer<Writer, true>;
-using BPDes = bitsery::BasicDeserializer<Reader, true>;
+using testing::Eq;
 
 template <typename T>
 void test(SerializationContext& ctx, const T& v, T& r) {
@@ -116,7 +116,6 @@ TEST(SerializeExtensionStdOptional, NoAlignAfterStateWriteRead) {
             des.ext(v, range);
         });
     });
-
 
     EXPECT_THAT(range.getRequiredBits() + 1, ::testing::Lt(8));
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));

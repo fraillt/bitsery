@@ -1,5 +1,5 @@
 //
-//this example coverls all the corner cases that can happen using inherintace
+//this example covers all the corner cases that can happen using inheritance
 //in reality virtual inherintance is usually avoided, so your code would look much simpler.
 //
 
