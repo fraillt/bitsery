@@ -153,3 +153,28 @@ TEST(DataReading, WhenReaderHasErrorsAllOperationsReadsReturnZero) {
     EXPECT_THAT(r2[1], Eq(0u));
     EXPECT_THAT(r3, Eq(0u));
 }
+
+TEST(DataReading, ConstBufferAllAdapters) {
+    //create and write to buffer
+    uint16_t data = 7549;
+    Buffer bufWrite{};
+    Writer bw{bufWrite};
+    bw.writeBytes<2>(data);
+    bw.flush();
+    const Buffer buf{bufWrite};
+
+    //read from buffer
+    using Adapter1 = bitsery::InputBufferAdapter<const Buffer>;
+    using Adapter2 = bitsery::UnsafeInputBufferAdapter<const Buffer>;
+
+    bitsery::AdapterReader<Adapter1, bitsery::DefaultConfig> r1{Adapter1{buf.begin(), buf.end()}};
+    bitsery::AdapterReader<Adapter2, bitsery::DefaultConfig> r2{Adapter2{buf.begin(), buf.end()}};
+
+    uint16_t res1{};
+    r1.readBytes<2>(res1);
+
+    uint16_t res2{};
+    r2.readBytes<2>(res2);
+    EXPECT_THAT(res1, Eq(data));
+    EXPECT_THAT(res2, Eq(data));
+}

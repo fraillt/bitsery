@@ -31,9 +31,16 @@ namespace bitsery {
     //base class that stores container iterators, and is required for session support (for reading sessions data)
     template<typename Buffer>
     class BufferIterators {
-    protected:
-        using TIterator = typename traits::BufferAdapterTraits<Buffer>::TIterator;
+        static constexpr bool isConstBuffer = std::is_const<Buffer>::value;
+        using BuffNonConst = typename std::remove_const<Buffer>::type;
 
+    protected:
+
+        using TIterator = typename std::conditional<isConstBuffer,
+                typename traits::BufferAdapterTraits<BuffNonConst>::TConstIterator,
+                typename traits::BufferAdapterTraits<BuffNonConst>::TIterator>::type;
+        static_assert(details::IsDefined<TIterator>::value,
+                      "Please define BufferAdapterTraits or include from <bitsery/traits/...>");
         BufferIterators(TIterator begin, TIterator end)
                 : posIt{begin},
                   endIt{end} {
@@ -48,16 +55,15 @@ namespace bitsery {
     template<typename Buffer>
     class InputBufferAdapter : public BufferIterators<Buffer> {
     public:
-
         using TIterator = typename BufferIterators<Buffer>::TIterator;
-        using TValue = typename traits::BufferAdapterTraits<Buffer>::TValue;
+        using TValue = typename traits::BufferAdapterTraits<typename std::remove_const<Buffer>::type>::TValue;
         static_assert(details::IsDefined<TValue>::value,
                       "Please define BufferAdapterTraits or include from <bitsery/traits/...>");
-        static_assert(traits::ContainerTraits<Buffer>::isContiguous,
+        static_assert(traits::ContainerTraits<typename std::remove_const<Buffer>::type>::isContiguous,
                       "BufferAdapter only works with contiguous containers");
 
-        InputBufferAdapter(TIterator begin, TIterator end)
-                : BufferIterators<Buffer>(begin, end) {
+        InputBufferAdapter(TIterator begin, TIterator endIt)
+                : BufferIterators<Buffer>(begin, endIt) {
         }
 
         InputBufferAdapter(TIterator begin, size_t size)
@@ -104,13 +110,13 @@ namespace bitsery {
     public:
 
         using TIterator = typename BufferIterators<Buffer>::TIterator;
-        using TValue = typename traits::BufferAdapterTraits<Buffer>::TValue;
+        using TValue = typename traits::BufferAdapterTraits<typename std::remove_const<Buffer>::type>::TValue;
         static_assert(details::IsDefined<TValue>::value,
                       "Please define BufferAdapterTraits or include from <bitsery/traits/...>");
-        static_assert(traits::ContainerTraits<Buffer>::isContiguous,
+        static_assert(traits::ContainerTraits<typename std::remove_const<Buffer>::type>::isContiguous,
                       "BufferAdapter only works with contiguous containers");
 
-        UnsafeInputBufferAdapter(TIterator begin, TIterator end) : BufferIterators<Buffer>(begin, end) {
+        UnsafeInputBufferAdapter(TIterator beginIt, TIterator endIt) : BufferIterators<Buffer>(beginIt, endIt) {
         }
 
         UnsafeInputBufferAdapter(TIterator begin, size_t size)

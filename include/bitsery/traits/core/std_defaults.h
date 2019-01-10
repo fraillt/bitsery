@@ -74,6 +74,7 @@ namespace bitsery {
         template <typename T, bool Resizable = ContainerTraits<T>::isResizable>
         struct StdContainerForBufferAdapter {
             using TIterator = typename T::iterator;
+            using TConstIterator = typename T::const_iterator;
             using TValue = typename ContainerTraits<T>::TValue;
         };
 
@@ -90,6 +91,7 @@ namespace bitsery {
                 container.resize((std::max)(newSize, container.capacity()));
             }
             using TIterator = typename T::iterator;
+            using TConstIterator = typename T::const_iterator;
             using TValue = typename ContainerTraits<T>::TValue;
         };
 

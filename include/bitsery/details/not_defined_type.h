@@ -56,7 +56,7 @@ namespace bitsery {
             int& operator*() {
                 return data;
             }
-            int data;
+            int data{};
         };
 
         template <typename T>

@@ -4,10 +4,13 @@
 * ability to create non default constructible objects, by defining private default constructor and making `friend class bitsery::Access;` to access it.
 It is not necessary to enforce class invariant immediately, because internal object representation will be overriden anyway.
 
+### Improvements
+* `StdSmartPtr` supports `std::unique_ptr` with custom deleter.
+* `*InputBufferAdapter`(all) can also accept const buffer;
+
 ### Bug fixes
 * fixed deserialization in `bitsery/ext/std_map{set}` when target container is not empty.
 * added missing template parameters for specializations on `std` containers in multiple files in `bitsery/ext/*`.
-* fixed `StdSmartPtr` to correctly work with `std::unique_ptr` when it has custom deleter.
 
 # [4.4.0](https://github.com/fraillt/bitsery/compare/v4.3.0...v4.4.0) (2019-01-08)
 

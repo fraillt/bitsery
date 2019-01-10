@@ -155,6 +155,7 @@ namespace bitsery {
             }
 
             using TIterator = details::NotDefinedType;
+            using TConstIterator = details::NotDefinedType;
             using TValue = typename ContainerTraits<T>::TValue;
         };
 
@@ -162,6 +163,7 @@ namespace bitsery {
         template <typename T, size_t N>
         struct BufferAdapterTraits<T[N]> {
             using TIterator = T*;
+            using TConstIterator = const T*;
             using TValue = T;
         };
 
@@ -169,12 +171,14 @@ namespace bitsery {
         template <typename T>
         struct BufferAdapterTraits<const T*> {
             using TIterator = const T*;
+            using TConstIterator = const T*;
             using TValue = T;
         };
 
         template <typename T>
         struct BufferAdapterTraits<T*> {
             using TIterator = T*;
+            using TConstIterator = const T*;
             using TValue = T;
         };
 
