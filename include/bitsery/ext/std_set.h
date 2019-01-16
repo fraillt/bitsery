@@ -65,14 +65,17 @@ namespace bitsery {
             }
         private:
 
-            template <typename ... TArgs>
-            void reserve(std::unordered_set<TArgs...>& obj, size_t size) const {
+            template <typename Key, typename Hash, typename KeyEqual, typename Allocator>
+            void reserve(std::unordered_set<Key, Hash, KeyEqual, Allocator>& obj, size_t size) const {
                 obj.reserve(size);
             }
-            template <typename ... TArgs>
-            void reserve(std::unordered_multiset<TArgs...>& obj, size_t size) const {
+            template <typename Key, typename Hash, typename KeyEqual, typename Allocator>
+            void reserve(std::unordered_multiset<Key, Hash, KeyEqual, Allocator>& obj, size_t size) const {
                 obj.reserve(size);
             }
+
+
+
             template <typename T>
             void reserve(T& , size_t ) const {
                 //for ordered container do nothing

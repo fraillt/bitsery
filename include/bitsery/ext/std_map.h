@@ -68,12 +68,12 @@ namespace bitsery {
                 }
             }
         private:
-            template <typename ... TArgs>
-            void reserve(std::unordered_map<TArgs...>& obj, size_t size) const {
+            template <typename Key, typename T, typename Hash, typename KeyEqual, typename Allocator>
+            void reserve(std::unordered_map<Key, T, Hash, KeyEqual, Allocator>& obj, size_t size) const {
                 obj.reserve(size);
             }
-            template <typename ... TArgs>
-            void reserve(std::unordered_multimap<TArgs...>& obj, size_t size) const {
+            template <typename Key, typename T, typename Hash, typename KeyEqual, typename Allocator>
+            void reserve(std::unordered_multimap<Key, T, Hash, KeyEqual, Allocator>& obj, size_t size) const {
                 obj.reserve(size);
             }
             template <typename T>

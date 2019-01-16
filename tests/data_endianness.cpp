@@ -56,19 +56,19 @@ using InverseReader = bitsery::AdapterReader<InputAdapter, InverseEndiannessConf
 TEST(DataEndianness, WhenWriteBytesThenBytesAreSwapped) {
     //fill initial values
     IntegralTypes src{};
-    src.a = static_cast<int64_t>(0x1122334455667788);
-    src.b = 0xBBCCDDEE;
-    src.c = static_cast<int16_t>(0xCCDD);
-    src.d = static_cast<uint8_t>(0xDD);
-    src.e = static_cast<int8_t>(0xEE);
+    src.a = static_cast<int64_t>(0x1122334455667788u);
+    src.b = 0xBBCCDDEEu;
+    src.c = static_cast<int16_t>(0xCCDDu);
+    src.d = static_cast<uint8_t>(0xDDu);
+    src.e = static_cast<int8_t>(0xEEu);
 
     //fill expected result after swap
     IntegralTypes resInv{};
-    resInv.a = static_cast<int64_t>(0x8877665544332211);
-    resInv.b = 0xEEDDCCBB;
-    resInv.c = static_cast<int16_t>(0xDDCC);
-    resInv.d = static_cast<uint8_t>(0xDD);
-    resInv.e = static_cast<int8_t>(0xEE);
+    resInv.a = static_cast<int64_t>(0x8877665544332211u);
+    resInv.b = 0xEEDDCCBBu;
+    resInv.c = static_cast<int16_t>(0xDDCCu);
+    resInv.d = static_cast<uint8_t>(0xDDu);
+    resInv.e = static_cast<int8_t>(0xEEu);
 
     //create and write to buffer
     Buffer buf{};

@@ -34,7 +34,8 @@ namespace bitsery {
 
     //this allows to call private serialize method, and construct instance (if no default constructor is provided) for your type
     //just make friend it in your class
-    struct Access {
+    class Access {
+    public:
         template<typename S, typename T>
         static auto serialize(S &s, T &obj) -> decltype(obj.serialize(s)) {
             obj.serialize(s);

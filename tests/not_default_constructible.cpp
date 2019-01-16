@@ -35,7 +35,7 @@ using testing::ContainerEq;
 using testing::Eq;
 
 //forward declare, for testing with std::unordered_map
-struct HasherForNonDefaultConstructible;
+class HasherForNonDefaultConstructible;
 
 class NonDefaultConstructible {
     int32_t i{0};
@@ -65,7 +65,8 @@ public:
     }
 };
 
-struct HasherForNonDefaultConstructible {
+class HasherForNonDefaultConstructible {
+public:
     size_t operator()(const NonDefaultConstructible& o) const {
         return std::hash<int32_t>()(o.i);
     }

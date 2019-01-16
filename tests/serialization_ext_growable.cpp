@@ -52,9 +52,9 @@ TEST(SerializeExtensionGrowable, WriteSessionsDataAtBufferEndAfterFlush) {
         ser.value1b(v);
     });
 
-    EXPECT_THAT(ctx.getBufferSize(), Eq(1));
+    EXPECT_THAT(ctx.getBufferSize(), Eq(1u));
     ctx.bw->flush();
-    EXPECT_THAT(ctx.getBufferSize(), Gt(1));
+    EXPECT_THAT(ctx.getBufferSize(), Gt(1u));
 }
 
 

@@ -28,8 +28,8 @@
 #include "../details/flexible_common.h"
 
 namespace bitsery {
-    template<typename S, typename ... TArgs>
-    void serialize(S &s, std::deque<TArgs... > &obj) {
+    template<typename S, typename T, typename Allocator>
+    void serialize(S &s, std::deque<T, Allocator> &obj) {
         flexible::processContainer(s, obj);
     }
 }

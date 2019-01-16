@@ -26,6 +26,16 @@ you contribute:
 6. Open a pull request against Bitsery *master* branch. Currently ongoing development is on *master*. At some point an integration branch will be set-up, and pull-requests should target that, but for now its all against master. You may see feature branches come and go, too.
 
 
+If you're working with visual studio, there is how to build and run all tests from command line
+```shell
+mkdir build
+cd build
+cmake -DBITSERY_BUILD_TESTS=ON -DGTEST_ROOT="<PATH to GTEST>" -DCMAKE_CXX_FLAGS_RELEASE=/MT ..
+cmake --build . --config Release
+(cd tests && ctest -C Release && cd ..)
+```
+/MT option might be optional, depending on how gtest was built.
+
 ## Style guide
 
 Just use your own judgment and stick to the style of the surrounding code.

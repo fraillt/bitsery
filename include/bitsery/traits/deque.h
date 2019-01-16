@@ -31,9 +31,9 @@ namespace bitsery {
 
     namespace traits {
 
-        template<typename ... TArgs>
-        struct ContainerTraits<std::deque<TArgs...>>
-                : public StdContainer<std::deque<TArgs...>, true, false> {};
+        template<typename T, typename Allocator>
+        struct ContainerTraits<std::deque<T, Allocator>>
+                : public StdContainer<std::deque<T, Allocator>, true, false> {};
 
     }
 

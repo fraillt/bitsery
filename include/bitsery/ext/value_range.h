@@ -96,7 +96,8 @@ namespace bitsery {
             constexpr RangeSpec(T minValue, T maxValue, T precision) :
                     min{minValue},
                     max{maxValue},
-                    bitsRequired{calcRequiredBits<details::SameSizeUnsigned<T>>({}, ((max - min) / precision))} {
+                    bitsRequired{calcRequiredBits<details::SameSizeUnsigned<T>>(
+                            {}, static_cast<details::SameSizeUnsigned<T>>((max - min) / precision))} {
 
             }
 
@@ -163,7 +164,8 @@ namespace bitsery {
         public:
 
             template<typename ... Args>
-            explicit constexpr ValueRange(Args &&... args):_range{std::forward<Args>(args)...} {}
+            constexpr ValueRange(const TValue& min, const TValue& max, Args &&... args)
+                    :_range{min, max, std::forward<Args>(args)...} {}
 
             template<typename Ser, typename Writer, typename T, typename Fnc>
             void serialize(Ser &, Writer &writer, const T &v, Fnc &&) const {

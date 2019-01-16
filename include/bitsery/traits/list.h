@@ -31,9 +31,9 @@ namespace bitsery {
 
     namespace traits {
 
-        template<typename ... TArgs>
-        struct ContainerTraits<std::list<TArgs...>>
-                : public StdContainer<std::list<TArgs...>, true, false> {};
+        template<typename T, typename Allocator>
+        struct ContainerTraits<std::list<T, Allocator>>
+                : public StdContainer<std::list<T, Allocator>, true, false> {};
 
     }
 

@@ -28,8 +28,8 @@
 #include "../details/flexible_common.h"
 
 namespace bitsery {
-    template<typename S, typename T, typename ... TArgs>
-    void serialize(S &s, std::basic_string<T, TArgs...> &str) {
+    template<typename S, typename CharT, typename Traits, typename Allocator>
+    void serialize(S &s, std::basic_string<CharT, Traits, Allocator> &str) {
         flexible::processContainer(s, str);
     }
 }

@@ -32,22 +32,22 @@ namespace bitsery {
 
     namespace traits {
 
-        template<typename ... TArgs>
-        struct ContainerTraits<std::forward_list<TArgs...>> {
-            using TValue = typename std::forward_list<TArgs...>::value_type;
+        template<typename T, typename Allocator>
+        struct ContainerTraits<std::forward_list<T, Allocator>> {
+            using TValue = T;
             static constexpr bool isResizable = true;
             static constexpr bool isContiguous = false;
-            static size_t size(const std::forward_list<TArgs...>& container) {
+            static size_t size(const std::forward_list<T, Allocator>& container) {
                 return static_cast<size_t>(std::distance(container.begin(), container.end()));
             }
-            static void resize(std::forward_list<TArgs...>& container, size_t size) {
+            static void resize(std::forward_list<T, Allocator>& container, size_t size) {
                 resizeImpl(container, size, std::is_default_constructible<TValue>{});
             }
         private:
-            static void resizeImpl(std::forward_list<TArgs...>& container, size_t size, std::true_type) {
+            static void resizeImpl(std::forward_list<T, Allocator>& container, size_t size, std::true_type) {
                 container.resize(size);
             }
-            static void resizeImpl(std::forward_list<TArgs...>& container, size_t newSize, std::false_type) {
+            static void resizeImpl(std::forward_list<T, Allocator>& container, size_t newSize, std::false_type) {
                 const auto oldSize = size(container);
                 for (auto it = oldSize; it < newSize; ++it) {
                     container.push_front(::bitsery::Access::create<TValue>());

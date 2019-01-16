@@ -28,23 +28,19 @@
 #include "../ext/std_map.h"
 
 namespace bitsery {
-    template<typename S, typename ... TArgs>
-    void serialize(S &s, std::map<TArgs ... > &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
-        using TKey = typename std::map<TArgs...>::key_type;
-        using TValue = typename std::map<TArgs...>::mapped_type;
+    template<typename S, typename Key, typename T, typename Compare, typename Allocator>
+    void serialize(S &s, std::map<Key, T, Compare, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
         s.ext(obj, ext::StdMap{maxSize},
-              [&s](TKey& key, TValue& value) {
+              [&s](Key& key, T& value) {
                   s.object(key);
                   s.object(value);
               });
     }
 
-    template<typename S, typename ... TArgs>
-    void serialize(S &s, std::multimap<TArgs ... > &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
-        using TKey = typename std::multimap<TArgs...>::key_type;
-        using TValue = typename std::multimap<TArgs...>::mapped_type;
+    template<typename S, typename Key, typename T, typename Compare, typename Allocator>
+    void serialize(S &s, std::multimap<Key, T, Compare, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
         s.ext(obj, ext::StdMap{maxSize},
-              [&s](TKey& key, TValue& value) {
+              [&s](Key& key, T& value) {
                   s.object(key);
                   s.object(value);
               });

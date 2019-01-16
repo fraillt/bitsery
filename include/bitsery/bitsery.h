@@ -26,7 +26,7 @@
 
 #define BITSERY_MAJOR_VERSION 4
 #define BITSERY_MINOR_VERSION 5
-#define BITSERY_PATCH_VERSION 0
+#define BITSERY_PATCH_VERSION 1
 
 #define BITSERY_QUOTE_MACRO(name) #name
 #define BITSERY_BUILD_VERSION_STR(major,minor, patch) \

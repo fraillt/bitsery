@@ -28,13 +28,13 @@
 #include "../ext/std_set.h"
 
 namespace bitsery {
-    template<typename S, typename ... TArgs>
-    void serialize(S &s, std::unordered_set<TArgs...> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
+    template<typename S, typename Key, typename Hash, typename KeyEqual, typename Allocator>
+    void serialize(S &s, std::unordered_set<Key, Hash, KeyEqual, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
         s.ext(obj, ext::StdSet{maxSize});
     }
 
-    template<typename S, typename ... TArgs>
-    void serialize(S &s, std::unordered_multiset<TArgs...> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
+    template<typename S, typename Key, typename Hash, typename KeyEqual, typename Allocator>
+    void serialize(S &s, std::unordered_multiset<Key, Hash, KeyEqual, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
         s.ext(obj, ext::StdSet{maxSize});
     }
 

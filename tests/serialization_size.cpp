@@ -37,26 +37,26 @@ bool SerializeDeserializeContainerSize(SerializationContext& ctx, const size_t s
 TEST(SerializeSize, WhenLengthLessThan128Then1Byte) {
     SerializationContext ctx1{};
     EXPECT_TRUE(SerializeDeserializeContainerSize(ctx1, 127));
-    EXPECT_THAT(ctx1.getBufferSize(), Eq(1));
+    EXPECT_THAT(ctx1.getBufferSize(), Eq(1u));
     SerializationContext ctx2;
     EXPECT_TRUE(SerializeDeserializeContainerSize(ctx2, 128));
-    EXPECT_THAT(ctx2.getBufferSize(), testing::Gt(1));
+    EXPECT_THAT(ctx2.getBufferSize(), testing::Gt(1u));
 }
 
 TEST(SerializeSize, WhenLengthLessThan16384Then2Bytes) {
     SerializationContext ctx1;
     EXPECT_TRUE(SerializeDeserializeContainerSize(ctx1, 16383));
-    EXPECT_THAT(ctx1.getBufferSize(), Eq(2));
+    EXPECT_THAT(ctx1.getBufferSize(), Eq(2u));
     SerializationContext ctx2;
     EXPECT_TRUE(SerializeDeserializeContainerSize(ctx2, 16384));
-    EXPECT_THAT(ctx2.getBufferSize(), testing::Gt(2));
+    EXPECT_THAT(ctx2.getBufferSize(), testing::Gt(2u));
 }
 
 TEST(SerializeSize, WhenGreaterThan16383Then4Bytes) {
     SerializationContext ctx1;
     EXPECT_TRUE(SerializeDeserializeContainerSize(ctx1, 16384));
-    EXPECT_THAT(ctx1.getBufferSize(), Eq(4));
+    EXPECT_THAT(ctx1.getBufferSize(), Eq(4u));
     SerializationContext ctx2;
     EXPECT_TRUE(SerializeDeserializeContainerSize(ctx2, 66384));
-    EXPECT_THAT(ctx2.getBufferSize(), Eq(4));
+    EXPECT_THAT(ctx2.getBufferSize(), Eq(4u));
 }

@@ -1,3 +1,11 @@
+# [4.5.1](https://github.com/fraillt/bitsery/compare/v4.5.0...v4.5.1) (2019-01-16)
+
+### Improvements
+* template specializations, where possible, was changed to avoid using variadics, some Visual Studio compilers has [issues](https://developercommunity.visualstudio.com/content/problem/3437/error-with-c11-variadics.html) with variadic templates.
+* reduced compile warnings for VisualStudio:
+  * added explicit casts
+  * renamed `struct` to `class` where class is used as friend. e.g. `friend class bitsery::Access`, because it is more conventional usage.
+
 # [4.5.0](https://github.com/fraillt/bitsery/compare/v4.4.0...v4.5.0) (2019-01-10)
 
 ### Features

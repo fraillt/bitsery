@@ -96,7 +96,7 @@ namespace bitsery {
 
             template<typename TResult, typename TUnsigned>
             TResult zigZagDecode(TUnsigned v, std::true_type) const {
-                return (v >> 1) ^ -(v & 1);
+                return (v >> 1) ^ (~(v & 1) + 1); // same as -(v & 1), but no warning on VisualStudio
             }
 
             // write/read bytes one by one
