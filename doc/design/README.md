@@ -33,12 +33,12 @@ Now let's review features in more detail.
 
 * **Cross-platform compatible.** if same code compiles on Android, PS3 console, and your PC either x64 or x86 architecture, you are 100% sure it works.
 To achieve this, bitsery specifically defines size of underlying data, hence syntax is *value\<2\>* (alias function *value2b*)  instead or *value*, or *container2b* for element type of 16bits, eg int16_t.
-Bitsery also applies endianess transformation if nessesarry.
-* **Flexible syntax.** if you don't like like writing code with explicitly specifying underlying type size, like *container2b* or *value8b* you can use flexible syntax.
+Bitsery also applies endianness transformation if necessary.
+* **Flexible syntax.** If you don't like like writing code with explicitly specifying underlying type size, like *container2b* or *value8b*, you can use flexible syntax.
 Just include <bitsery/flexible.h> and can write like in [cereal](http://uscilab.github.io/cereal/).
-But do it on your own risk, and static assert using *assertFundamentalTypeSizes* function if you're planing to use it accross multiple platforms.
+But do it on your own risk, and static assert using *assertFundamentalTypeSizes* function if you're planing to use it across multiple platforms.
 * **Optimized for speed and space.** library itself doesn't do any allocations (except if you use backward/forward compatibility) so data writing/reading is fast as memcpy to/from your buffer.
-It also doesn't serialize any type information, all information needed is writen in your code!
+It also doesn't serialize any type information, all information needed is written in your code!
 * **No code generation required: no IDL or metadata** since it doesn't support any other formats except binary, it doesn't need any metadata.
 * **Runtime error checking on deserialization** library designed to be save with untrusted network data, that's why all overloads that work on containers has *maxSize* value, unless container is static size like *std::array*, this way bitsery ensures that no malicious data crash you.
 * **Supports forward/backward compatibility for your types** library has optional forward/backward compatibility for types implemented in *AdapterReader/Writer* by allowing to have inner data sessions inside buffer.
@@ -65,5 +65,5 @@ Bitsery allows to use bit-level operations and has two extensions that use them:
 You want to support your custom container, its fine there is *ContainerTraits* for this, only few methods required to implement.
 To use same container for buffer writing/reading add specialization to *BufferAdapterTraits*.
 You want to customize serialization flow - use extensions, only two methods to define, and *ExtensionTraits* to further customize usage.
-* **Configurable endianess support.** default is *Little Endian*, but if your primary target is PowerPC architecture, eg. PlayStation3, just change your configuration to be *Big Endian*.
+* **Configurable endianness support.** default is *Little Endian*, but if your primary target is PowerPC architecture, eg. PlayStation3, just change your configuration to be *Big Endian*.
 * **No macros.** Not so much to say, if you are like me, then it's a feature :)

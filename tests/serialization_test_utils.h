@@ -134,7 +134,7 @@ public:
     }
 
     //since all containers .size() method returns size_t, it cannot be directly serialized, because size_t is platform dependant
-    //this function returns number of bytes writen to buffer, when reading/writing size of container
+    //this function returns number of bytes written to buffer, when reading/writing size of container
     static size_t containerSizeSerializedBytesCount(size_t elemsCount) {
         if (elemsCount < 0x80u)
             return 1;

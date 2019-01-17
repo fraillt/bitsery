@@ -23,7 +23,7 @@ All cross-platform requirements are enforced at compile time, so serialized data
   * fine-grained bit-level serialization control.
 * Easily extendable for any type.
 * Allows flexible or/and verbose syntax for better serialization control.
-* Configurable endianess support.
+* Configurable endianness support.
 * No macros.
 
 ## Why to use bitsery
