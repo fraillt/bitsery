@@ -124,7 +124,7 @@ namespace bitsery {
         void directRead(T *v, size_t count) {
             static_assert(!std::is_const<T>::value, "");
             _inputAdapter.read(reinterpret_cast<TValue *>(v), sizeof(T) * count);
-            //swap each byte if nessesarry
+            //swap each byte if necessary
             _swapDataBits(v, count, std::integral_constant<bool,
                     Config::NetworkEndianness != details::getSystemEndianness()>{});
         }

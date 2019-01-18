@@ -2,11 +2,11 @@
 
 This is a quick guide to get **bitsery** up and running in a matter of minutes.
 The only prerequisite for running bitsery is a modern C++11 compliant compiler, such as GCC 4.9.4, clang 3.4, MSVC 2015, or newer.
-Older versions might work, but it is not tested.
+Older versions might work, but they have not been tested.
 
 ## Get bitsery
 
-bitsery can be directly included in your project or installed anywhere you can access header files.
+**bitsery** can be directly included in your project or installed anywhere you can access header files.
 Grab the latest version, and include directory `bitsery_base_dir/include/` to your project.
 There's nothing to build or make - **bitsery** is header only.
 
@@ -27,11 +27,14 @@ using InputAdapter = InputBufferAdapter<Buffer>;
 ```
 
 **bitsery** is very lightweight, so we need to explicitly include what we need.
-* `<bitsery/bitsery.h>` is a core header, that includes our Serializer and Deserializer
-* `<bitsery/adapter/buffer.h>` in order to write/read data we need specific adapter, depending on what underlying buffer will be. In this example we'll be using std::vector as our buffer, so we include buffer adapter.
-* <bitsery/traits/...> traits tells library how efficiently serialize particular container.
 
-create alias types for *InputAdapter* and *OutputAdapter* using our vector as buffer.
+Include  |  Description
+--|--
+`<bitsery/bitsery.h>`  |  This is a core header, that includes our Serializer and Deserializer.
+`<bitsery/adapter/buffer.h>`  |  In order to write/read data, we need a specific adapter, depending on what underlying buffer will be. In this example, we'll be using `std::vector` as our buffer, so we include the buffer adapter.
+`<bitsery/traits/...>`  |  Traits tell the library how to efficiently serialize a particular container. Many common STL containers are supported out of the box.
+
+Create alias types for *InputAdapter* and *OutputAdapter* using our vector as buffer.
 
 ## Add serialization method for your type
 

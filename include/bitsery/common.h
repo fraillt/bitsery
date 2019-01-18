@@ -29,7 +29,7 @@
 namespace bitsery {
 
 /*
- * endianess
+ * endianness
  */
     enum class EndiannessType {
         LittleEndian,

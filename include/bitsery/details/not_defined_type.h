@@ -35,7 +35,7 @@ namespace bitsery {
             NotDefinedType(T&& ...){}
             NotDefinedType() = default;
             //define operators so that we also swallow deeper errors, to reduce error stack
-            //this time will be used as iterator, so define all operators nessesarry to work with iterators
+            //this time will be used as iterator, so define all operators necessary to work with iterators
             friend bool operator == (const NotDefinedType&, const NotDefinedType&) {
                 return true;
             }
