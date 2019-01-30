@@ -432,7 +432,7 @@ namespace bitsery {
 
     template <typename T>
     size_t quickMeasureSize(const T& value) {
-        BasicSerializer<MeasureSize> ser {nullptr};
+        BasicSerializer<MeasureSize> ser{MeasureSize{}};
         ser.object(value);
         auto& w = AdapterAccess::getWriter(ser);
         w.flush();
