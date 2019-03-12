@@ -26,10 +26,8 @@
 
 #if __cplusplus > 201402L
 
-#include <optional>
 #include <bitsery/ext/std_optional.h>
 #include <bitsery/ext/value_range.h>
-
 
 using StdOptional = bitsery::ext::StdOptional;
 
@@ -122,6 +120,10 @@ TEST(SerializeExtensionStdOptional, NoAlignAfterStateWriteRead) {
     EXPECT_THAT(t1.value(), Eq(r1.value()));
 }
 
-
-
+#else
+#if defined(_MSC_VER)
+#pragma message("Tests for StdOptional requires C++17")
+#else
+#warning "Tests for StdOptional requires C++17"
+#endif
 #endif

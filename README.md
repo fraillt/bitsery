@@ -96,6 +96,8 @@ This documentation comprises these parts:
 
 Works with C++11 compiler, no additional dependencies, include `<bitsery/bitsery.h>` and you're done.
 
+> some **bitsery** extensions might require higher C++ standard (e.g. `StdVariant`)
+
 ## Platforms
 
 This library was tested on

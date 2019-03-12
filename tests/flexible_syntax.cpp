@@ -35,6 +35,17 @@
 #include <bitsery/flexible/set.h>
 #include <bitsery/flexible/unordered_set.h>
 #include <bitsery/flexible/memory.h>
+#include <bitsery/flexible/chrono.h>
+#if __cplusplus > 201402L
+#include <bitsery/flexible/tuple.h>
+#include <bitsery/flexible/variant.h>
+#else
+#if defined(_MSC_VER)
+#pragma message("tuple and variant only works with c++17")
+#else
+#warning "tuple and variant only works with c++17"
+#endif
+#endif
 
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
@@ -387,6 +398,33 @@ TEST(FlexibleSyntax, StdSmartPtr) {
     EXPECT_THAT(*resWeak1.lock(), Eq(*dataWeak1.lock()));
     EXPECT_THAT(*resUnique1, Eq(*dataUnique1));
 }
+
+TEST(FlexibleSyntax, StdDuration) {
+    std::chrono::duration<int64_t, std::milli> t1{54654};
+    EXPECT_TRUE(procArchive(t1) == t1);
+}
+
+TEST(FlexibleSyntax, StdTimePoint) {
+    using Duration = std::chrono::duration<double, std::milli>;
+    using TP = std::chrono::time_point<std::chrono::system_clock, Duration>;
+
+    TP data{Duration{874656.4798}};
+    EXPECT_TRUE(procArchive(data) == data);
+}
+
+#if __cplusplus > 201402L
+
+TEST(FlexibleSyntax, StdTuple) {
+    std::tuple<int, std::string, std::vector<char>> t1{5,"hello hello", {'A','B','C'}};
+    EXPECT_TRUE(procArchive(t1) == t1);
+}
+
+TEST(FlexibleSyntax, StdVariant) {
+    std::variant<float, std::string, std::chrono::milliseconds> t1{std::string("hello hello")};
+    EXPECT_TRUE(procArchive(t1) == t1);
+}
+
+#endif
 
 TEST(FlexibleSyntax, NestedTypes) {
     std::unordered_map<std::string, std::vector<std::string>> t1;

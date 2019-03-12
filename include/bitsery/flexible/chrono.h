@@ -1,6 +1,6 @@
 //MIT License
 //
-//Copyright (c) 2017 Mindaugas Vinkelis
+//Copyright (c) 2019 Mindaugas Vinkelis
 //
 //Permission is hereby granted, free of charge, to any person obtaining a copy
 //of this software and associated documentation files (the "Software"), to deal
@@ -20,24 +20,21 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
+#ifndef BITSERY_FLEXIBLE_TYPE_STD_CHRONO_H
+#define BITSERY_FLEXIBLE_TYPE_STD_CHRONO_H
 
-#ifndef BITSERY_BITSERY_H
-#define BITSERY_BITSERY_H
+#include "../ext/std_chrono.h"
 
-#define BITSERY_MAJOR_VERSION 4
-#define BITSERY_MINOR_VERSION 6
-#define BITSERY_PATCH_VERSION 0
+namespace bitsery {
+    template<typename S, typename T, typename P>
+    void serialize(S &s, std::chrono::duration<T, P> &obj) {
+        s.template ext<sizeof(T)>(obj, ext::StdDuration{});
+    }
 
-#define BITSERY_QUOTE_MACRO(name) #name
-#define BITSERY_BUILD_VERSION_STR(major,minor, patch) \
-BITSERY_QUOTE_MACRO(major) "." \
-BITSERY_QUOTE_MACRO(minor) "." \
-BITSERY_QUOTE_MACRO(patch)
+    template<typename S, typename C, typename T, typename P>
+    void serialize(S &s, std::chrono::time_point<C, std::chrono::duration<T, P>> &obj) {
+        s.template ext<sizeof(T)>(obj, ext::StdTimePoint{});
+    }
+}
 
-#define BITSERY_VERSION \
-BITSERY_BUILD_VERSION_STR(BITSERY_MAJOR_VERSION, BITSERY_MINOR_VERSION, BITSERY_PATCH_VERSION)
-
-#include "serializer.h"
-#include "deserializer.h"
-
-#endif //BITSERY_BITSERY_H
+#endif //BITSERY_FLEXIBLE_TYPE_STD_CHRONO_H

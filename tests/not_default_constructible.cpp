@@ -139,6 +139,24 @@ TEST(DeserializeNonDefaultConstructible, ResultStdForwardListShouldShrink) {
         EXPECT_THAT(res.begin(), Eq(res.end()));
 
     }
+
+    {
+        // also check if correctly expands if source is bigger than destination
+        SerializationContext ctx{};
+        std::forward_list<NonDefaultConstructible> data{};
+        data.push_front(NonDefaultConstructible{1});
+        data.push_front(NonDefaultConstructible{14});
+        std::forward_list<NonDefaultConstructible> res{};
+
+        ctx.createSerializer().container(data, 10);
+        ctx.createDeserializer().container(res, 10);
+
+        auto resIt = res.begin();
+        for (auto it = data.begin(); it != data.end(); ++it, ++resIt) {
+            EXPECT_THAT(*resIt, Eq(*it));
+        }
+        EXPECT_THAT(resIt, Eq(res.end()));
+    }
 }
 
 TEST(DeserializeNonDefaultConstructible, StdSet) {

@@ -242,6 +242,10 @@ namespace bitsery {
                 selectSerializeFnc(s, v, SelectSerializeFnc<TDecayed>{});
             }
 
+            static constexpr bool isDefined() {
+                return HasSerializeFunction<S, T>::value || HasSerializeMethod<S, T>::value;
+            }
+
         private:
             static void selectSerializeFnc(S &s, T &v, std::integral_constant<int, 0>) {
                 static_assert(!(HasSerializeFunction<S, T>::value && HasSerializeMethod<S, T>::value),

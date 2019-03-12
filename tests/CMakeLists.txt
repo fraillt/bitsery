@@ -20,7 +20,7 @@
 #OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #SOFTWARE.
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 project(bitsery_tests CXX)
 
 find_package(GTest 1.8 REQUIRED)
@@ -30,11 +30,6 @@ if (NOT TARGET Bitsery::bitsery)
 endif()
 
 file(GLOB TestSourceFiles ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
-
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    message(WARNING "extension tests for optional is disable for VS, because VS currenty doesn't have <optional>")
-    list(REMOVE_ITEM TestSourceFiles ${CMAKE_CURRENT_SOURCE_DIR}/serialization_ext_std_optional.cpp)
-endif()
 
 enable_testing()
 
@@ -46,8 +41,9 @@ foreach (TestFile ${TestSourceFiles})
     if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_compile_options(${TestName} PRIVATE -Wextra -Wno-missing-braces -Wpedantic -Weffc++ -Wno-c++14-extensions)
     endif()
+    gtest_discover_tests(${TestName})
 
-    add_test(NAME ${TestName} COMMAND $<TARGET_FILE:${TestName}>)
+#    add_test(NAME ${TestName} COMMAND $<TARGET_FILE:${TestName}>)
 endforeach()
 
 #======================= setup development environment ====================

@@ -149,6 +149,7 @@ namespace bitsery {
     }
 
     namespace traits {
+
         template<typename T>
         struct ExtensionTraits<ext::CompactValue, T> {
             using TValue = T;
@@ -165,6 +166,14 @@ namespace bitsery {
             // only enable object overload
             static constexpr bool SupportValueOverload = false;
             static constexpr bool SupportObjectOverload = true;
+            static constexpr bool SupportLambdaOverload = false;
+        };
+
+        template<typename T, bool Check>
+        struct ExtensionTraits<details::CompactValueImpl<Check>, T> {
+            using TValue = T;
+            static constexpr bool SupportValueOverload = !Check;
+            static constexpr bool SupportObjectOverload = Check;
             static constexpr bool SupportLambdaOverload = false;
         };
 

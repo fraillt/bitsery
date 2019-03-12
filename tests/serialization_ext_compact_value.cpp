@@ -26,7 +26,6 @@
 #include "serialization_test_utils.h"
 
 #include <bitsery/traits/array.h>
-#include <iostream>
 #include <bitset>
 #include <chrono>
 

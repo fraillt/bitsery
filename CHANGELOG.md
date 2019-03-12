@@ -1,3 +1,16 @@
+# [4.6.0](https://github.com/fraillt/bitsery/compare/v4.5.1...v4.6.0) (2019-03-12)
+
+### Features
+* new extensions **StdTuple** and **StdVariant** for `std::tuple` and `std::variant`. These are the first extensions that requires C++17, or higher, standard enabled.
+Although `std::tuple` is C++11 type, but from usage perspective it has exactly the same requirements as `std::variant` and relies heavily on having class template argument deduction guides to make it convenient to use.
+You can easily use `std::tuple` without any extension at all, so the main motivation was to create convenient interface for **StdVariant** and use the same interface for **StdTuple** as well.
+  * instead of providing custom lambda to overload each type in tuple or variant, there was added several helper callable objects.
+  **OverloadValue** wrapper around `s.value<N>(o)`, **OverloadExtValue** wrapper around `s.ext<N>(o, Ext{})` and **OverloadExtObject** wrapper around `s.ext(o, Ext{})`.
+* new extensions **StdDuration** and **StdTimePoint** for `std::chrono::duration` and `std::chrono::time_point`.
+
+### Improvements
+tests now uses `gtest_discover_tests` function, to automatically discover tests, which requires CMake 3.10.
+
 # [4.5.1](https://github.com/fraillt/bitsery/compare/v4.5.0...v4.5.1) (2019-01-16)
 
 ### Improvements

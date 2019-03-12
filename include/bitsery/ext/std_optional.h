@@ -24,23 +24,12 @@
 #ifndef BITSERY_EXT_STD_OPTIONAL_H
 #define BITSERY_EXT_STD_OPTIONAL_H
 
-
-//this module do not include optional, but expects it to be declared in std::optional
-//if you're using experimental optional from <experimental/optional>
-//add it in std namespace like this:
-//namespace std {
-//    template <typename T>
-//    using optional = experimental::optional<T>;
-//}
-#include <type_traits>
 #include "../traits/core/traits.h"
 #include "../details/serialization_common.h"
+#include <optional>
 
 namespace bitsery {
     namespace ext {
-
-        template<typename T>
-        using std_optional = ::std::optional<T>;
 
         class StdOptional {
         public:
@@ -50,37 +39,27 @@ namespace bitsery {
              * @param alignBeforeData only makes sense when bit-packing enabled, by default aligns after writing/reading bool state of optional
              */
             explicit StdOptional(bool alignBeforeData=true):_alignBeforeData{alignBeforeData} {}
-            template<typename T>
-            constexpr void assertType() const {
-                using TOpt = typename std::remove_cv<T>::type;
-                using TVal = typename TOpt::value_type;
-                static_assert(std::is_same<TOpt, std_optional<TVal>>(), "");
-            }
 
             template<typename Ser, typename Writer, typename T, typename Fnc>
-            void serialize(Ser &ser, Writer &, const T &obj, Fnc &&fnc) const {
-                assertType<T>();
+            void serialize(Ser &ser, Writer &, const std::optional<T> &obj, Fnc &&fnc) const {
                 ser.boolValue(static_cast<bool>(obj));
                 if (_alignBeforeData)
                     ser.align();
                 if (obj)
-                    fnc(const_cast<typename T::value_type & >(*obj));
+                    fnc(const_cast<T&>(*obj));
             }
 
             template<typename Des, typename Reader, typename T, typename Fnc>
-            void deserialize(Des &des, Reader &, T &obj, Fnc &&fnc) const {
-                assertType<T>();
+            void deserialize(Des &des, Reader &, std::optional<T> &obj, Fnc &&fnc) const {
                 bool exists{};
                 des.boolValue(exists);
                 if (_alignBeforeData)
                     des.align();
                 if (exists) {
-                    auto tmp{::bitsery::Access::create<typename T::value_type>()};
-                    fnc(tmp);
-                    obj = tmp;
+                    obj = ::bitsery::Access::create<T>();
+                    fnc(*obj);
                 } else {
-                    //experimental optional doesnt have .reset method
-                    obj = T{};
+                    obj = std::nullopt;
                 }
             }
         private:
@@ -90,8 +69,8 @@ namespace bitsery {
 
     namespace traits {
         template<typename T>
-        struct ExtensionTraits<ext::StdOptional, T> {
-            using TValue = typename T::value_type;
+        struct ExtensionTraits<ext::StdOptional, std::optional<T>> {
+            using TValue = T;
             static constexpr bool SupportValueOverload = true;
             static constexpr bool SupportObjectOverload = true;
             static constexpr bool SupportLambdaOverload = true;

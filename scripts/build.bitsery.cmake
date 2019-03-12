@@ -6,7 +6,6 @@ set(CTEST_BINARY_DIRECTORY "build")
 set(ENV{CXXFLAGS} "--coverage")
 #when using Ninja generator, ctest_coverage cannot find files...
 set(CTEST_CMAKE_GENERATOR "CodeBlocks - Unix Makefiles")
-#set(CTEST_USE_LAUNCHERS 1)
 
 set(CTEST_COVERAGE_COMMAND "gcov")
 
