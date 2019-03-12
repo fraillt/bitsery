@@ -100,6 +100,13 @@ namespace bitsery {
             archive(std::forward<TArgs>(tail)...);
         }
 
+        template <typename T, typename... TArgs>
+        BasicSerializer &operator()(T &&head, TArgs &&... tail) {
+            details::ArchiveFunction<BasicSerializer, T>::invoke(*this, std::forward<T>(head));
+            archive(std::forward<TArgs>(tail)...);
+            return *this;
+        }
+
         /*
          * value overloads
          */
