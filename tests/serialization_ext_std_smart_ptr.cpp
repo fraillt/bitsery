@@ -49,7 +49,7 @@ struct Base {
 };
 
 template<typename S>
-void serialize(S &s, Base &o) {
+void serialize(S& s, Base& o) {
     s.value1b(o.x);
 }
 
@@ -65,7 +65,7 @@ struct Derived : virtual Base {
 };
 
 template<typename S>
-void serialize(S &s, Derived &o) {
+void serialize(S& s, Derived& o) {
     s.ext(o, VirtualBaseClass<Base>{});
     s.value1b(o.y);
 }
@@ -82,7 +82,7 @@ struct MoreDerived : Derived {
 };
 
 template<typename S>
-void serialize(S &s, MoreDerived &o) {
+void serialize(S& s, MoreDerived& o) {
     s.ext(o, BaseClass<Derived>{});
     s.value1b(o.z);
 }
@@ -120,13 +120,13 @@ public:
     TContext plctx{};
     SerContext sctx{};
 
-    typename SerContext::TSerializer &createSerializer() {
-        auto &res = sctx.createSerializer(&plctx);
+    typename SerContext::TSerializer& createSerializer() {
+        auto& res = sctx.createSerializer(&plctx);
         return res;
     }
 
-    typename SerContext::TDeserializer &createDeserializer() {
-        auto &res = sctx.createDeserializer(&plctx);
+    typename SerContext::TDeserializer& createDeserializer() {
+        auto& res = sctx.createDeserializer(&plctx);
         return res;
     }
 
@@ -156,19 +156,21 @@ public:
     TContext plctx{};
     SerContext sctx{};
 
-    typename SerContext::TSerializer &createSerializer() {
-        auto &res = sctx.createSerializer(&plctx);
+    typename SerContext::TSerializer& createSerializer() {
+        auto& res = sctx.createSerializer(&plctx);
         std::get<2>(plctx).clear();
         //bind serializer with classes
-        std::get<2>(plctx).template registerBasesList<SerContext::TSerializer>(bitsery::ext::PolymorphicClassesList<Base>{});
+        std::get<2>(plctx).template registerBasesList<SerContext::TSerializer>(
+            bitsery::ext::PolymorphicClassesList<Base>{});
         return res;
     }
 
-    typename SerContext::TDeserializer &createDeserializer() {
-        auto &res = sctx.createDeserializer(&plctx);
+    typename SerContext::TDeserializer& createDeserializer() {
+        auto& res = sctx.createDeserializer(&plctx);
         std::get<2>(plctx).clear();
         //bind deserializer with classes
-        std::get<2>(plctx).template registerBasesList<SerContext::TDeserializer>(bitsery::ext::PolymorphicClassesList<Base>{});
+        std::get<2>(plctx).template registerBasesList<SerContext::TDeserializer>(
+            bitsery::ext::PolymorphicClassesList<Base>{});
         return res;
     }
 
@@ -194,14 +196,14 @@ struct SharedPtrTest {
 };
 
 using TestingWithNonPolymorphicTypes = ::testing::Types<
-        UniquePtrTest,
-        SharedPtrTest>;
+    UniquePtrTest,
+    SharedPtrTest>;
 
 TYPED_TEST_CASE(SerializeExtensionStdSmartPtrNonPolymorphicType, TestingWithNonPolymorphicTypes);
 
 using TestingWithPolymorphicTypes = ::testing::Types<
-        UniquePtrTest,
-        SharedPtrTest>;
+    UniquePtrTest,
+    SharedPtrTest>;
 
 TYPED_TEST_CASE(SerializeExtensionStdSmartPtrPolymorphicType, TestingWithPolymorphicTypes);
 
@@ -266,14 +268,14 @@ TYPED_TEST(SerializeExtensionStdSmartPtrNonPolymorphicType, CanUseLambdaOverload
     using Ext = typename TestFixture::TExt;
 
     Ptr data{new MyStruct1{3, 78}};
-    auto &ser = this->createSerializer();
-    ser.ext(data, Ext{}, [&ser](MyStruct1 &o) {
+    auto& ser = this->createSerializer();
+    ser.ext(data, Ext{}, [&ser](MyStruct1& o) {
         //serialize only one field
         ser.value4b(o.i1);
     });
     Ptr res{new MyStruct1{97, 12}};
-    auto &des = this->createDeserializer();
-    des.ext(res, Ext{}, [&des](MyStruct1 &o) {
+    auto& des = this->createDeserializer();
+    des.ext(res, Ext{}, [&des](MyStruct1& o) {
         des.value4b(o.i1);
     });
 
@@ -297,13 +299,13 @@ TYPED_TEST(SerializeExtensionStdSmartPtrNonPolymorphicType, FirstPtrThenPointerO
     using Ext = typename TestFixture::TExt;
 
     Ptr data{new uint16_t{3}};
-    uint16_t *dataObs = data.get();
-    auto &ser = this->createSerializer();
+    uint16_t* dataObs = data.get();
+    auto& ser = this->createSerializer();
     ser.ext2b(data, Ext{});
     ser.ext2b(dataObs, PointerObserver{});
     Ptr res{};
-    uint16_t *resObs = nullptr;
-    auto &des = this->createDeserializer();
+    uint16_t* resObs = nullptr;
+    auto& des = this->createDeserializer();
     des.ext2b(res, Ext{});
     des.ext2b(resObs, PointerObserver{});
 
@@ -315,13 +317,13 @@ TYPED_TEST(SerializeExtensionStdSmartPtrNonPolymorphicType, FirstPointerObserver
     using Ext = typename TestFixture::TExt;
 
     Ptr data{new uint16_t{3}};
-    uint16_t *dataObs = data.get();
-    auto &ser = this->createSerializer();
+    uint16_t* dataObs = data.get();
+    auto& ser = this->createSerializer();
     ser.ext2b(dataObs, PointerObserver{});
     ser.ext2b(data, Ext{});
     Ptr res{};
-    uint16_t *resObs = nullptr;
-    auto &des = this->createDeserializer();
+    uint16_t* resObs = nullptr;
+    auto& des = this->createDeserializer();
     des.ext2b(resObs, PointerObserver{});
     des.ext2b(res, Ext{});
     EXPECT_THAT(resObs, Eq(res.get()));
@@ -363,8 +365,8 @@ TYPED_TEST(SerializeExtensionStdSmartPtrPolymorphicType, Data1Result0) {
     Ptr baseRes{};
     this->createDeserializer().ext(baseRes, Ext{});
 
-    auto *data = dynamic_cast<Derived *>(baseData.get());
-    auto *res = dynamic_cast<Derived *>(baseRes.get());
+    auto* data = dynamic_cast<Derived*>(baseData.get());
+    auto* res = dynamic_cast<Derived*>(baseRes.get());
 
     EXPECT_THAT(data, ::testing::NotNull());
     EXPECT_THAT(res, ::testing::NotNull());
@@ -381,8 +383,8 @@ TYPED_TEST(SerializeExtensionStdSmartPtrPolymorphicType, DataAndResultWithDiffer
     Ptr baseRes{new Base{}};
     this->createDeserializer().ext(baseRes, Ext{});
 
-    auto *data = dynamic_cast<Derived *>(baseData.get());
-    auto *res = dynamic_cast<Derived *>(baseRes.get());
+    auto* data = dynamic_cast<Derived*>(baseData.get());
+    auto* res = dynamic_cast<Derived*>(baseRes.get());
 
     EXPECT_THAT(data, ::testing::NotNull());
     EXPECT_THAT(res, ::testing::NotNull());
@@ -403,16 +405,16 @@ public:
     TContext plctx{};
     SerContext sctx{};
 
-    typename SerContext::TSerializer &createSerializer() {
-        auto &res = sctx.createSerializer(&plctx);
+    typename SerContext::TSerializer& createSerializer() {
+        auto& res = sctx.createSerializer(&plctx);
         std::get<2>(plctx).clear();
         //bind serializer with classes
         std::get<2>(plctx).registerBasesList<SerContext::TSerializer>(bitsery::ext::PolymorphicClassesList<Base>{});
         return res;
     }
 
-    typename SerContext::TDeserializer &createDeserializer() {
-        auto &res = sctx.createDeserializer(&plctx);
+    typename SerContext::TDeserializer& createDeserializer() {
+        auto& res = sctx.createDeserializer(&plctx);
         std::get<2>(plctx).clear();
         //bind deserializer with classes
         std::get<2>(plctx).registerBasesList<SerContext::TDeserializer>(bitsery::ext::PolymorphicClassesList<Base>{});
@@ -436,10 +438,10 @@ TEST_F(SerializeExtensionStdSmartSharedPtr, SameSharedObjectIsSerializedOnce) {
 
     std::shared_ptr<Base> baseData1{new Derived{3, 78}};
     std::shared_ptr<Base> baseData2{baseData1};
-    auto &ser = createSerializer();
+    auto& ser = createSerializer();
     ser.ext(baseData1, StdSmartPtr{});
     ser.ext(baseData1, StdSmartPtr{});
-    auto &des = createDeserializer();
+    auto& des = createDeserializer();
 
     //1b linking context (for 1st time)
     //1b dynamic type info
@@ -453,10 +455,10 @@ TEST_F(SerializeExtensionStdSmartSharedPtr, PointerLinkingContextCorrectlyClearS
 
     std::shared_ptr<Base> baseData1{new Derived{3, 78}};
 
-    auto &ser = createSerializer();
+    auto& ser = createSerializer();
     ser.ext(baseData1, StdSmartPtr{});
     std::shared_ptr<Base> baseRes1{};
-    auto &des = createDeserializer();
+    auto& des = createDeserializer();
     des.ext(baseRes1, StdSmartPtr{});
     EXPECT_THAT(baseRes1.use_count(), Eq(2));
     clearSharedState();
@@ -469,7 +471,7 @@ TEST_F(SerializeExtensionStdSmartSharedPtr, CorrectlyManagesSameSharedObject) {
     std::shared_ptr<Base> baseData1{new Derived{3, 78}};
     std::shared_ptr<Base> baseData2{new Derived{55, 11}};
     std::shared_ptr<Base> baseData21{baseData2};
-    auto &ser = createSerializer();
+    auto& ser = createSerializer();
     ser.ext(baseData1, StdSmartPtr{});
     ser.ext(baseData2, StdSmartPtr{});
     ser.ext(baseData21, StdSmartPtr{});
@@ -477,12 +479,12 @@ TEST_F(SerializeExtensionStdSmartSharedPtr, CorrectlyManagesSameSharedObject) {
     std::shared_ptr<Base> baseRes1{};
     std::shared_ptr<Base> baseRes2{};
     std::shared_ptr<Base> baseRes21{};
-    auto &des = createDeserializer();
+    auto& des = createDeserializer();
     des.ext(baseRes1, StdSmartPtr{});
     des.ext(baseRes2, StdSmartPtr{});
     des.ext(baseRes21, StdSmartPtr{});
 
-    auto *data = dynamic_cast<Derived *>(baseRes1.get());
+    auto* data = dynamic_cast<Derived*>(baseRes1.get());
     EXPECT_THAT(data, ::testing::NotNull());
 
     clearSharedState();
@@ -500,7 +502,7 @@ TEST_F(SerializeExtensionStdSmartSharedPtr, FirstSharedThenWeakPtr) {
     std::shared_ptr<Base> baseData1{new Derived{3, 78}};
     std::weak_ptr<Base> baseData11{baseData1};
     std::weak_ptr<Base> baseData12{baseData11};
-    auto &ser = createSerializer();
+    auto& ser = createSerializer();
     ser.ext(baseData1, StdSmartPtr{});
     ser.ext(baseData11, StdSmartPtr{});
     ser.ext(baseData12, StdSmartPtr{});
@@ -508,12 +510,12 @@ TEST_F(SerializeExtensionStdSmartSharedPtr, FirstSharedThenWeakPtr) {
     std::shared_ptr<Base> baseRes1{};
     std::weak_ptr<Base> baseRes11{};
     std::weak_ptr<Base> baseRes12{};
-    auto &des = createDeserializer();
+    auto& des = createDeserializer();
     des.ext(baseRes1, StdSmartPtr{});
     des.ext(baseRes11, StdSmartPtr{});
     des.ext(baseRes12, StdSmartPtr{});
 
-    auto *data = dynamic_cast<Derived *>(baseRes1.get());
+    auto* data = dynamic_cast<Derived*>(baseRes1.get());
     EXPECT_THAT(data, ::testing::NotNull());
 
     clearSharedState();
@@ -528,32 +530,77 @@ TEST_F(SerializeExtensionStdSmartSharedPtr, FirstSharedThenWeakPtr) {
 
 TEST_F(SerializeExtensionStdSmartSharedPtr, FirstWeakThenSharedPtr) {
 
-    std::shared_ptr<Base> baseData1{new Derived{3, 78}};
-    std::weak_ptr<Base> baseData11{baseData1};
-    std::weak_ptr<Base> baseData2{};
-    auto &ser = createSerializer();
+    std::shared_ptr<MyStruct1> baseData1{new MyStruct1{3, 78}};
+    std::weak_ptr<MyStruct1> baseData11{baseData1};
+    std::weak_ptr<MyStruct1> baseData2{};
+    auto& ser = createSerializer();
     ser.ext(baseData2, StdSmartPtr{});
     ser.ext(baseData11, StdSmartPtr{});
     ser.ext(baseData1, StdSmartPtr{});
 
-    std::shared_ptr<Base> baseRes1{};
-    std::weak_ptr<Base> baseRes11{};
-    std::weak_ptr<Base> baseRes2{};
-    auto &des = createDeserializer();
+    std::shared_ptr<MyStruct1> baseRes1{};
+    std::weak_ptr<MyStruct1> baseRes11{};
+    std::weak_ptr<MyStruct1> baseRes2{};
+    auto& des = createDeserializer();
     des.ext(baseRes2, StdSmartPtr{});
     des.ext(baseRes11, StdSmartPtr{});
     des.ext(baseRes1, StdSmartPtr{});
 
-    auto *data = dynamic_cast<Derived *>(baseRes1.get());
-    EXPECT_THAT(data, ::testing::NotNull());
-
     clearSharedState();
 
+
+    EXPECT_THAT(*baseData1, Eq(*baseRes1));
     EXPECT_THAT(baseRes1.use_count(), Eq(1));
     EXPECT_THAT(baseRes2.use_count(), Eq(0));
     EXPECT_THAT(baseRes11.use_count(), Eq(1));
     baseRes1.reset();
     EXPECT_THAT(baseRes11.use_count(), Eq(0));
+    EXPECT_TRUE(isPointerContextValid());
+}
+
+TEST_F(SerializeExtensionStdSmartSharedPtr, WeakPtrFirstPolymorphicData0Result1) {
+
+    std::shared_ptr<Base> baseData1{};
+    std::weak_ptr<Base> baseData2{};
+    auto& ser = createSerializer();
+    ser.ext(baseData2, StdSmartPtr{});
+    ser.ext(baseData1, StdSmartPtr{});
+
+    std::shared_ptr<Base> baseRes1{new Base{}};
+    std::weak_ptr<Base> baseRes2{baseRes1};
+    auto& des = createDeserializer();
+    des.ext(baseRes2, StdSmartPtr{});
+    des.ext(baseRes1, StdSmartPtr{});
+
+
+    clearSharedState();
+
+    EXPECT_THAT(baseRes1.use_count(), Eq(0));
+    EXPECT_THAT(baseRes2.use_count(), Eq(0));
+    baseRes1.reset();
+    EXPECT_TRUE(isPointerContextValid());
+}
+
+TEST_F(SerializeExtensionStdSmartSharedPtr, WeakPtrFirstNonPolymorphicData0Result1) {
+
+    std::shared_ptr<MyStruct2> baseData1{};
+    std::weak_ptr<MyStruct2> baseData2{};
+    auto& ser = createSerializer();
+    ser.ext(baseData2, StdSmartPtr{});
+    ser.ext(baseData1, StdSmartPtr{});
+
+    std::shared_ptr<MyStruct2> baseRes1{new MyStruct2{MyStruct2::MyEnum::V4, {1, 87}}};
+    std::weak_ptr<MyStruct2> baseRes2{baseRes1};
+    auto& des = createDeserializer();
+    des.ext(baseRes2, StdSmartPtr{});
+    des.ext(baseRes1, StdSmartPtr{});
+
+
+    clearSharedState();
+
+    EXPECT_THAT(baseRes1.use_count(), Eq(0));
+    EXPECT_THAT(baseRes2.use_count(), Eq(0));
+    baseRes1.reset();
     EXPECT_TRUE(isPointerContextValid());
 }
 
@@ -563,7 +610,7 @@ TEST_F(SerializeExtensionStdSmartSharedPtr, FewPtrsAreEmpty) {
     std::shared_ptr<Base> baseData2{};
     std::weak_ptr<Base> baseData3{};
     std::weak_ptr<Base> baseData11{baseData1};
-    auto &ser = createSerializer();
+    auto& ser = createSerializer();
     ser.ext(baseData1, StdSmartPtr{});
     ser.ext(baseData2, StdSmartPtr{});
     ser.ext(baseData3, StdSmartPtr{});
@@ -573,7 +620,7 @@ TEST_F(SerializeExtensionStdSmartSharedPtr, FewPtrsAreEmpty) {
     std::shared_ptr<Base> baseRes2{new Derived{3, 78}};
     std::weak_ptr<Base> baseRes3{baseRes2};
     std::weak_ptr<Base> baseRes11{};
-    auto &des = createDeserializer();
+    auto& des = createDeserializer();
     des.ext(baseRes1, StdSmartPtr{});
     des.ext(baseRes2, StdSmartPtr{});
     des.ext(baseRes3, StdSmartPtr{});
@@ -590,14 +637,15 @@ TEST_F(SerializeExtensionStdSmartSharedPtr, FewPtrsAreEmpty) {
     EXPECT_TRUE(isPointerContextValid());
 }
 
+
 TEST_F(SerializeExtensionStdSmartSharedPtr, WhenResultObjectExistsSameType) {
 
     std::shared_ptr<Base> baseData1{new Derived{3, 78}};
-    auto &ser = createSerializer();
+    auto& ser = createSerializer();
     ser.ext(baseData1, StdSmartPtr{});
 
     std::shared_ptr<Base> baseRes1{new Derived{0, 0}};
-    auto &des = createDeserializer();
+    auto& des = createDeserializer();
     des.ext(baseRes1, StdSmartPtr{});
 
     clearSharedState();
@@ -610,25 +658,25 @@ TEST_F(SerializeExtensionStdSmartSharedPtr, WhenResultObjectExistsSameType) {
 TEST_F(SerializeExtensionStdSmartSharedPtr, WhenResultObjectExistsDifferentType) {
 
     std::shared_ptr<Base> baseData1{new Derived{3, 78}};
-    auto &ser = createSerializer();
+    auto& ser = createSerializer();
     ser.ext(baseData1, StdSmartPtr{});
 
     std::shared_ptr<Base> baseRes1{new Base{}};
-    auto &des = createDeserializer();
+    auto& des = createDeserializer();
     des.ext(baseRes1, StdSmartPtr{});
 
     clearSharedState();
 
     EXPECT_THAT(baseRes1.use_count(), Eq(1));
     EXPECT_THAT(baseRes1->x, Eq(baseData1->x));
-    EXPECT_THAT(dynamic_cast<Derived *>(baseRes1.get()), ::testing::NotNull());
+    EXPECT_THAT(dynamic_cast<Derived*>(baseRes1.get()), ::testing::NotNull());
     EXPECT_TRUE(isPointerContextValid());
 }
 
 TEST_F(SerializeExtensionStdSmartSharedPtr, WhenOnlyWeakPtrIsSerializedThenPointerCointextIsInvalid) {
     std::shared_ptr<Base> tmp{new Derived{3, 78}};
     std::weak_ptr<Base> baseData1{tmp};
-    auto &ser = createSerializer();
+    auto& ser = createSerializer();
     ser.ext(baseData1, StdSmartPtr{});
 
     EXPECT_FALSE(isPointerContextValid());
@@ -636,11 +684,11 @@ TEST_F(SerializeExtensionStdSmartSharedPtr, WhenOnlyWeakPtrIsSerializedThenPoint
 
 TEST_F(SerializeExtensionStdSmartSharedPtr, WhenOnlyWeakPtrIsDeserializedThenPointerCointextIsInvalid) {
     std::shared_ptr<Base> baseData1{new Derived{3, 78}};
-    auto &ser = createSerializer();
+    auto& ser = createSerializer();
     ser.ext(baseData1, StdSmartPtr{});
 
     std::weak_ptr<Base> baseRes1{};
-    auto &des = createDeserializer();
+    auto& des = createDeserializer();
     des.ext(baseRes1, StdSmartPtr{});
 
     EXPECT_FALSE(isPointerContextValid());
@@ -653,10 +701,11 @@ TEST_F(SerializeExtensionStdSmartSharedPtr, WhenOnlyWeakPtrIsDeserializedThenPoi
 
 struct TestSharedFromThis : public std::enable_shared_from_this<TestSharedFromThis> {
     float x{};
-    explicit TestSharedFromThis(): std::enable_shared_from_this<TestSharedFromThis>() {}
+
+    explicit TestSharedFromThis() : std::enable_shared_from_this<TestSharedFromThis>() {}
 
     template<typename S>
-    void serialize(S &s) {
+    void serialize(S& s) {
         s.value4b(x);
     }
 };
@@ -673,18 +722,20 @@ TEST_F(SerializeExtensionStdSmartSharedPtr, EnableSharedFromThis) {
 }
 
 struct CustomDeleter {
-    void operator()(Base*p) {
+    void operator()(Base* p) {
         delete p;
     }
 };
-class SerializeExtensionStdSmartUniquePtr:public SerializeExtensionStdSmartSharedPtr{};
+
+class SerializeExtensionStdSmartUniquePtr : public SerializeExtensionStdSmartSharedPtr {
+};
 
 TEST_F(SerializeExtensionStdSmartUniquePtr, WithCustomDeleter) {
-    std::unique_ptr<Base, CustomDeleter> dataPtr(new Derived{87,7});
+    std::unique_ptr<Base, CustomDeleter> dataPtr(new Derived{87, 7});
     std::unique_ptr<Base, CustomDeleter> resPtr{};
     createSerializer().ext(dataPtr, StdSmartPtr{});
     createDeserializer().ext(resPtr, StdSmartPtr{});
     clearSharedState();
     EXPECT_THAT(resPtr->x, Eq(dataPtr->x));
-    EXPECT_THAT(dynamic_cast<Derived *>(resPtr.get()), ::testing::NotNull());
+    EXPECT_THAT(dynamic_cast<Derived*>(resPtr.get()), ::testing::NotNull());
 }

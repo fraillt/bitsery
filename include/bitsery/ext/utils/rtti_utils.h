@@ -37,7 +37,7 @@ namespace bitsery {
 //                              !std::is_volatile<TBase>::value, "");
 
             template<typename TBase>
-            static size_t get(TBase &obj) {
+            static size_t get(TBase& obj) {
                 return typeid(obj).hash_code();
             }
 
@@ -47,9 +47,9 @@ namespace bitsery {
             }
 
             template<typename TBase, typename TDerived>
-            static constexpr TDerived *cast(TBase *obj) {
+            static constexpr TDerived* cast(TBase* obj) {
                 static_assert(!std::is_pointer<TDerived>::value, "");
-                return dynamic_cast<TDerived *>(obj);
+                return dynamic_cast<TDerived*>(obj);
             }
 
             template<typename TBase>

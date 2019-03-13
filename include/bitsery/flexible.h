@@ -29,54 +29,38 @@
 
 namespace bitsery {
 
-    namespace flexible {
-
-        //overload when T is reference type
-        template<typename S, typename T>
-        void archiveProcessImpl(S &s, T &&head, std::true_type) {
-            s.object(std::forward<T>(head));
-        }
-
-        //overload when T is rvalue type, only allowable for behaviour modifying functions for deserializer
-        template<typename S, typename T>
-        void archiveProcessImpl(S &s, T &&head, std::false_type) {
-            static_assert(std::is_base_of<ArchiveWrapperFnc, T>::value,
-                          "\nOnly archive behaviour modifying functions can be passed by rvalue to deserializer\n");
-            serialize(s, head);
-        }
-
-    }
-
     //define function that enables s.archive(....) usage
     template<typename S, typename T>
-    void archiveProcess(S &s, T &&head) {
-        flexible::archiveProcessImpl(s, std::forward<T>(head), std::is_reference<T>{});
+    void archiveProcess(S& s, T&& head) {
+        static_assert(std::is_lvalue_reference<T>::value || std::is_base_of<flexible::ArchiveWrapperFnc, T>::value,
+                      "Argument must be either lvalue or subclass of flexible::ArchiveWrapperFnc");
+        s.object(head);
     }
 
     //wrapper functions that enables to serialize as container or string
     template<typename T, size_t N>
-    flexible::CArray<T, N, true> asText(T (&str)[N]) {
+    flexible::CArray<T, N, true> asText(T (& str)[N]) {
         return {str};
     }
 
     template<typename T, size_t N>
-    flexible::CArray<T, N, false> asContainer(T (&obj)[N]) {
+    flexible::CArray<T, N, false> asContainer(T (& obj)[N]) {
         return {obj};
     }
 
-    template <typename T>
+    template<typename T>
     flexible::MaxSize<T> maxSize(T& obj, size_t max) {
         return {obj, max};
     }
 
 //define serialize function for fundamental types
     template<typename S>
-    void serialize(S &s, bool &v) {
+    void serialize(S& s, bool& v) {
         s.boolValue(v);
     }
 
     template<typename S, typename T, typename std::enable_if<details::IsFundamentalType<T>::value>::type * = nullptr>
-    void serialize(S &s, T &v) {
+    void serialize(S& s, T& v) {
         s.template value<sizeof(T)>(v);
     }
 
@@ -84,18 +68,18 @@ namespace bitsery {
 
     //if array is integral type, specify explicitly how to process: as text or container
     template<typename S, typename T, size_t N, typename std::enable_if<std::is_integral<T>::value>::type * = nullptr>
-    void serialize(S &, T (&)[N]) {
+    void serialize(S&, T (&)[N]) {
         static_assert(N == 0,
                       "\nPlease use 'asText(obj)' or 'asContainer(obj)' when using c-style array with integral types\n");
     }
 
     template<typename S, typename T, size_t N, typename std::enable_if<!std::is_integral<T>::value>::type * = nullptr>
-    void serialize(S &s, T (&obj)[N]) {
+    void serialize(S& s, T (& obj)[N]) {
         flexible::processContainer(s, obj);
     }
 
     //this is a helper class that enforce fundamental type sizes, when used on multiple platforms
-    template <size_t TShort, size_t TInt, size_t TLong, size_t TLongLong>
+    template<size_t TShort, size_t TInt, size_t TLong, size_t TLongLong>
     void assertFundamentalTypeSizes() {
         //http://en.cppreference.com/w/cpp/language/types
         static_assert(sizeof(short) == TShort, "");

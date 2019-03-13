@@ -41,7 +41,7 @@ namespace bitsery {
 
                 using TElement = typename std::remove_pointer<T>::type;
 
-                static TElement* getPtr(T &obj) {
+                static TElement* getPtr(T& obj) {
                     return obj;
                 }
 
@@ -49,15 +49,26 @@ namespace bitsery {
                     return PointerOwnershipType::Owner;
                 }
 
-                static void assign(T& obj, TElement* valuePtr) {
-                    delete obj;
-                    obj = valuePtr;
+                static void create(T& obj, PolymorphicAllocator& alloc, size_t typeId) {
+                    obj = alloc.allocate<TElement>(typeId);
                 }
 
-                static void clear(T& obj) {
-                    delete obj;
+                static void createPolymorphic(T& obj, PolymorphicAllocator& alloc,
+                                              const std::shared_ptr<PolymorphicHandlerBase>& handler) {
+                    obj = static_cast<TElement*>(handler->create(alloc));
+                }
+
+                static void destroy(T& obj, PolymorphicAllocator& alloc, size_t typeId) {
+                    alloc.deallocate(obj, typeId);
                     obj = nullptr;
                 }
+
+                static void destroyPolymorphic(T& obj, PolymorphicAllocator& alloc,
+                                               const std::shared_ptr<PolymorphicHandlerBase>& handler) {
+                    handler->destroy(alloc, obj);
+                    obj = nullptr;
+                }
+
             };
 
             template<typename T>
@@ -65,11 +76,6 @@ namespace bitsery {
                 static_assert(std::is_pointer<T>::value, "");
 
                 using TElement = typename std::remove_pointer<T>::type;
-
-                //observer must return reference to pointer, so that it could be updated later
-                static TElement*& getPtrRef(T& obj) {
-                    return obj;
-                }
 
                 static TElement* getPtr(T& obj) {
                     return obj;
@@ -79,12 +85,17 @@ namespace bitsery {
                     return PointerOwnershipType::Observer;
                 }
 
-                static void assign(T& obj, TElement* valuePtr) {
-                    //do not delete existing object
-                    obj = valuePtr;
+                //pure observer doesn't have create/createPolymorphic methods, but instead returns reference to pointer
+                //which gets updated later
+                static TElement*& getPtrRef(T& obj) {
+                    return obj;
                 }
 
-                static void clear(T& obj) {
+                static void destroy(T& obj, PolymorphicAllocator& alloc, size_t typeId) {
+                    obj = nullptr;
+                }
+
+                static void destroyPolymorphic(T& obj, PolymorphicAllocator& alloc, PolymorphicHandlerBase& handler) {
                     obj = nullptr;
                 }
 
@@ -107,9 +118,22 @@ namespace bitsery {
 
                 // this code is unreachable for reference type, but is necessary to compile
                 // LCOV_EXCL_START
-                static void assign(T& , TElement* ) {}
 
-                static void clear(T& ) {}
+                static void create(T& obj, PolymorphicAllocator& alloc, size_t typeId) {
+
+                }
+
+                static void createPolymorphic(T& obj, PolymorphicAllocator& alloc, PolymorphicHandlerBase& handler) {
+
+                }
+
+                static void destroy(T& obj, PolymorphicAllocator& alloc, size_t typeId) {
+
+                }
+
+                static void destroyPolymorphic(T& obj, PolymorphicAllocator& alloc, PolymorphicHandlerBase& handler) {
+
+                }
                 // LCOV_EXCL_STOP
 
             };
@@ -117,7 +141,7 @@ namespace bitsery {
             // this class is used by NonPtrManager
             struct NoRTTI {
                 template<typename TBase>
-                static size_t get(TBase& ) {
+                static size_t get(TBase&) {
                     return 0;
                 }
 
@@ -142,20 +166,20 @@ namespace bitsery {
 
         template<typename RTTI>
         using PointerOwnerBase = pointer_utils::PointerObjectExtensionBase<
-                pointer_details::PtrOwnerManager, PolymorphicContext, RTTI>;
+            pointer_details::PtrOwnerManager, PolymorphicContext, RTTI>;
 
         using PointerOwner = PointerOwnerBase<StandardRTTI>;
 
         using PointerObserver = pointer_utils::PointerObjectExtensionBase<
-                pointer_details::PtrObserverManager, PolymorphicContext, pointer_details::NoRTTI>;
+            pointer_details::PtrObserverManager, PolymorphicContext, pointer_details::NoRTTI>;
 
         //inherit from PointerObjectExtensionBase in order to specify PointerType::NotNull
         class ReferencedByPointer : public pointer_utils::PointerObjectExtensionBase<
-                pointer_details::NonPtrManager, PolymorphicContext, pointer_details::NoRTTI> {
+            pointer_details::NonPtrManager, PolymorphicContext, pointer_details::NoRTTI> {
         public:
             ReferencedByPointer() : pointer_utils::PointerObjectExtensionBase<
-                    pointer_details::NonPtrManager, PolymorphicContext, pointer_details::NoRTTI>(
-                    PointerType::NotNull) {}
+                pointer_details::NonPtrManager, PolymorphicContext, pointer_details::NoRTTI>(
+                PointerType::NotNull) {}
         };
 
     }

@@ -9,7 +9,7 @@ Library design:
 * `extending library functionality`
 * `errors handling`
 * `forward/backward compatibility via Growable extension`
-* `pointers`
+* [pointers](design/pointers.md)
 * `inheritance`
 * `polymorphism`
 

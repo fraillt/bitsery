@@ -47,8 +47,8 @@ namespace bitsery {
             return T{};
         }
         template <typename T>
-        static T* createInHeap() {
-            return new T{};
+        static T* create(void* ptr) {
+            return new(ptr) T{};
         }
 
     };

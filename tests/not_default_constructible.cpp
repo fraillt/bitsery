@@ -315,9 +315,11 @@ TEST(DeserializeNonDefaultConstructible, PolymorphicPointerAndSmartPointer) {
     data.wp = data.sp;
 
     PolymorphicPointers res{};
+
     TContext serCtx{};
-    std::get<1>(serCtx).registerBasesList<typename SerContext::TSerializer>(bitsery::ext::PolymorphicClassesList<PolymorphicNDCBase>{});
     TContext desCtx{};
+
+    std::get<1>(serCtx).registerBasesList<typename SerContext::TSerializer>(bitsery::ext::PolymorphicClassesList<PolymorphicNDCBase>{});
     std::get<1>(desCtx).registerBasesList<typename SerContext::TDeserializer>(bitsery::ext::PolymorphicClassesList<PolymorphicNDCBase>{});
 
     ctx.createSerializer(&serCtx).object(data);
@@ -343,4 +345,6 @@ TEST(DeserializeNonDefaultConstructible, PolymorphicPointerAndSmartPointer) {
     EXPECT_THAT(*resup, Eq(*dataup));
     EXPECT_THAT(*ressp, Eq(*datasp));
     EXPECT_THAT(*reswp, Eq(*datawp));
+    std::get<0>(serCtx).clearSharedState();
+    std::get<0>(desCtx).clearSharedState();
 }

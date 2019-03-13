@@ -25,6 +25,7 @@
 
 #include <unordered_map>
 #include <memory>
+#include "memory_allocator.h"
 #include "../../details/adapter_common.h"
 #include "../../details/serialization_common.h"
 
@@ -60,8 +61,12 @@ namespace bitsery {
 
         class PolymorphicHandlerBase {
         public:
-            virtual void *create() const = 0;
-            virtual void process(void *ser, void *obj) const = 0;
+            virtual void* create(const PolymorphicAllocator& alloc) const = 0;
+
+            virtual void destroy(const PolymorphicAllocator& alloc, void* ptr) const = 0;
+
+            virtual void process(void* ser, void* obj) const = 0;
+
             virtual ~PolymorphicHandlerBase() = default;
         };
 
@@ -69,22 +74,26 @@ namespace bitsery {
         class PolymorphicHandler : public PolymorphicHandlerBase {
         public:
 
-            void *create() const final {
-                return toBase(::bitsery::Access::createInHeap<TDerived>());
+            void* create(const PolymorphicAllocator& alloc) const final {
+                return toBase(alloc.allocate<TDerived>(RTTI::template get<TDerived>()));
             }
 
-            void process(void *ser, void *obj) const final {
-                static_cast<TSerializer *>(ser)->object(*static_cast<TDerived *>(fromBase(obj)));
+            void destroy(const PolymorphicAllocator& alloc, void* ptr) const final {
+                alloc.deallocate<TDerived>(fromBase(ptr), RTTI::template get<TDerived>());
+            }
+
+            void process(void* ser, void* obj) const final {
+                static_cast<TSerializer*>(ser)->object(*fromBase(obj));
             }
 
         private:
 
-            void *fromBase(void *obj) const {
-                return RTTI::template cast<TBase, TDerived>(static_cast<TBase *>(obj));
+            TDerived* fromBase(void* obj) const {
+                return RTTI::template cast<TBase, TDerived>(static_cast<TBase*>(obj));
             }
 
-            void *toBase(void *obj) const {
-                return RTTI::template cast<TDerived, TBase>(static_cast<TDerived *>(obj));
+            TBase* toBase(void* obj) const {
+                return RTTI::template cast<TDerived, TBase>(static_cast<TDerived*>(obj));
             }
 
         };
@@ -98,13 +107,13 @@ namespace bitsery {
                 std::size_t baseHash;
                 std::size_t derivedHash;
 
-                bool operator==(const BaseToDerivedKey &other) const {
+                bool operator==(const BaseToDerivedKey& other) const {
                     return baseHash == other.baseHash && derivedHash == other.derivedHash;
                 }
             };
 
             struct BaseToDerivedKeyHashier {
-                size_t operator()(const BaseToDerivedKey &key) const {
+                size_t operator()(const BaseToDerivedKey& key) const {
                     return (key.baseHash + (key.baseHash << 6) + (key.derivedHash >> 2)) ^ key.derivedHash;
                 }
             };
@@ -132,8 +141,9 @@ namespace bitsery {
             template<typename TSerializer, typename TBase, typename TDerived>
             void addToMap(std::false_type) {
                 BaseToDerivedKey key{RTTI::template get<TBase>(), RTTI::template get<TDerived>()};
-                if (_baseToDerivedMap.emplace(key, std::unique_ptr<PolymorphicHandlerBase>(
-                        new PolymorphicHandler<RTTI, TSerializer, TBase, TDerived>{})).second)
+                if (_baseToDerivedMap
+                    .emplace(key, std::make_shared<PolymorphicHandler<RTTI, TSerializer, TBase, TDerived>>())
+                    .second)
                     _baseToDerivedArray[key.baseHash].push_back(key.derivedHash);
             }
 
@@ -142,7 +152,7 @@ namespace bitsery {
                 //cannot add abstract class
             }
 
-            std::unordered_map<BaseToDerivedKey, std::unique_ptr<PolymorphicHandlerBase>, BaseToDerivedKeyHashier> _baseToDerivedMap{};
+            std::unordered_map<BaseToDerivedKey, std::shared_ptr<PolymorphicHandlerBase>, BaseToDerivedKeyHashier> _baseToDerivedMap{};
             // this will allow convert from platform specific type information, to platform independent base->derived index
             // this only works if all polymorphic relationships (PolymorphicBaseClass<TBase> -> PolymorphicDerivedClasses<TDerived...>)
             // is equal between platforms.
@@ -156,13 +166,14 @@ namespace bitsery {
             }
 
             template<typename TSerializer, template<typename> class THierarchy = PolymorphicBaseClass, typename T1, typename ...Tn>
-            [[deprecated("de/serializer instance is not required")]] void registerBasesList(const TSerializer &s, PolymorphicClassesList<T1, Tn...>) {
+            [[deprecated("de/serializer instance is not required")]] void
+            registerBasesList(const TSerializer& s, PolymorphicClassesList<T1, Tn...>) {
                 add<TSerializer, THierarchy, T1, T1>();
                 registerBasesList<TSerializer, THierarchy>(s, PolymorphicClassesList<Tn...>{});
             }
 
             template<typename TSerializer, template<typename> class THierarchy>
-            [[deprecated]] void registerBasesList(const TSerializer &, PolymorphicClassesList<>) {
+            [[deprecated]] void registerBasesList(const TSerializer&, PolymorphicClassesList<>) {
             }
 
             // THierarchy is the name of class, that defines hierarchy
@@ -180,7 +191,7 @@ namespace bitsery {
             }
 
             // optional method, in case you want to construct base class hierarchy your self
-            template <typename TSerializer, typename TBase, typename TDerived>
+            template<typename TSerializer, typename TBase, typename TDerived>
             void registerSingleBaseBranch() {
                 static_assert(std::is_base_of<TBase, TDerived>::value, "TDerived must be derived from TBase");
                 static_assert(!std::is_abstract<TDerived>::value, "TDerived cannot be abstract");
@@ -189,14 +200,14 @@ namespace bitsery {
 
 
             template<typename Serializer, typename Writer, typename TBase>
-            void serialize(Serializer &ser, Writer &writer, TBase &obj) {
+            void serialize(Serializer& ser, Writer& writer, TBase& obj) {
                 //get derived key
                 BaseToDerivedKey key{RTTI::template get<TBase>(), RTTI::template get<TBase>(obj)};
                 auto it = _baseToDerivedMap.find(key);
                 assert(it != _baseToDerivedMap.end());
 
                 //convert derived hash to derived index, to make it work in cross-platform environment
-                auto &vec = _baseToDerivedArray.find(key.baseHash)->second;
+                auto& vec = _baseToDerivedArray.find(key.baseHash)->second;
                 auto derivedIndex = static_cast<size_t>(std::distance(vec.begin(), std::find(vec.begin(), vec.end(),
                                                                                              key.derivedHash)));
                 details::writeSize(writer, derivedIndex);
@@ -205,8 +216,9 @@ namespace bitsery {
                 it->second->process(&ser, &obj);
             }
 
-            template<typename Deserializer, typename Reader, typename TBase, typename TAssignFnc>
-            void deserialize(Deserializer &des, Reader &reader, TBase *obj, TAssignFnc assignFnc) {
+            template<typename Deserializer, typename Reader, typename TBase, typename TCreateFnc, typename TDestroyFnc>
+            void deserialize(Deserializer& des, Reader& reader, TBase* obj,
+                             TCreateFnc createFnc, TDestroyFnc destroyFnc) {
                 size_t derivedIndex{};
                 details::readSize(reader, derivedIndex, std::numeric_limits<size_t>::max());
 
@@ -217,17 +229,28 @@ namespace bitsery {
                 if (baseToDerivedVecIt->second.size() > derivedIndex) {
                     //convert derived index to derived hash, to make it work in cross-platform environment
                     auto derivedHash = baseToDerivedVecIt->second[derivedIndex];
-                    auto &handler = _baseToDerivedMap.find(
-                            BaseToDerivedKey{RTTI::template get<TBase>(), derivedHash})->second;
+                    auto& handler = _baseToDerivedMap.find(
+                        BaseToDerivedKey{RTTI::template get<TBase>(), derivedHash})->second;
                     //if object is null or different type, create new and assign it
                     if (obj == nullptr || RTTI::template get<TBase>(*obj) != derivedHash) {
-                        obj = static_cast<TBase *>(handler->create());
-                        assignFnc(obj);
+                        if (obj) {
+                            destroyFnc(getPolymorphicHandler(*obj));
+                        }
+                        obj = createFnc(handler);
                     }
                     handler->process(&des, obj);
                 } else
                     reader.setError(ReaderError::InvalidPointer);
             }
+
+            template<typename TBase>
+            const std::shared_ptr<PolymorphicHandlerBase>& getPolymorphicHandler(TBase& obj) const {
+                auto deleteHandlerIt = _baseToDerivedMap.find(
+                    BaseToDerivedKey{RTTI::template get<TBase>(), RTTI::template get<TBase>(obj)});
+                assert(deleteHandlerIt != _baseToDerivedMap.end());
+                return deleteHandlerIt->second;
+            }
+
 
         };
 
