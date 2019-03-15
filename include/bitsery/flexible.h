@@ -40,8 +40,6 @@ namespace bitsery {
         //overload when T is rvalue type, only allowable for behaviour modifying functions for deserializer
         template<typename S, typename T>
         void archiveProcessImpl(S &s, T &&head, std::false_type) {
-            static_assert(std::is_base_of<ArchiveWrapperFnc, T>::value,
-                          "\nOnly archive behaviour modifying functions can be passed by rvalue to deserializer\n");
             serialize(s, head);
         }
 

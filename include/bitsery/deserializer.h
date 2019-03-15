@@ -97,7 +97,8 @@ namespace bitsery {
         template<typename T, typename ... TArgs>
         void archive(T &&head, TArgs &&... tail) {
             //serialize object
-            details::ArchiveFunction<BasicDeserializer, T>::invoke(*this, std::forward<T>(head));
+            details::ArchiveFunction<BasicDeserializer, T>::invoke(*this, std::forward<T>(head),
+                std::false_type());
             //expand other elements
             archive(std::forward<TArgs>(tail)...);
         }
@@ -105,7 +106,8 @@ namespace bitsery {
         template <typename T, typename... TArgs>
         BasicDeserializer &operator()(T &&head, TArgs &&... tail) {
             //serialize object
-            details::ArchiveFunction<BasicDeserializer, T>::invoke(*this, std::forward<T>(head));
+            details::ArchiveFunction<BasicDeserializer, T>::invoke(*this, std::forward<T>(head),
+                std::false_type());
             //expand other elements
             archive(std::forward<TArgs>(tail)...);
             return *this;

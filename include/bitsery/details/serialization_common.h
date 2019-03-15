@@ -53,6 +53,10 @@ namespace bitsery {
 
     };
 
+    namespace flexible{
+        struct ArchiveWrapperFnc;
+    }
+
     //when call to serialize function is ambiguous (member and non-member serialize function exists for a type)
     //specialize this class by inheriting from either UseNonMemberFnc or UseMemberFnc
     //e.g.
@@ -273,10 +277,17 @@ namespace bitsery {
         template<typename S, typename T, typename Enabled = void>
         struct ArchiveFunction {
 
-            static void invoke(S &s, T &&obj) {
+            static void invoke(S &s, T &&obj, std::true_type) {
                 static_assert(IsFlexibleIncluded<S, T>::value,
                               "\nPlease include '<bitsery/flexible.h>' to use 'archive' function:\n");
 
+                archiveProcess(s, std::forward<T>(obj));
+            }
+            static void invoke(S &s, T &&obj, std::false_type) {
+                static_assert(IsFlexibleIncluded<S, T>::value,
+                              "\nPlease include '<bitsery/flexible.h>' to use 'archive' function:\n");
+                static_assert(std::is_reference<T>::value||std::is_base_of<flexible::ArchiveWrapperFnc, T>::value,
+                              "\nOnly archive behaviour modifying functions can be passed by rvalue to deserializer\n");
                 archiveProcess(s, std::forward<T>(obj));
             }
         };
