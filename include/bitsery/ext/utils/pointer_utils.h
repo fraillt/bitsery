@@ -321,7 +321,7 @@ namespace bitsery {
                     if (!sharedState) {
                         const auto &ctx = des.template context<TPolymorphicContext<RTTI>>();
                         ctx->deserialize(des, r, TPtrManager<T>::getPtr(obj),
-                                         [&obj, &sharedState](typename TPtrManager<T>::TElement *valuePtr) {
+                                         [&sharedState](typename TPtrManager<T>::TElement *valuePtr) {
                                              sharedState = TPtrManager<T>::createSharedState(valuePtr);
                                          });
                         if (!sharedState)
