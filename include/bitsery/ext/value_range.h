@@ -179,7 +179,7 @@ namespace bitsery {
                 reader.readBits(reinterpret_cast<details::SameSizeUnsigned<T> &>(v), _range.bitsRequired);
                 details::setRangeValue(v, _range);
                 if (!details::isRangeValid(v, _range)) {
-                    reader.setError(ReaderError::InvalidData);
+                    reader.error(ReaderError::InvalidData);
                     v = _range.min;
                 }
             }

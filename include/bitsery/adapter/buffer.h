@@ -28,7 +28,7 @@
 
 namespace bitsery {
 
-    //base class that stores container iterators, and is required for session support (for reading sessions data)
+
     template<typename Buffer>
     class BufferIterators {
         static constexpr bool isConstBuffer = std::is_const<Buffer>::value;
@@ -42,12 +42,12 @@ namespace bitsery {
         static_assert(details::IsDefined<TIterator>::value,
                       "Please define BufferAdapterTraits or include from <bitsery/traits/...>");
         BufferIterators(TIterator begin, TIterator end)
-                : posIt{begin},
+                : beginIt{begin},
+                  posIt{begin},
                   endIt{end} {
         }
 
-        friend details::SessionAccess;
-
+        TIterator beginIt;
         TIterator posIt;
         TIterator endIt;
     };
@@ -63,48 +63,84 @@ namespace bitsery {
                       "BufferAdapter only works with contiguous containers");
 
         InputBufferAdapter(TIterator begin, TIterator endIt)
-                : BufferIterators<Buffer>(begin, endIt) {
+                : BufferIterators<Buffer>(begin, endIt),
+                    _endReadPos{endIt} {
+
         }
 
         InputBufferAdapter(TIterator begin, size_t size)
-                : BufferIterators<Buffer>(begin, std::next(begin, size)) {
+                : BufferIterators<Buffer>(begin, std::next(begin, size)),
+                  _endReadPos{std::next(begin, size)} {
         }
 
         void read(TValue *data, size_t size) {
             //for optimization
             auto tmp = this->posIt;
             this->posIt += size;
-            if (std::distance(this->posIt, this->endIt) >= 0) {
+            if (std::distance(this->posIt, _endReadPos) >= 0) {
                 std::memcpy(data, std::addressof(*tmp), size);
             } else {
                 this->posIt -= size;
                 //set everything to zeros
                 std::memset(data, 0, size);
-                if (error() == ReaderError::NoError)
-                    setError(ReaderError::DataOverflow);
+                if (_overflowOnReadEndPos)
+                    error(ReaderError::DataOverflow);
             }
+        }
+
+        void currentReadPos(size_t pos) {
+            if (static_cast<size_t>(std::distance(this->beginIt, this->endIt)) >= pos) {
+                this->posIt = std::next(this->beginIt, pos);
+            } else {
+                error(ReaderError::DataOverflow);
+            }
+        }
+
+        size_t currentReadPos() const {
+            return static_cast<size_t>(std::distance(this->beginIt, this->posIt));
+        }
+
+        void currentReadEndPos(size_t pos) {
+            const auto buffSize = static_cast<size_t>(std::distance(this->beginIt, this->endIt));
+            if (buffSize >= pos) {
+                _overflowOnReadEndPos = pos == 0;
+                if (pos == 0)
+                    pos = buffSize;
+                _endReadPos = std::next(this->beginIt, pos);
+            } else {
+                error(ReaderError::DataOverflow);
+            }
+        }
+
+        size_t currentReadEndPos() const {
+            if (_overflowOnReadEndPos)
+                return 0;
+            return static_cast<size_t>(std::distance(this->beginIt, _endReadPos));
         }
 
         ReaderError error() const {
-            auto res = std::distance(this->endIt, this->posIt);
-            if (res > 0) {
-                auto err = static_cast<ReaderError>(res);
-                return err;
-            }
-            return ReaderError::NoError;
+            return _err;
         }
 
-        void setError(ReaderError error) {
-            this->endIt = this->posIt;
-            //to avoid creating temporary for error state, mark an error by passing posIt after the endIt
-            std::advance(this->posIt, static_cast<size_t>(error));
+        void error(ReaderError error) {
+            if (_err == ReaderError::NoError) {
+                _err = error;
+                _endReadPos = this->endIt;
+                this->beginIt = this->endIt;
+                this->posIt = this->endIt;
+            }
         }
 
         bool isCompletedSuccessfully() const {
-            return this->posIt == this->endIt;
+            return this->posIt == this->endIt && _err == ReaderError::NoError;
         }
+    private:
+        TIterator _endReadPos;
+        ReaderError _err = ReaderError::NoError;
+        bool _overflowOnReadEndPos = true;
     };
 
+    // this adapter ignore all errors, it is undefined behaviour when error happens
     template<typename Buffer>
     class UnsafeInputBufferAdapter : public BufferIterators<Buffer> {
     public:
@@ -131,20 +167,42 @@ namespace bitsery {
             std::memcpy(data, std::addressof(*tmp), size);
         }
 
-        ReaderError error() const {
-            return err;
+        void currentReadPos(size_t pos) {
+            if (std::distance(this->beginIt, this->endIt) >= pos) {
+                this->posIt = std::next(this->beginIt, pos);
+            } else {
+                error(ReaderError::DataOverflow);
+            }
         }
 
-        void setError(ReaderError error) {
-            err = error;
+        size_t currentReadPos() const {
+            return static_cast<size_t>(std::distance(this->beginIt, this->posIt));
+        }
+
+        void currentReadEndPos(size_t) {
+            static_assert(std::is_void<Buffer>::value, "`currentReadEndPos(size_t)` is not supported with UnsafeInputBufferAdapter");
+        }
+
+        size_t currentReadEndPos() const {
+            return static_cast<size_t>(std::distance(this->beginIt, this->endIt));
+        }
+
+        ReaderError error() const {
+            return _err;
+        }
+
+        void error(ReaderError error) {
+            if (_err == ReaderError::NoError) {
+                _err = error;
+            }
         }
 
         bool isCompletedSuccessfully() const {
-            return this->posIt == this->endIt;
+            return this->posIt == this->endIt && _err == ReaderError::NoError;
         }
 
     private:
-        ReaderError err = ReaderError::NoError;
+        ReaderError _err = ReaderError::NoError;
     };
 
     template<typename Buffer>
@@ -169,12 +227,26 @@ namespace bitsery {
             writeInternal(data, size, TResizable{});
         }
 
+        void currentWritePos(size_t pos) {
+            const auto currPos =static_cast<size_t>(std::distance(std::begin(*_buffer), _outIt));
+            const auto maxPos = currPos > pos ? currPos : pos;
+            if (maxPos > _biggestCurrentPos) {
+                _biggestCurrentPos = maxPos;
+            }
+            setCurrentWritePos(pos, TResizable{});
+        }
+
+        size_t currentWritePos() const {
+            return static_cast<size_t> (std::distance(std::begin(*_buffer), _outIt));
+        }
+
         void flush() {
             //this function might be useful for stream adapters
         }
 
         size_t writtenBytesCount() const {
-            return static_cast<size_t>(std::distance(std::begin(*_buffer), _outIt));
+            const auto pos =static_cast<size_t>(std::distance(std::begin(*_buffer), _outIt));
+            return pos > _biggestCurrentPos ? pos : _biggestCurrentPos;
         }
 
     private:
@@ -183,6 +255,7 @@ namespace bitsery {
         Buffer *_buffer;
         TIterator _outIt{};
         TIterator _end{};
+        size_t _biggestCurrentPos{};
 
         /*
          * resizable buffer
@@ -228,6 +301,16 @@ namespace bitsery {
             }
         }
 
+        void setCurrentWritePos(size_t pos, std::true_type) {
+            const auto begin = std::begin(*_buffer);
+            if (static_cast<size_t>(std::distance(begin, std::end(*_buffer))) >= pos) {
+                _outIt = std::next(begin, pos);
+            } else {
+                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
+                setCurrentWritePos(pos, std::true_type{});
+            }
+        }
+
         /*
          * non resizable buffer
          */
@@ -242,6 +325,12 @@ namespace bitsery {
             _outIt += size;
             assert(std::distance(_outIt, _end) >= 0);
             memcpy(std::addressof(*tmp), data, size);
+        }
+
+        void setCurrentWritePos(size_t pos, std::false_type) {
+            const auto begin = std::begin(*_buffer);
+            assert(static_cast<size_t>(std::distance(begin, std::end(*_buffer))) >= pos);
+            _outIt = std::next(begin, pos);
         }
     };
 

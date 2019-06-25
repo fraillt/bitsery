@@ -23,7 +23,7 @@
 #ifndef BITSERY_ADAPTER_READER_H
 #define BITSERY_ADAPTER_READER_H
 
-#include "details/sessions.h"
+#include "details/adapter_common.h"
 #include <algorithm>
 #include <cstring>
 
@@ -32,50 +32,29 @@ namespace bitsery {
     template <typename TReader>
     class AdapterReaderBitPackingWrapper;
 
-    template<typename InputAdapter, typename Config>
-    struct AdapterReader {
-        //this is required by deserializer
+    template<typename InputAdapter, typename Config, typename Context=void>
+    struct AdapterReader: public details::AdapterAndContext<InputAdapter, Config, Context> {
+
+        using details::AdapterAndContext<InputAdapter, Config, Context>::AdapterAndContext;
+
         static constexpr bool BitPackingEnabled = false;
-        using TConfig = Config;
-        using TValue = typename InputAdapter::TValue;
-
-        static_assert(details::IsDefined<TValue>::value, "Please define adapter traits or include from <bitsery/traits/...>");
-
-        using TIterator = typename InputAdapter::TIterator;// used by session reader
-
-        explicit AdapterReader(InputAdapter&& adapter)
-                : _inputAdapter{std::move(adapter)},
-                  _session{*this, _inputAdapter}
-        {
-        }
-
-        AdapterReader(const AdapterReader &) = delete;
-
-        AdapterReader &operator=(const AdapterReader &) = delete;
-
-        //todo add conditional noexcept
-        AdapterReader(AdapterReader &&) = default;
-
-        AdapterReader &operator=(AdapterReader &&) = default;
-
-        ~AdapterReader() noexcept = default;
 
         template<size_t SIZE, typename T>
-        void readBytes(T &v) {
+        void readBytes(T& v) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
             directRead(&v, 1);
         }
 
         template<size_t SIZE, typename T>
-        void readBuffer(T *buf, size_t count) {
+        void readBuffer(T* buf, size_t count) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
             directRead(buf, count);
         }
 
         template<typename T>
-        void readBits(T &, size_t ) {
+        void readBits(T&, size_t) {
             static_assert(std::is_void<T>::value,
                           "Bit-packing is not enabled.\nEnable by call to `enableBitPacking`) or create Deserializer with bit packing enabled.");
         }
@@ -83,47 +62,42 @@ namespace bitsery {
         void align() {
         }
 
+        void currentReadPos(size_t pos) {
+            this->_adapter.currentReadPos(pos);
+        }
+
+        size_t currentReadPos() const {
+            return this->_adapter.currentReadPos();
+        }
+
+        void currentReadEndPos(size_t pos) {
+            this->_adapter.currentReadEndPos(pos);
+        }
+
+        size_t currentReadEndPos() const {
+            return this->_adapter.currentReadEndPos();
+        }
+
         bool isCompletedSuccessfully() const {
-            return _inputAdapter.isCompletedSuccessfully() && !_session.hasActiveSessions();
+            return this->_adapter.isCompletedSuccessfully();
         }
 
         ReaderError error() const {
-            auto err = _inputAdapter.error();
-            if (err == ReaderError::DataOverflow && _session.hasActiveSessions())
-                return ReaderError::NoError;
-            return err;
+            return this->_adapter.error();
         }
 
-        void setError(ReaderError error) {
-            if (this->error() == ReaderError::NoError)
-                _inputAdapter.setError(error);
+        void error(ReaderError error) {
+            this->_adapter.error(error);
         }
 
-        void beginSession() {
-            if (error() == ReaderError::NoError) {
-                _session.begin();
-            }
-        }
-
-        void endSession() {
-            if (error() == ReaderError::NoError) {
-                _session.end();
-            }
-        }
-
+        using typename details::AdapterAndContext<InputAdapter, Config, Context>::TValue;
     private:
-        friend class AdapterReaderBitPackingWrapper<AdapterReader<InputAdapter, Config>>;
-
-        InputAdapter _inputAdapter;
-        typename std::conditional<Config::BufferSessionsEnabled,
-                session::SessionsReader<AdapterReader<InputAdapter, Config>>,
-        session::DisabledSessionsReader<AdapterReader<InputAdapter, Config>>>::type
-                _session;
 
         template<typename T>
         void directRead(T *v, size_t count) {
+
             static_assert(!std::is_const<T>::value, "");
-            _inputAdapter.read(reinterpret_cast<TValue *>(v), sizeof(T) * count);
+            this->_adapter.read(reinterpret_cast<TValue *>(v), sizeof(T) * count);
             //swap each byte if necessary
             _swapDataBits(v, count, std::integral_constant<bool,
                     Config::NetworkEndianness != details::getSystemEndianness()>{});
@@ -142,25 +116,12 @@ namespace bitsery {
     };
 
     template<typename TReader>
-    class AdapterReaderBitPackingWrapper {
+    class AdapterReaderBitPackingWrapper: public details::AdapterAndContextWrapper<TReader> {
     public:
-        //this is required by deserializer
+
+        using details::AdapterAndContextWrapper<TReader>::AdapterAndContextWrapper;
+
         static constexpr bool BitPackingEnabled = true;
-        using TConfig = typename TReader::TConfig;
-        //make TValue unsigned for bitpacking
-        using UnsignedValue = typename std::make_unsigned<typename TReader::TValue>::type;
-        using ScratchType = typename details::ScratchType<UnsignedValue>::type;
-        static_assert(details::IsDefined<ScratchType>::value, "Underlying adapter value type is not supported");
-
-        explicit AdapterReaderBitPackingWrapper(TReader& reader):_reader{reader}
-        {
-        }
-
-        AdapterReaderBitPackingWrapper(const AdapterReaderBitPackingWrapper&) = delete;
-        AdapterReaderBitPackingWrapper& operator = (const AdapterReaderBitPackingWrapper&) = delete;
-
-        AdapterReaderBitPackingWrapper(AdapterReaderBitPackingWrapper&& ) noexcept = default;
-        AdapterReaderBitPackingWrapper& operator = (AdapterReaderBitPackingWrapper&& ) noexcept = default;
 
         ~AdapterReaderBitPackingWrapper() {
             align();
@@ -172,7 +133,7 @@ namespace bitsery {
             static_assert(sizeof(T) == SIZE, "");
             using UT = typename std::make_unsigned<T>::type;
             if (!m_scratchBits)
-                _reader.template readBytes<SIZE,T>(v);
+                this->_wrapped.template readBytes<SIZE,T>(v);
             else
                 readBits(reinterpret_cast<UT &>(v), details::BitsSize<T>::value);
         }
@@ -183,7 +144,7 @@ namespace bitsery {
             static_assert(sizeof(T) == SIZE, "");
 
             if (!m_scratchBits) {
-                _reader.template readBuffer<SIZE,T>(buf, count);
+                this->_wrapped.template readBuffer<SIZE,T>(buf, count);
             } else {
                 using UT = typename std::make_unsigned<T>::type;
                 //todo improve implementation
@@ -204,34 +165,43 @@ namespace bitsery {
                 ScratchType tmp{};
                 readBitsInternal(tmp, m_scratchBits);
                 if (tmp)
-                    setError(ReaderError::InvalidData);
+                    error(ReaderError::InvalidData);
             }
         }
 
+        void currentReadPos(size_t pos) {
+            align();
+            this->_wrapped.currentReadPos(pos);
+        }
+
+        size_t currentReadPos() const {
+            return this->_wrapped.currentReadPos();
+        }
+
+        void currentReadEndPos(size_t pos) {
+            this->_wrapped.currentReadEndPos(pos);
+        }
+
+        size_t currentReadEndPos() const {
+            return this->_wrapped.currentReadEndPos();
+        }
+
         bool isCompletedSuccessfully() const {
-            return _reader.isCompletedSuccessfully();
+            return this->_wrapped.isCompletedSuccessfully();
         }
 
         ReaderError error() const {
-            return _reader.error();
+            return this->_wrapped.error();
         }
 
-        void setError(ReaderError error) {
-            _reader.setError(error);
-        }
-
-        void beginSession() {
-            align();
-            _reader.beginSession();
-        }
-
-        void endSession() {
-            align();
-            _reader.endSession();
+        void error(ReaderError error) {
+            this->_wrapped.error(error);
         }
 
     private:
-        TReader& _reader;
+        using UnsignedValue = typename std::make_unsigned<typename TReader::TValue>::type;
+        using ScratchType = typename details::ScratchType<UnsignedValue>::type;
+
         ScratchType m_scratch{};
         size_t m_scratchBits{};
 
@@ -243,7 +213,7 @@ namespace bitsery {
                 auto bits = (std::min)(bitsLeft, details::BitsSize<UnsignedValue>::value);
                 if (m_scratchBits < bits) {
                     UnsignedValue tmp;
-                    _reader.template readBytes<sizeof(UnsignedValue), UnsignedValue>(tmp);
+                    this->_wrapped.template readBytes<sizeof(UnsignedValue), UnsignedValue>(tmp);
                     m_scratch |= static_cast<ScratchType>(tmp) << m_scratchBits;
                     m_scratchBits += details::BitsSize<UnsignedValue>::value;
                 }

@@ -64,6 +64,13 @@ std::list<MyStruct2> getFilledContainer<std::list<MyStruct2>>() {
     };
 }
 
+struct EmptyFtor {
+    template <typename S, typename T>
+    void operator() (S& , T& ) {
+
+    }
+};
+
 /*
  * start testing session
  */
@@ -106,12 +113,12 @@ TYPED_TEST(SerializeContainerDynamicSizeArthmeticTypes, CustomFunctionIncrements
     SerializationContext ctx{};
     using TValue = typename TestFixture::TValue;
 
-    auto& ser = ctx.createSerializer();
-    ser.container(this->src, 1000, [&ser](TValue& v) {
+    auto ser = ctx.createSerializer();
+    ser.container(this->src, 1000, [](decltype(ser)& ser, TValue& v) {
         ser.template value<sizeof(v)>(v);
     });
-    auto& des = ctx.createDeserializer();
-    des.container(this->res, 1000, [&des](TValue &v) {
+    auto des = ctx.createDeserializer();
+    des.container(this->res, 1000, [](decltype(des)& des, TValue &v) {
         des.template value<sizeof(v)>(v);
         //increment by 1 after reading
         v++;
@@ -161,9 +168,8 @@ TYPED_TEST(SerializeContainerDynamicSizeCompositeTypes, CustomFunctionThatDoNoth
     SerializationContext ctx{};
     using TValue = typename TestFixture::TValue;
 
-    auto emptyFnc = [](TValue &) {};
-    ctx.createSerializer().container(this->src, 1000, emptyFnc);
-    ctx.createDeserializer().container(this->res, 1000, emptyFnc);
+    ctx.createSerializer().container(this->src, 1000, EmptyFtor{});
+    ctx.createDeserializer().container(this->res, 1000, EmptyFtor{});
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(ctx.containerSizeSerializedBytesCount(this->src.size())));
 }
@@ -231,14 +237,14 @@ TYPED_TEST(SerializeContainerFixedSizeCompositeTypes, CustomFunctionThatSerializ
     using TValue = decltype(*std::begin(res));
 
     SerializationContext ctx{};
-    auto& ser = ctx.createSerializer();
-    ser.container(src, [&ser](TValue &v) {
+    auto ser = ctx.createSerializer();
+    ser.container(src, [](decltype(ser)& ser, TValue &v) {
         char tmp{};
         ser.object(v);
         ser.value1b(tmp);
     });
-    auto& des = ctx.createDeserializer();
-    des.container(res, [&des](TValue &v) {
+    auto des = ctx.createDeserializer();
+    des.container(res, [](decltype(des)& des, TValue &v) {
         char tmp{};
         des.object(v);
         des.value1b(tmp);
@@ -253,12 +259,11 @@ class SerializeContainer : public ::testing::TestWithParam<size_t> {
 
 TEST_P(SerializeContainer, SizeHasVariableLength) {
     SerializationContext ctx{};
-    auto emptyFnc = [](uint8_t &) {};
 
     std::vector<uint8_t > src(GetParam());
     std::vector<uint8_t > res{};
-    ctx.createSerializer().container(src, std::numeric_limits<size_t>::max(), emptyFnc);
-    ctx.createDeserializer().container(res, std::numeric_limits<size_t>::max(), emptyFnc);
+    ctx.createSerializer().container(src, std::numeric_limits<size_t>::max(), EmptyFtor{});
+    ctx.createDeserializer().container(res, std::numeric_limits<size_t>::max(), EmptyFtor{});
 
     EXPECT_THAT(res.size(), Eq(src.size()));
     EXPECT_THAT(ctx.getBufferSize(), Eq(ctx.containerSizeSerializedBytesCount(src.size())));

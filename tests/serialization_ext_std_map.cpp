@@ -95,7 +95,7 @@ namespace bitsery {
 
     template <typename S>
     void serialize(S& s, std::unordered_map<std::string, MyStruct1>& o) {
-        s.ext(o, StdMap{10}, [&s](std::string& key, MyStruct1& value) {
+        s.ext(o, StdMap{10}, [](S& s, std::string& key, MyStruct1& value) {
             s.text1b(key, 100);
             s.object(value);
         });
@@ -103,7 +103,7 @@ namespace bitsery {
 
     template <typename S>
     void serialize(S& s, std::unordered_multimap<int32_t, float>& o) {
-        s.ext(o, StdMap{10}, [&s](int32_t& key, float& value) {
+        s.ext(o, StdMap{10}, [](S& s, int32_t& key, float& value) {
             s.value4b(key);
             s.value4b(value);
         });
@@ -111,7 +111,7 @@ namespace bitsery {
 
     template <typename S>
     void serialize(S& s, std::map<MyEnumClass , MyStruct1>& o) {
-        s.ext(o, StdMap{10}, [&s](MyEnumClass& key, MyStruct1& value) {
+        s.ext(o, StdMap{10}, [](S& s, MyEnumClass& key, MyStruct1& value) {
             s.value4b(key);
             s.object(value);
         });
@@ -119,7 +119,7 @@ namespace bitsery {
 
     template <typename S>
     void serialize(S& s, std::multimap<int32_t ,int64_t>& o) {
-        s.ext(o, StdMap{10}, [&s](int32_t& key, int64_t& value) {
+        s.ext(o, StdMap{10}, [](S& s, int32_t& key, int64_t& value) {
             s.enableBitPacking([&key, &value](typename S::BPEnabledType& sbp) {
                 int64_t values[3]{1ll, 2ll, 3ll};
                 sbp.ext(key, bitsery::ext::ValueRange<int32_t>{-100,100});

@@ -153,7 +153,7 @@ void serialize(S &s, SomeShapes &o) {
     // bitsery will work regardless
     s.ext(o.weakPtr, StdSmartPtr{});
     s.ext(o.refPtr, PointerObserver{});
-    s.container(o.sharedList, 100, [&s](std::shared_ptr<Shape> &item) {
+    s.container(o.sharedList, 100, [](S& s, std::shared_ptr<Shape> &item) {
         s.ext(item, StdSmartPtr{});
     });
 }
@@ -197,8 +197,8 @@ using TContext = std::tuple<ext::PointerLinkingContext, ext::PolymorphicContext<
 //NOTE:
 // RTTI can be customizable, if you can't use dynamic_cast and typeid, and have 'custom' solution
 
-using MySerializer = BasicSerializer<AdapterWriter<OutputAdapter, DefaultConfig>, TContext>;
-using MyDeserializer = BasicDeserializer<AdapterReader<InputAdapter, DefaultConfig>, TContext>;
+using Writer = AdapterWriter<OutputBufferAdapter<Buffer>, DefaultConfig, TContext>;
+using Reader = AdapterReader<InputBufferAdapter<Buffer>, DefaultConfig, TContext>;
 
 
 //checks if deserialized data is equal
@@ -233,17 +233,19 @@ int main() {
     Buffer buffer{};
     size_t writtenSize{};
     {
+
         //STEP 2
-        //bind serializer with base polymorphic types, it will go through all reachable classes that is defined in first step.
-        //so you dont need to add Rectangle to reach for RoundedRectangle
+        // before start serialization/deserialization,
+        // bind it with base polymorphic types, it will go through all reachable classes that is defined in first step.
+        // NOTE: you dont need to add Rectangle to reach for RoundedRectangle
         TContext ctx{};
-        std::get<1>(ctx).registerBasesList<MySerializer>(MyPolymorphicClassesForRegistering{});
-        //serialize our data
-        MySerializer ser{OutputAdapter{buffer}, &ctx};
+        std::get<1>(ctx).registerBasesList<BasicSerializer<Writer>>(MyPolymorphicClassesForRegistering{});
+        //create writer and serialize
+        Writer writer{buffer, ctx};
+        BasicSerializer<Writer> ser{writer};
         ser.object(data);
-        auto &w = AdapterAccess::getWriter(ser);
-        w.flush();
-        writtenSize = w.writtenBytesCount();
+        writer.flush();
+        writtenSize = writer.writtenBytesCount();
 
         //make sure that pointer linking context is valid
         //this ensures that all non-owning pointers points to data that has been serialized,
@@ -253,13 +255,13 @@ int main() {
     SomeShapes res{};
     {
         TContext ctx{};
-        std::get<1>(ctx).registerBasesList<MyDeserializer>(MyPolymorphicClassesForRegistering{});
+        std::get<1>(ctx).registerBasesList<BasicDeserializer<Reader>>(MyPolymorphicClassesForRegistering{});
         //serialize our data
-        MyDeserializer des{InputAdapter{buffer.begin(), writtenSize}, &ctx};
+        Reader reader {{buffer.begin(), writtenSize}, ctx};
+        BasicDeserializer<Reader> des{reader};
         des.object(res);
-        auto &r = AdapterAccess::getReader(des);
         //check if everything went find
-        assert(r.error() == ReaderError::NoError && r.isCompletedSuccessfully());
+        assert(reader.error() == ReaderError::NoError && reader.isCompletedSuccessfully());
         //also check for dangling pointers, after deserialization
         assert(std::get<0>(ctx).isValid());
         // clear shared state from pointer linking context,

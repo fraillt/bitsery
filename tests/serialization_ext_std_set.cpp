@@ -66,12 +66,12 @@ TEST(SerializeExtensionStdSet, FunctionSyntax) {
     SerializationContext ctx1;
     std::unordered_multiset<int32_t> t1{54,-484,841,79};
     std::unordered_multiset<int32_t> r1{74,878,15,16,-7,5,-4,8,7};
-    auto& ser = ctx1.createSerializer();
-    ser.ext(t1, StdSet{10}, [&ser](int32_t& v) {
+    auto ser = ctx1.createSerializer();
+    ser.ext(t1, StdSet{10}, [](decltype(ser)& ser, int32_t& v) {
         ser.value4b(v);
     });
-    auto& des = ctx1.createDeserializer();
-    des.ext(r1, StdSet{10}, [&des](int32_t& v) {
+    auto des = ctx1.createDeserializer();
+    des.ext(r1, StdSet{10}, [](decltype(des)& des, int32_t& v) {
         des.value4b(v);
     });
     EXPECT_THAT(r1, Eq(t1));

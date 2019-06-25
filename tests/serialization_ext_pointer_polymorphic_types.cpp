@@ -148,16 +148,16 @@ public:
     TContext plctx{};
     SerContext sctx{};
 
-    typename SerContext::TSerializer &createSerializer() {
-        auto &res = sctx.createSerializer(&plctx);
+    typename SerContext::TSerializer createSerializer() {
+        auto res = sctx.createSerializer(plctx);
         std::get<2>(plctx).clear();
         //bind serializer with classes
         std::get<2>(plctx).registerBasesList<SerContext::TSerializer>(bitsery::ext::PolymorphicClassesList<Base>{});
         return res;
     }
 
-    typename SerContext::TDeserializer &createDeserializer() {
-        auto &res = sctx.createDeserializer(&plctx);
+    typename SerContext::TDeserializer createDeserializer() {
+        auto res = sctx.createDeserializer(plctx);
         std::get<2>(plctx).clear();
         //bind deserializer with classes
         std::get<2>(plctx).registerBasesList<SerContext::TDeserializer>(bitsery::ext::PolymorphicClassesList<Base>{});
@@ -319,7 +319,7 @@ TEST_F(SerializeExtensionPointerPolymorphicTypes,
     createSerializer().ext(baseData, PointerOwner{});
 
     BaseClone *baseRes = nullptr; //this class will be registered, but it doesn't have relationships specified via PolymorphicBaseClass
-    auto &des = sctx.createDeserializer(&plctx);
+    auto des = sctx.createDeserializer(plctx);
     auto &pc = std::get<2>(plctx);
     pc.clear();
     pc.registerBasesList<SerContext::TDeserializer>(bitsery::ext::PolymorphicClassesList<BaseClone>{});

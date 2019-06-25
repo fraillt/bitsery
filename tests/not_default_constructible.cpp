@@ -182,13 +182,13 @@ TEST(DeserializeNonDefaultConstructible, StdMap) {
     data.emplace(NonDefaultConstructible{2}, NonDefaultConstructible{3});
     data.emplace(NonDefaultConstructible{4}, NonDefaultConstructible{4});
 
-    auto& ser = ctx.createSerializer();
-    ser.ext(data, bitsery::ext::StdMap{10},[&ser](NonDefaultConstructible& key, NonDefaultConstructible& value) {
+    auto ser = ctx.createSerializer();
+    ser.ext(data, bitsery::ext::StdMap{10},[](decltype(ser)& ser, NonDefaultConstructible& key, NonDefaultConstructible& value) {
         ser.object(key);
         ser.object(value);
     });
-    auto& des = ctx.createDeserializer();
-    des.ext(res, bitsery::ext::StdMap{10},[&des](NonDefaultConstructible& key, NonDefaultConstructible& value) {
+    auto des = ctx.createDeserializer();
+    des.ext(res, bitsery::ext::StdMap{10},[](decltype(des)& des, NonDefaultConstructible& key, NonDefaultConstructible& value) {
         des.object(key);
         des.object(value);
     });
@@ -223,8 +223,8 @@ TEST(DeserializeNonDefaultConstructible, NonPolymorphicPointerAndSmartPointer) {
 
     NonPolymorphicPointers res{};
     bitsery::ext::PointerLinkingContext plctx1{};
-    ctx.createSerializer(&plctx1).object(data);
-    ctx.createDeserializer(&plctx1).object(res);
+    ctx.createSerializer(plctx1).object(data);
+    ctx.createDeserializer(plctx1).object(res);
 
     EXPECT_THAT(*res.pp, Eq(*data.pp));
     delete res.pp;
@@ -322,8 +322,8 @@ TEST(DeserializeNonDefaultConstructible, PolymorphicPointerAndSmartPointer) {
     std::get<1>(serCtx).registerBasesList<typename SerContext::TSerializer>(bitsery::ext::PolymorphicClassesList<PolymorphicNDCBase>{});
     std::get<1>(desCtx).registerBasesList<typename SerContext::TDeserializer>(bitsery::ext::PolymorphicClassesList<PolymorphicNDCBase>{});
 
-    ctx.createSerializer(&serCtx).object(data);
-    ctx.createDeserializer(&desCtx).object(res);
+    ctx.createSerializer(serCtx).object(data);
+    ctx.createDeserializer(desCtx).object(res);
     auto respp = dynamic_cast<PolymorphicNDC1*>(res.pp);
     auto resup = dynamic_cast<PolymorphicNDC2*>(res.up.get());
     auto ressp = dynamic_cast<PolymorphicNDC1*>(res.sp.get());

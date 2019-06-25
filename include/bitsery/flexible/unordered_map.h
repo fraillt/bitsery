@@ -31,7 +31,7 @@ namespace bitsery {
     template<typename S, typename Key, typename T, typename Hash, typename KeyEqual, typename Allocator>
     void serialize(S &s, std::unordered_map<Key, T, Hash, KeyEqual, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
         s.ext(obj, ext::StdMap{maxSize},
-              [&s](Key& key, T& value) {
+              [](S& s, Key& key, T& value) {
                   s.object(key);
                   s.object(value);
               });
@@ -40,7 +40,7 @@ namespace bitsery {
     template<typename S, typename Key, typename T, typename Hash, typename KeyEqual, typename Allocator>
     void serialize(S &s, std::unordered_multimap<Key, T, Hash, KeyEqual, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
         s.ext(obj, ext::StdMap{maxSize},
-              [&s](Key& key, T& value) {
+              [](S& s, Key& key, T& value) {
                   s.object(key);
                   s.object(value);
               });

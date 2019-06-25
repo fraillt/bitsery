@@ -33,47 +33,68 @@ namespace bitsery {
     class BasicInputStreamAdapter {
     public:
         using TValue = TChar;
-        using TIterator = void;//TIterator is used with sessions, but streams cannot be used with sessions
 
         BasicInputStreamAdapter(std::basic_ios<TChar, CharTraits>& istream)
                 :_ios{std::addressof(istream)} {}
 
         void read(TValue* data, size_t size) {
-            if (static_cast<size_t>(_ios->rdbuf()->sgetn( data , size )) != size) {
+            if (size - static_cast<size_t>(_ios->rdbuf()->sgetn( data , size )) != _zeroIfNoErrors) {
                 *data = {};
-                //check state, if not set by stream, set it manually
-                if (_ios->good())
-                    _ios->setstate(std::ios_base::eofbit);
+                if (_zeroIfNoErrors == 0) {
+                    error(_ios->rdstate() == std::ios_base::badbit
+                    ? ReaderError::ReadingError
+                    : ReaderError::DataOverflow);
+                }
             }
 
         }
 
-        ReaderError error() const {
-            if (_ios->good())
-                return ReaderError::NoError;
-            return _ios->eof()
-                   ? ReaderError::DataOverflow
-                   : ReaderError::ReadingError;
+        void currentReadPos(size_t ) {
+            static_assert(std::is_void<TChar>::value, "setting read position is not supported with StreamAdapter");
         }
+
+        size_t currentReadPos() const {
+            static_assert(std::is_void<TChar>::value, "setting read position is not supported with StreamAdapter");
+            return {};
+        }
+
+        void currentReadEndPos(size_t ) {
+            static_assert(std::is_void<TChar>::value, "setting read position is not supported with StreamAdapter");
+        }
+
+        size_t currentReadEndPos() const {
+            static_assert(std::is_void<TChar>::value, "setting read position is not supported with StreamAdapter");
+            return {};
+        }
+
+        ReaderError error() const {
+            return _err;
+        }
+
         bool isCompletedSuccessfully() const {
             if (error() == ReaderError::NoError) {
                 return _ios->rdbuf()->sgetc() == CharTraits::eof();
             }
             return false;
         }
-        void setError(ReaderError ) {
-            //has no effect when using
+
+        void error(ReaderError error) {
+            if (_err == ReaderError::NoError) {
+                _err = error;
+                _zeroIfNoErrors = std::numeric_limits<size_t>::max();
+            }
         }
 
     private:
         std::basic_ios<TChar, CharTraits>* _ios;
+        size_t _zeroIfNoErrors{};
+        ReaderError _err = ReaderError::NoError;
     };
 
     template <typename TChar, typename CharTraits>
     class BasicOutputStreamAdapter {
     public:
         using TValue = TChar;
-        using TIterator = void;//TIterator is used with sessions, but streams cannot be used with sessions
 
         BasicOutputStreamAdapter(std::basic_ios<TChar, CharTraits>& ostream)
                 :_ios{std::addressof(ostream)} {}
@@ -81,6 +102,15 @@ namespace bitsery {
         void write(const TValue* data, size_t size) {
             //for optimization
             _ios->rdbuf()->sputn( data , size );
+        }
+
+        void currentWritePos(size_t ) {
+            static_assert(std::is_void<TChar>::value, "setting write position is not supported with StreamAdapter");
+        }
+
+        size_t currentWritePos() const {
+            static_assert(std::is_void<TChar>::value, "setting write position is not supported with StreamAdapter");
+            return {};
         }
 
         void flush() {
@@ -111,7 +141,6 @@ namespace bitsery {
         static_assert(details::IsDefined<BufferIt>::value, "Please define BufferAdapterTraits or include from <bitsery/traits/...> to use as buffer for BasicBufferedOutputStreamAdapter");
         static_assert(traits::ContainerTraits<Buffer>::isContiguous, "BasicBufferedOutputStreamAdapter only works with contiguous containers");
         using TValue = TChar;
-        using TIterator = void;//TIterator is used with sessions, but streams cannot be used with sessions
 
         //bufferSize is used when buffer is dynamically allocated
         BasicBufferedOutputStreamAdapter(std::basic_ios<TChar, CharTraits>& ostream, size_t bufferSize = 256)
@@ -168,6 +197,15 @@ namespace bitsery {
             }
         }
 
+        void currentWritePos(size_t ) {
+            static_assert(std::is_void<TChar>::value, "setting write position is not supported with StreamAdapter");
+        }
+
+        size_t currentWritePos() const {
+            static_assert(std::is_void<TChar>::value, "setting write position is not supported with StreamAdapter");
+            return {};
+        }
+
         void flush() {
             auto begin = std::begin(_buf);
             _adapter.write(std::addressof(*begin), static_cast<size_t>(std::distance(begin, _outIt)));
@@ -204,7 +242,6 @@ namespace bitsery {
     class BasicIOStreamAdapter:public BasicInputStreamAdapter<TChar, CharTraits>, public BasicOutputStreamAdapter<TChar, CharTraits> {
     public:
         using TValue = TChar;
-        using TIterator = void;//TIterator is used with sessions, but streams cannot be used with sessions
 
         //both bases contain reference to same iostream, so no need to do anything
         BasicIOStreamAdapter(std::basic_ios<TChar, CharTraits>& iostream)

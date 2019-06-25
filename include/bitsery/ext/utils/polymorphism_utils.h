@@ -61,9 +61,9 @@ namespace bitsery {
 
         class PolymorphicHandlerBase {
         public:
-            virtual void* create(const PolymorphicAllocator& alloc) const = 0;
+            virtual void* create(const pointer_utils::PolymorphicAllocatorWithTypeId& alloc) const = 0;
 
-            virtual void destroy(const PolymorphicAllocator& alloc, void* ptr) const = 0;
+            virtual void destroy(const pointer_utils::PolymorphicAllocatorWithTypeId& alloc, void* ptr) const = 0;
 
             virtual void process(void* ser, void* obj) const = 0;
 
@@ -74,12 +74,12 @@ namespace bitsery {
         class PolymorphicHandler : public PolymorphicHandlerBase {
         public:
 
-            void* create(const PolymorphicAllocator& alloc) const final {
-                return toBase(alloc.allocate<TDerived>(RTTI::template get<TDerived>()));
+            void* create(const pointer_utils::PolymorphicAllocatorWithTypeId& alloc) const final {
+                return toBase(alloc.newObject<TDerived>(RTTI::template get<TDerived>()));
             }
 
-            void destroy(const PolymorphicAllocator& alloc, void* ptr) const final {
-                alloc.deallocate<TDerived>(fromBase(ptr), RTTI::template get<TDerived>());
+            void destroy(const pointer_utils::PolymorphicAllocatorWithTypeId& alloc, void* ptr) const final {
+                alloc.deleteObject<TDerived>(fromBase(ptr), RTTI::template get<TDerived>());
             }
 
             void process(void* ser, void* obj) const final {
@@ -165,17 +165,6 @@ namespace bitsery {
                 _baseToDerivedArray.clear();
             }
 
-            template<typename TSerializer, template<typename> class THierarchy = PolymorphicBaseClass, typename T1, typename ...Tn>
-            [[deprecated("de/serializer instance is not required")]] void
-            registerBasesList(const TSerializer& s, PolymorphicClassesList<T1, Tn...>) {
-                add<TSerializer, THierarchy, T1, T1>();
-                registerBasesList<TSerializer, THierarchy>(s, PolymorphicClassesList<Tn...>{});
-            }
-
-            template<typename TSerializer, template<typename> class THierarchy>
-            [[deprecated]] void registerBasesList(const TSerializer&, PolymorphicClassesList<>) {
-            }
-
             // THierarchy is the name of class, that defines hierarchy
             // PolymorphicBaseClass is defined as default parameter, so that at instantiation time
             // it will get unique symbol in translation unit for PolymorphicBaseClass (which is defined in anonymous namespace)
@@ -200,7 +189,7 @@ namespace bitsery {
 
 
             template<typename Serializer, typename Writer, typename TBase>
-            void serialize(Serializer& ser, Writer& writer, TBase& obj) {
+            void serialize(Serializer& ser, Writer& writer, TBase& obj) const {
                 //get derived key
                 BaseToDerivedKey key{RTTI::template get<TBase>(), RTTI::template get<TBase>(obj)};
                 auto it = _baseToDerivedMap.find(key);
@@ -218,7 +207,7 @@ namespace bitsery {
 
             template<typename Deserializer, typename Reader, typename TBase, typename TCreateFnc, typename TDestroyFnc>
             void deserialize(Deserializer& des, Reader& reader, TBase* obj,
-                             TCreateFnc createFnc, TDestroyFnc destroyFnc) {
+                             TCreateFnc createFnc, TDestroyFnc destroyFnc) const {
                 size_t derivedIndex{};
                 details::readSize(reader, derivedIndex, std::numeric_limits<size_t>::max());
 
@@ -240,7 +229,7 @@ namespace bitsery {
                     }
                     handler->process(&des, obj);
                 } else
-                    reader.setError(ReaderError::InvalidPointer);
+                    reader.error(ReaderError::InvalidPointer);
             }
 
             template<typename TBase>

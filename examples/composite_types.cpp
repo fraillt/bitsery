@@ -58,7 +58,7 @@ void serialize(S& s, MyVariant& o) {
         // we can also override default 'serialize' function by creating an overloading for that type
         [](S& s, MyStruct& o) {
             s.value4b(o.f);
-            s.container(o.v, 1000, [&s](int32_t& v) {
+            s.container(o.v, 1000, [](S& s, int32_t& v) {
                 s.ext4b(v, ext::CompactValue{});
             });
         },

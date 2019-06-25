@@ -34,15 +34,15 @@ namespace MyTypes {
     template<typename S>
     void serialize(S& s, GameState &o) {
         //we can have multiple types in context with std::tuple
-        //this cast also works if our context is the same as cast
-        auto maxMonsters = s.template context<int>();
-        //all data from context is always pointer
         //if data type doesn't match then it will be compile time error
-        auto dmgRange = s.template context<std::pair<uint32_t, uint32_t>>();
-        s.container(o.monsters, *maxMonsters, [&s, dmgRange] (Monster& m) {
+        //NOTE: if context is optional then you can call contextOrNull<T>, and it will return null if T doesn't exists
+        auto maxMonsters = s.template context<int>();
+        auto& dmgRange = s.template context<std::pair<uint32_t, uint32_t>>();
+
+        s.container(o.monsters, maxMonsters, [&dmgRange] (S& s, Monster& m) {
             s.text1b(m.name, 20);
             //we know min/max damage range for monsters, so we can use this range instead of full value
-            bitsery::ext::ValueRange<uint32_t> range{dmgRange->first, dmgRange->second};
+            bitsery::ext::ValueRange<uint32_t> range{dmgRange.first, dmgRange.second};
             //enable bit packing
             s.enableBitPacking([&m, &range](typename S::BPEnabledType& sbp) {
                 sbp.ext(m.minDamage, range);
@@ -53,26 +53,24 @@ namespace MyTypes {
 
 }
 
-using namespace bitsery;
-
-//use fixed-size buffer
-using Buffer = std::vector<uint8_t>;
-using OutputAdapter = OutputBufferAdapter<Buffer>;
-using InputAdapter = InputBufferAdapter<Buffer>;
-//context can contain multiple types
-//it would make more sense to define separate structure for context, but for sake of this example make it more complex
-//in serialization function we can cast it like this:
+//context can contain multiple types by wrapping these types in std::tuple
+//in serialization function we can get type that we need like this:
 //  s.template context<int>();
-//if we want to get whole tuple, just call s.context() without template paramter.
 //this templated version also works if our context is the same as cast:
 //  struct MyContext {...};
 //  ...
 //  s.template context<MyContext>();
-using Context = std::tuple<int, std::pair<uint32_t, uint32_t>>;
-
 //NOTE:
 // if your context has no additional usage outside of serialization flow,
 // then you can create it internally via configuration (see inheritance.cpp)
+using Context = std::tuple<int, std::pair<uint32_t, uint32_t>>;
+
+//use fixed-size buffer
+using Buffer = std::vector<uint8_t>;
+using namespace bitsery;
+// define Writer and Reader types,
+using Writer = AdapterWriter<OutputBufferAdapter<Buffer>, DefaultConfig, Context>;
+using Reader = AdapterReader<InputBufferAdapter<Buffer>, DefaultConfig, Context>;
 
 int main() {
 
@@ -92,18 +90,18 @@ int main() {
 
     //create buffer to store data to
     Buffer buffer{};
-    //pass game mode object to serializer as context
-    BasicSerializer<AdapterWriter<OutputAdapter, bitsery::DefaultConfig>, Context> ser{buffer, &ctx};
+    //create adapter writer with context
+    //context is passed by reference without taking ownership
+    Writer writer{buffer, ctx};
+    //serialize data
+    BasicSerializer<Writer> ser{writer};
     ser.object(data);
-
-    auto& w = AdapterAccess::getWriter(ser);
-    w.flush();
-    auto writtenSize = w.writtenBytesCount();
+    writer.flush();
 
     MyTypes::GameState res{};
-    BasicDeserializer <AdapterReader<InputAdapter, bitsery::DefaultConfig>, Context> des { InputAdapter{buffer.begin(), writtenSize}, &ctx};
+    Reader reader {{buffer.begin(), writer.writtenBytesCount()}, ctx};
+    BasicDeserializer<Reader> des {reader };
     des.object(res);
-    auto& r = AdapterAccess::getReader(des);
 
-    assert(r.error() == ReaderError::NoError && r.isCompletedSuccessfully());
+    assert(reader.error() == ReaderError::NoError && reader.isCompletedSuccessfully());
 }

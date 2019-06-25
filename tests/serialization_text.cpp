@@ -119,3 +119,11 @@ TEST(SerializeText, WhenCArrayNotNullterminatedThenAssert) {
     EXPECT_DEATH(ctx.createSerializer().text<2>(t1), "");
 }
 #endif
+
+TEST(SerializeText, WhenContainerOrTextSizeIsMoreThanMaxThenInvalidDataError) {
+    SerializationContext ctx;
+    std::string tmp = "larger text then allowed";
+    ctx.createSerializer().text1b(tmp,100);
+    ctx.createDeserializer().text1b(tmp, 10);
+    EXPECT_THAT(ctx.br->error(), Eq(bitsery::ReaderError::InvalidData));
+}

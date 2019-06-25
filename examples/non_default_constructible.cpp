@@ -34,8 +34,8 @@ using namespace bitsery;
 
 //some helper types
 using Buffer = std::vector<uint8_t>;
-using OutputAdapter = OutputBufferAdapter<Buffer>;
-using InputAdapter = InputBufferAdapter<Buffer>;
+using Writer = AdapterWriter<OutputBufferAdapter<Buffer>, DefaultConfig>;
+using Reader = AdapterReader<InputBufferAdapter<Buffer>, DefaultConfig>;
 
 int main() {
 
@@ -48,17 +48,18 @@ int main() {
     //create buffer
     Buffer buffer{};
 
-    //create and serialize container, and get written bytes count
-    Serializer<OutputAdapter> ser{OutputAdapter{buffer}};
+    //create writer and serialize container
+    Writer writer{buffer};
+    BasicSerializer<Writer> ser{writer};
     ser.container(data, 10);
-    auto writtenBytes = AdapterAccess::getWriter(ser).writtenBytesCount();
+    writer.flush();
 
-    //create and deserialize container
-    Deserializer<InputAdapter> des{InputAdapter{buffer.begin(), writtenBytes}};
+    //create reader and deserialize container
+    Reader reader{{buffer.begin(), writer.writtenBytesCount()}};
+    BasicDeserializer<Reader> des{reader};
     des.container(res, 10);
 
     //check if everything went ok
-    auto& reader = AdapterAccess::getReader(des);
     assert(reader.error() == ReaderError::NoError && reader.isCompletedSuccessfully());
     assert(res == data);
 }

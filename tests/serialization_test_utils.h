@@ -86,10 +86,6 @@ void serialize(S&s, MyStruct2& o) {
     s.object(o.s1);
 }
 
-struct SessionsEnabledConfig: public bitsery::DefaultConfig {
-    static constexpr bool BufferSessionsEnabled = true;
-};
-
 using Buffer = std::vector<char>;
 using InputAdapter = bitsery::InputBufferAdapter<Buffer>;
 using OutputAdapter = bitsery::OutputBufferAdapter<Buffer>;
@@ -100,34 +96,59 @@ using Reader = bitsery::AdapterReader<InputAdapter, bitsery::DefaultConfig>;
 template <typename Config, typename Context>
 class BasicSerializationContext {
 public:
-    using TWriter = bitsery::AdapterWriter<OutputAdapter, Config>;
-    using TReader = bitsery::AdapterReader<InputAdapter, Config>;
-    using TSerializer = bitsery::BasicSerializer<TWriter, Context>;
-    using TDeserializer = bitsery::BasicDeserializer<TReader, Context>;
+    using TWriter = bitsery::AdapterWriter<OutputAdapter, Config, Context>;
+    using TReader = bitsery::AdapterReader<InputAdapter, Config, Context>;
+    using TSerializer = bitsery::BasicSerializer<TWriter>;
+    using TDeserializer = bitsery::BasicDeserializer<TReader>;
+    using TSerializerBPEnabled = typename TSerializer::BPEnabledType;
+    using TDeserializerBPEnabled = typename TDeserializer::BPEnabledType;
 
     Buffer buf{};
-    std::unique_ptr<TSerializer> ser{};
-    std::unique_ptr<bitsery::BasicDeserializer<TReader, Context>> des{};
-    TWriter* bw{};
-    TReader* br{};
+    std::unique_ptr<TWriter> bw{};
+    std::unique_ptr<TReader> br{};
 
-    TSerializer& createSerializer(Context* ctx = nullptr) {
-        if (!ser) {
-            ser = std::unique_ptr<TSerializer>(new TSerializer(OutputAdapter{buf}, ctx));
-            bw = &bitsery::AdapterAccess::getWriter(*ser);
+    template <typename T=Context, typename std::enable_if<std::is_void<T>::value>::type* = nullptr>
+    TSerializer createSerializer() {
+        if (!bw) {
+            bw = std::unique_ptr<TWriter>(new TWriter{OutputAdapter{buf}});
         }
-        return *ser;
-    };
+        return TSerializer{*bw};
+    }
 
-    TDeserializer & createDeserializer(Context* ctx = nullptr) {
-        bw->flush();
-        if (!des) {
-            des = std::unique_ptr<TDeserializer>(
-                    new TDeserializer(InputAdapter{buf.begin(), bw->writtenBytesCount()}, ctx));
-            br = &bitsery::AdapterAccess::getReader(*des);
+    template <typename T=Context>
+    TSerializer createSerializer(typename std::enable_if<!std::is_void<T>::value, T>::type& ctx) {
+        if (!bw) {
+            bw = std::unique_ptr<TWriter>(new TWriter{OutputAdapter{buf}, ctx});
         }
-        return *des;
-    };
+        return TSerializer{*bw};
+    }
+
+
+    template <typename T=Context, typename std::enable_if<std::is_void<T>::value>::type* = nullptr>
+    TDeserializer createDeserializer() {
+        size_t writtenBytes = 0;
+        if (bw) {
+            bw->flush();
+            writtenBytes = bw->writtenBytesCount();
+        }
+        if (!br) {
+            br = std::unique_ptr<TReader>(new TReader{InputAdapter{buf.begin(), writtenBytes}});
+        }
+        return TDeserializer{*br};
+    }
+
+    template <typename T=Context>
+    TDeserializer createDeserializer(typename std::enable_if<!std::is_void<T>::value, T>::type& ctx) {
+        size_t writtenBytes = 0;
+        if (bw) {
+            bw->flush();
+            writtenBytes = bw->writtenBytesCount();
+        }
+        if (!br) {
+            br = std::unique_ptr<TReader>(new TReader{InputAdapter{buf.begin(), writtenBytes}, ctx});
+        }
+        return TDeserializer{*br};
+    }
 
     size_t getBufferSize() const {
         return bw->writtenBytesCount();

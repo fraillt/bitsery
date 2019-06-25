@@ -206,4 +206,5 @@ TEST(SerializeExtensionValueRange, WhenDataIsInvalidThenReturnMinimumRangeValue)
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, Eq(4));
+    EXPECT_THAT(ctx.br->error(), Eq(bitsery::ReaderError::InvalidData));
 }

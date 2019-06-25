@@ -37,59 +37,132 @@ namespace bitsery {
         public:
             virtual void* allocate(size_t bytes, size_t alignment, size_t typeId) = 0;
 
-            virtual void deallocate(void* ptr, size_t bytes, size_t alignment, size_t typeId) = 0;
+            virtual void deallocate(void* ptr, size_t bytes, size_t alignment, size_t typeId) noexcept = 0;
 
             virtual ~MemResourceBase() noexcept = default;
         };
 
+        // default implementation for MemResourceBase using new and delete
         class MemResourceNewDelete : public MemResourceBase {
         public:
             inline void* allocate(size_t bytes, size_t /*alignment*/, size_t /*typeId*/) final {
                 return (::operator new(bytes));
             }
 
-            inline void deallocate(void* ptr, size_t /*bytes*/, size_t /*alignment*/, size_t /*typeId*/) final {
+            inline void
+            deallocate(void* ptr, size_t /*bytes*/, size_t /*alignment*/, size_t /*typeId*/) noexcept final {
                 (::operator delete(ptr));
             }
 
             ~MemResourceNewDelete() noexcept final = default;
         };
 
-        class PolymorphicAllocator {
-        public:
+        // these classes are used internally by bitsery extensions and and pointer utils
+        namespace pointer_utils {
+            // this is helper class that stores memory resource and knows how to construct/destroy objects
+            // capture this by value for custom deleters, because during deserialization mem resource can be changed
+            class PolymorphicAllocatorWithTypeId final {
+            public:
 
-            template<typename T>
-            T* allocate(size_t typeId) const {
-                constexpr auto bytes = sizeof(T);
-                constexpr auto alignment = std::alignment_of<T>::value;
-                void* ptr = _resource
-                            ? _resource->allocate(bytes, alignment, typeId)
-                            : MemResourceNewDelete{}.allocate(bytes, alignment, typeId);
-                return ::bitsery::Access::create<T>(ptr);
-            }
+                explicit constexpr PolymorphicAllocatorWithTypeId(MemResourceBase* memResource = nullptr)
+                :_resource{memResource} {}
 
-            template<typename T>
-            void deallocate(T* ptr, size_t typeId) const {
-                constexpr auto bytes = sizeof(T);
-                constexpr auto alignment = std::alignment_of<T>::value;
-                ptr->~T();
-                _resource
-                ? _resource->deallocate(ptr, bytes, alignment, typeId)
-                : MemResourceNewDelete{}.deallocate(ptr, bytes, alignment, typeId);
-            }
+                template<typename T>
+                T* allocate(size_t n, size_t typeId) const {
+                    const auto bytes = sizeof(T) * n;
+                    constexpr auto alignment = std::alignment_of<T>::value;
+                    void* ptr = _resource
+                                ? _resource->allocate(bytes, alignment, typeId)
+                                : ext::MemResourceNewDelete{}.allocate(bytes, alignment, typeId);
+                    return static_cast<T*>(ptr);
+                }
 
-            void setMemResource(MemResourceBase* resource) {
-                _resource = resource;
-            }
+                template<typename T>
+                void deallocate(T* ptr, size_t n, size_t typeId) const noexcept {
+                    const auto bytes = sizeof(T) * n;
+                    constexpr auto alignment = std::alignment_of<T>::value;
+                    _resource
+                    ? _resource->deallocate(ptr, bytes, alignment, typeId)
+                    : ext::MemResourceNewDelete{}.deallocate(ptr, bytes, alignment, typeId);
+                }
 
-            MemResourceBase* getMemResource() const {
-                return _resource;
-            }
+                template<typename T>
+                T* newObject(size_t typeId) const {
+                    auto ptr = allocate<T>(1, typeId);
+                    return ::bitsery::Access::create<T>(ptr);
+                }
 
-        private:
-            MemResourceBase* _resource{nullptr};
-        };
+                template<typename T>
+                void deleteObject(T* obj, size_t typeId) const {
+                    obj->~T();
+                    deallocate(obj, 1, typeId);
+                }
 
+                void setMemResource(ext::MemResourceBase* resource) {
+                    _resource = resource;
+                }
+
+                ext::MemResourceBase* getMemResource() const {
+                    return _resource;
+                }
+
+                bool operator==(const PolymorphicAllocatorWithTypeId& rhs) const noexcept {
+                    return _resource == rhs._resource;
+                }
+
+                bool operator!=(const PolymorphicAllocatorWithTypeId& rhs) const noexcept {
+                    return !(*this == rhs);
+                }
+
+            private:
+                ext::MemResourceBase* _resource;
+            };
+
+            // this is very similar to c++17 PolymorphicAllocator, it is in extensions, that need to allocate memory
+            // it just wraps our PolymorphicAllocatorWithTypeId and pass 0 as typeId
+            // and defines core functions for c++ Allocator concept,
+            template<class T>
+            struct PolymorphicAllocatorWrapper final {
+                using value_type = T;
+
+                explicit constexpr PolymorphicAllocatorWrapper(MemResourceBase* memResource)
+                    :_alloc{memResource} {}
+                explicit constexpr PolymorphicAllocatorWrapper(PolymorphicAllocatorWithTypeId alloc) : _alloc{alloc} {}
+
+                template <typename U>
+                friend class PolymorphicAllocatorWrapper;
+
+                template<class U>
+                constexpr explicit PolymorphicAllocatorWrapper(const PolymorphicAllocatorWrapper<U>& other) noexcept
+                    :_alloc{other._alloc} {
+                }
+
+                T* allocate(std::size_t n) {
+                    return _alloc.allocate<T>(n, 0);
+                }
+
+                void deallocate(T* p, std::size_t n) noexcept {
+                    return _alloc.deallocate(p, n, 0);
+                }
+
+                template<class U>
+                friend bool operator==(const PolymorphicAllocatorWrapper<T>& lhs,
+                                       const PolymorphicAllocatorWrapper<U>& rhs) noexcept {
+                    return lhs._alloc == rhs._alloc;
+                }
+
+                template<class U>
+                friend bool operator!=(const PolymorphicAllocatorWrapper<T>& lhs,
+                                       const PolymorphicAllocatorWrapper<U>& rhs) noexcept {
+                    return !(lhs == rhs);
+                }
+
+            private:
+                PolymorphicAllocatorWithTypeId _alloc;
+            };
+
+        }
     }
+
 }
 #endif //BITSERY_EXT_MEMORY_ALLOCATOR_H

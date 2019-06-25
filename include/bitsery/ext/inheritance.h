@@ -25,6 +25,7 @@
 
 #include <unordered_set>
 #include "../traits/core/traits.h"
+#include "utils/memory_allocator.h"
 
 namespace bitsery {
 
@@ -34,7 +35,9 @@ namespace bitsery {
         //for standard inheritance (ext::BaseClass) it is optional.
         class InheritanceContext {
         public:
-            InheritanceContext() = default;
+            explicit InheritanceContext(MemResourceBase* memResource = nullptr)
+                :_virtualBases{pointer_utils::PolymorphicAllocatorWrapper<const void*>{memResource}}
+                {}
             InheritanceContext(const InheritanceContext&) = delete;
             InheritanceContext&operator = (const InheritanceContext&) = delete;
             InheritanceContext(InheritanceContext&&) = default;
@@ -66,7 +69,10 @@ namespace bitsery {
             size_t _depth{};
             const void* _parentPtr{};
             //add virtual bases to the list, as long as we're on the same parent
-            std::unordered_set<const void*> _virtualBases{};
+            std::unordered_set<const void*,
+                std::hash<const void*>, std::equal_to<const void*>,
+                pointer_utils::PolymorphicAllocatorWrapper<const void*>
+            > _virtualBases;
         };
 
         template <typename TBase>
@@ -78,10 +84,10 @@ namespace bitsery {
                 auto& resObj = static_cast<const TBase&>(obj);
                 if (auto ctx = ser.template contextOrNull<InheritanceContext>()) {
                     ctx->beginBase(obj, resObj);
-                    fnc(const_cast<TBase&>(resObj));
+                    fnc(ser, const_cast<TBase&>(resObj));
                     ctx->end();
                 } else {
-                    fnc(const_cast<TBase&>(resObj));
+                    fnc(ser, const_cast<TBase&>(resObj));
                 }
             }
 
@@ -90,10 +96,10 @@ namespace bitsery {
                 auto& resObj = static_cast<TBase&>(obj);
                 if (auto ctx = des.template contextOrNull<InheritanceContext>()) {
                     ctx->beginBase(obj, resObj);
-                    fnc(resObj);
+                    fnc(des, resObj);
                     ctx->end();
                 } else {
-                    fnc(resObj);
+                    fnc(des, resObj);
                 }
             }
 
@@ -106,20 +112,20 @@ namespace bitsery {
 
             template<typename Ser, typename Writer, typename T, typename Fnc>
             void serialize(Ser &ser, Writer &, const T &obj, Fnc &&fnc) const {
-                auto ctx = ser.template context<InheritanceContext>();
+                auto& ctx = ser.template context<InheritanceContext>();
                 auto& resObj = static_cast<const TBase&>(obj);
-                if (ctx->beginVirtualBase(obj, resObj))
-                    fnc(const_cast<TBase&>(resObj));
-                ctx->end();
+                if (ctx.beginVirtualBase(obj, resObj))
+                    fnc(ser, const_cast<TBase&>(resObj));
+                ctx.end();
             }
 
             template<typename Des, typename Reader, typename T, typename Fnc>
             void deserialize(Des &des, Reader &, T &obj, Fnc &&fnc) const {
-                auto ctx = des.template context<InheritanceContext>();
+                auto& ctx = des.template context<InheritanceContext>();
                 auto& resObj = static_cast<TBase&>(obj);
-                if (ctx->beginVirtualBase(obj, resObj))
-                    fnc(resObj);
-                ctx->end();
+                if (ctx.beginVirtualBase(obj, resObj))
+                    fnc(des, resObj);
+                ctx.end();
             }
 
         };

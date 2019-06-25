@@ -157,7 +157,7 @@ struct MemResourceForTest : public bitsery::ext::MemResourceBase {
         return res;
     }
 
-    void deallocate(void* ptr, size_t bytes, size_t alignment, size_t typeId) override {
+    void deallocate(void* ptr, size_t bytes, size_t alignment, size_t typeId) noexcept override {
         deallocs.push_back({ptr, bytes, alignment, typeId});
         bitsery::ext::MemResourceNewDelete{}.deallocate(ptr, bytes, alignment, typeId);
     }
@@ -172,8 +172,8 @@ public:
     TContext plctx{};
     SerContext sctx{};
 
-    typename SerContext::TSerializer& createSerializer() {
-        auto& res = sctx.createSerializer(&plctx);
+    typename SerContext::TSerializer createSerializer() {
+        auto res = sctx.createSerializer(plctx);
         std::get<2>(plctx).clear();
         //bind serializer with classes
         std::get<2>(plctx).registerBasesList<SerContext::TSerializer>(
@@ -181,8 +181,8 @@ public:
         return res;
     }
 
-    typename SerContext::TDeserializer& createDeserializer() {
-        auto& res = sctx.createDeserializer(&plctx);
+    typename SerContext::TDeserializer createDeserializer() {
+        auto res = sctx.createDeserializer(plctx);
         std::get<2>(plctx).clear();
         //bind deserializer with classes
         std::get<2>(plctx).registerBasesList<SerContext::TDeserializer>(
@@ -202,7 +202,7 @@ public:
 TEST_F(SerializeExtensionPointerWithAllocator, CanSetDefaultMemoryResourceInPointerLinkingContext) {
 
     MemResourceForTest memRes{};
-    std::get<0>(plctx).setMemResource(&memRes);
+    std::get<0>(plctx).getAllocator().setMemResource(&memRes);
 
     Base* baseData = new Derived1{2, 1};
     createSerializer().ext(baseData, PointerOwner{});
@@ -225,7 +225,7 @@ TEST_F(SerializeExtensionPointerWithAllocator, CanSetDefaultMemoryResourceInPoin
 
 TEST_F(SerializeExtensionPointerWithAllocator, CorrectlyDeallocatesPreviousInstance) {
     MemResourceForTest memRes{};
-    std::get<0>(plctx).setMemResource(&memRes);
+    std::get<0>(plctx).getAllocator().setMemResource(&memRes);
 
     Base* baseData = new Derived1{2, 1};
     createSerializer().ext(baseData, PointerOwner{});
@@ -252,7 +252,7 @@ TEST_F(SerializeExtensionPointerWithAllocator, CorrectlyDeallocatesPreviousInsta
 
 TEST_F(SerializeExtensionPointerWithAllocator, DefaultDeleterIsNotUsedForStdUniquePtr) {
     MemResourceForTest memRes{};
-    std::get<0>(plctx).setMemResource(&memRes);
+    std::get<0>(plctx).getAllocator().setMemResource(&memRes);
 
     std::unique_ptr<Base> baseData{};
     createSerializer().ext(baseData, StdSmartPtr{});
@@ -274,7 +274,7 @@ struct CustomBaseDeleter {
 
 TEST_F(SerializeExtensionPointerWithAllocator, CustomDeleterIsUsedForStdUniquePtr) {
     MemResourceForTest memRes{};
-    std::get<0>(plctx).setMemResource(&memRes);
+    std::get<0>(plctx).getAllocator().setMemResource(&memRes);
 
     std::unique_ptr<Base, CustomBaseDeleter> baseData{};
     createSerializer().ext(baseData, StdSmartPtr{});
@@ -289,7 +289,7 @@ TEST_F(SerializeExtensionPointerWithAllocator, CustomDeleterIsUsedForStdUniquePt
 TEST_F(SerializeExtensionPointerWithAllocator, CanSetMemResourcePerPointer) {
     MemResourceForTest memRes1{};
     MemResourceForTest memRes2{};
-    std::get<0>(plctx).setMemResource(&memRes1);
+    std::get<0>(plctx).getAllocator().setMemResource(&memRes1);
 
     Base* baseData = new Derived1{2, 1};
     createSerializer().ext(baseData, PointerOwner{bitsery::ext::PointerType::Nullable, &memRes2});
@@ -320,7 +320,7 @@ TEST_F(SerializeExtensionPointerWithAllocator, CanSetMemResourcePerPointer) {
 TEST_F(SerializeExtensionPointerWithAllocator, MemResourceSetPerPointerByDefaultDoNotPropagate) {
     MemResourceForTest memRes1{};
     MemResourceForTest memRes2{};
-    std::get<0>(plctx).setMemResource(&memRes1);
+    std::get<0>(plctx).getAllocator().setMemResource(&memRes1);
 
     auto data = std::unique_ptr<PolyPtrWithPolyPtrBase>(new PolyPtrWithPolyPtrBase{});
     data->ptr = std::unique_ptr<Base>(new Derived1{5, 6});
@@ -343,7 +343,7 @@ TEST_F(SerializeExtensionPointerWithAllocator, MemResourceSetPerPointerByDefault
 TEST_F(SerializeExtensionPointerWithAllocator, MemResourceSetPerPointerCanPropagate) {
     MemResourceForTest memRes1{};
     MemResourceForTest memRes2{};
-    std::get<0>(plctx).setMemResource(&memRes1);
+    std::get<0>(plctx).getAllocator().setMemResource(&memRes1);
 
     auto data = std::unique_ptr<PolyPtrWithPolyPtrBase>(new PolyPtrWithPolyPtrBase{});
     data->ptr = std::unique_ptr<Base>(new Derived1{5, 6});

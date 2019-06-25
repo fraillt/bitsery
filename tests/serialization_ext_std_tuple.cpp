@@ -46,7 +46,6 @@ TEST(SerializeExtensionStdTuple, ValueTypesCanBeSerializedWithLambdaAndOrCallabl
     std::tuple<float, int32_t> r1{};
     SerializationContext ctx;
     auto exec = [](auto& s, auto& o) {
-        using S = decltype(s);
         s.ext(o, bitsery::ext::StdTuple{
             [](auto& s1, float& o1) {
                 s1.value4b(o1);
@@ -54,8 +53,8 @@ TEST(SerializeExtensionStdTuple, ValueTypesCanBeSerializedWithLambdaAndOrCallabl
             OverloadValue<int32_t, 4>{}
         });
     };
-    exec(ctx.createSerializer(), t1);
-    exec(ctx.createDeserializer(), r1);
+    ctx.createSerializer().object(t1, exec);
+    ctx.createDeserializer().object(r1, exec);
     EXPECT_THAT(t1, Eq(r1));
 }
 
@@ -64,7 +63,6 @@ TEST(SerializeExtensionStdTuple, CanOverloadDefaultSerializeFunction) {
     std::tuple<MyStruct1, MyStruct2> r1{};
     SerializationContext ctx;
     auto exec = [](auto& s, auto& o) {
-        using S = decltype(s);
         s.ext(o, bitsery::ext::StdTuple{
             [](auto& s1, MyStruct1& o1) {
                 s1.value4b(o1.i1);
@@ -72,8 +70,8 @@ TEST(SerializeExtensionStdTuple, CanOverloadDefaultSerializeFunction) {
             },
         });
     };
-    exec(ctx.createSerializer(), t1);
-    exec(ctx.createDeserializer(), r1);
+    ctx.createSerializer().object(t1, exec);
+    ctx.createDeserializer().object(r1, exec);
     EXPECT_THAT(std::get<1>(t1), Eq(std::get<1>(r1)));
     EXPECT_THAT(std::get<0>(t1).i1, Eq(std::get<0>(r1).i1));
     EXPECT_THAT(std::get<0>(t1).i2, ::testing::Ne(std::get<0>(r1).i2));

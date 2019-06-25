@@ -33,15 +33,15 @@ namespace bitsery {
         public:
 
             template<typename Ser, typename Writer, typename T, typename Period, typename Fnc>
-            void serialize(Ser&, Writer&, const std::chrono::duration<T, Period>& obj, Fnc&& fnc) const {
+            void serialize(Ser& ser, Writer&, const std::chrono::duration<T, Period>& obj, Fnc&& fnc) const {
                 auto res = obj.count();
-                fnc(res);
+                fnc(ser, res);
             }
 
             template<typename Des, typename Reader, typename T, typename Period, typename Fnc>
-            void deserialize(Des&, Reader&, std::chrono::duration<T, Period>& obj, Fnc&& fnc) const {
+            void deserialize(Des& des, Reader&, std::chrono::duration<T, Period>& obj, Fnc&& fnc) const {
                 T res{};
-                fnc(res);
+                fnc(des, res);
                 obj = std::chrono::duration<T, Period>{res};
             }
         };
@@ -50,17 +50,17 @@ namespace bitsery {
         public:
 
             template<typename Ser, typename Writer, typename Clock, typename T, typename Period, typename Fnc>
-            void serialize(Ser&, Writer&, const std::chrono::time_point<Clock, std::chrono::duration<T, Period>>& obj,
+            void serialize(Ser& ser, Writer&, const std::chrono::time_point<Clock, std::chrono::duration<T, Period>>& obj,
                            Fnc&& fnc) const {
                 auto res = obj.time_since_epoch().count();
-                fnc(res);
+                fnc(ser, res);
             }
 
             template<typename Des, typename Reader, typename Clock, typename T, typename Period, typename Fnc>
-            void deserialize(Des&, Reader&, std::chrono::time_point<Clock, std::chrono::duration<T, Period>>& obj,
+            void deserialize(Des& des, Reader&, std::chrono::time_point<Clock, std::chrono::duration<T, Period>>& obj,
                              Fnc&& fnc) const {
                 T res{};
-                fnc(res);
+                fnc(des, res);
                 auto dur = std::chrono::duration<T, Period>{res};
                 obj = std::chrono::time_point<Clock, std::chrono::duration<T, Period>>{dur};
             }

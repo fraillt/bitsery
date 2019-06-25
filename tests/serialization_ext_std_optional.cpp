@@ -84,12 +84,12 @@ TEST(SerializeExtensionStdOptional, AlignAfterStateWriteRead) {
     SerializationContext ctx;
     ctx.createSerializer().enableBitPacking([&t1, &range](BPSer& ser) {
 
-        ser.ext(t1, StdOptional(true), [&ser, &range](int32_t& v) {
+        ser.ext(t1, StdOptional(true), [&range](BPSer& ser, int32_t& v) {
             ser.ext(v, range);
         });
     });
     ctx.createDeserializer().enableBitPacking([&r1, &range](BPDes& des) {
-        des.ext(r1, StdOptional(true), [&des, &range](int32_t& v) {
+        des.ext(r1, StdOptional(true), [&range](BPDes& des, int32_t& v) {
             des.ext(v, range);
         });
     });
@@ -105,12 +105,12 @@ TEST(SerializeExtensionStdOptional, NoAlignAfterStateWriteRead) {
 
     SerializationContext ctx;
     ctx.createSerializer().enableBitPacking([&t1, &range](BPSer& ser) {
-        ser.ext(t1, StdOptional(false), [&ser, &range](int32_t& v) {
+        ser.ext(t1, StdOptional(false), [&range](BPSer& ser, int32_t& v) {
             ser.ext(v, range);
         });
     });
     ctx.createDeserializer().enableBitPacking([&r1, &range](BPDes& des) {
-        des.ext(r1, StdOptional(false), [&des, &range](int32_t& v) {
+        des.ext(r1, StdOptional(false), [&range](BPDes& des, int32_t& v) {
             des.ext(v, range);
         });
     });

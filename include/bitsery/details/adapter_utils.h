@@ -59,7 +59,7 @@ namespace bitsery {
                 }
             }
             if (size > maxSize) {
-                r.setError(ReaderError::InvalidData);
+                r.error(ReaderError::InvalidData);
                 size = {};
             }
         }

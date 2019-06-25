@@ -31,50 +31,32 @@
 namespace bitsery {
 
 
-    template<typename TAdapterReader, typename TContext = void>
+    template<typename TAdapterReader>
     class BasicDeserializer {
     public:
-        //this is used by AdapterAccess class
-        using TReader = TAdapterReader;
-        //helper type, that always returns bit-packing enabled type, useful inside serialize function when enabling bitpacking
+        //helper type, that always returns bit-packing enabled type, useful inside deserialize function when enabling bitpacking
         using BPEnabledType = BasicDeserializer<typename std::conditional<TAdapterReader::BitPackingEnabled,
-                TAdapterReader, AdapterReaderBitPackingWrapper<TAdapterReader>>::type, TContext>;
+            TAdapterReader,
+            AdapterReaderBitPackingWrapper<TAdapterReader>>::type>;
 
-        static_assert(details::IsSpecializationOf<typename TReader::TConfig::InternalContext, std::tuple>::value,
-                      "Config::InternalContext must be std::tuple");
-
-        template <typename ReaderParam>
-        explicit BasicDeserializer(ReaderParam&& r, TContext* context = nullptr)
-                : _reader{std::forward<ReaderParam>(r)},
-                  _context{context},
-                  _internalContext{}
+        explicit BasicDeserializer(TAdapterReader& reader)
+            : _reader{reader}
         {
         }
 
-        //copying disabled
-        BasicDeserializer(const BasicDeserializer&) = delete;
-        BasicDeserializer& operator = (const BasicDeserializer&) = delete;
-
-        //move enabled
-        BasicDeserializer(BasicDeserializer&& ) = default;
-        BasicDeserializer& operator = (BasicDeserializer&& ) = default;
-
         /*
          * get serialization context.
-         * this is optional, but might be required for some specific deserialization flows.
+         * this is optional, but might be required for some specific serialization flows.
          */
-        TContext* context() {
-            return _context;
+
+        template <typename T>
+        T& context() {
+            return *details::getContext<true, T>(_reader.context());
         }
 
         template <typename T>
-        T* context(){
-            return details::getContext<T>(_context, _internalContext);
-        }
-
-        template <typename T>
-        T* contextOrNull(){
-            return details::getContextIfTypeExists<T>(_context, _internalContext);
+        T* contextOrNull() {
+            return details::getContext<false, T>(_reader.context());
         }
 
         /*
@@ -88,7 +70,7 @@ namespace bitsery {
 
         template<typename T, typename Fnc>
         void object(T &&obj, Fnc &&fnc) {
-            fnc(std::forward<T>(obj));
+            fnc(*this, std::forward<T>(obj));
         }
 
         /*
@@ -104,7 +86,9 @@ namespace bitsery {
 
         template <typename T, typename... TArgs>
         BasicDeserializer &operator()(T &&head, TArgs &&... tail) {
+            //serialize object
             details::ArchiveFunction<BasicDeserializer, T>::invoke(*this, std::forward<T>(head));
+            //expand other elements
             archive(std::forward<TArgs>(tail)...);
             return *this;
         }
@@ -146,7 +130,7 @@ namespace bitsery {
                           "extension doesn't support overload with `value<N>`");
             using ExtVType = typename traits::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
-            extension.deserialize(*this, _reader, obj, [this](VType &v) { value<VSIZE>(v);});
+            extension.deserialize(*this, _reader, obj, [](BasicDeserializer& s, VType &v) { s.value<VSIZE>(v);});
         }
 
         template<typename T, typename Ext>
@@ -156,7 +140,7 @@ namespace bitsery {
                           "extension doesn't support overload with `object`");
             using ExtVType = typename traits::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
-            extension.deserialize(*this, _reader, obj, [this](VType &v) { object(v); });
+            extension.deserialize(*this, _reader, obj, [](BasicDeserializer& s, VType &v) { s.object(v); });
         }
 
         /*
@@ -264,10 +248,6 @@ namespace bitsery {
             procContainer(std::begin(obj), std::end(obj));
         }
 
-        void align() {
-            _reader.align();
-        }
-
         //overloads for functions with explicit type size
 
         template<typename T>
@@ -337,14 +317,8 @@ namespace bitsery {
         void container8b(T &&obj) { container<8>(std::forward<T>(obj)); }
 
     private:
-        friend AdapterAccess;
-        // this is required when creating bitpacking serializer, to access internal context
-        friend class BasicDeserializer<typename details::GetNonWrappedAdapterReader<TAdapterReader>::Reader, TContext>;
 
-        TAdapterReader _reader;
-        TContext* _context;
-        typename TReader::TConfig::InternalContext _internalContext;
-
+        TAdapterReader& _reader;
 
         //process value types
         //false_type means that we must process all elements individually
@@ -368,7 +342,7 @@ namespace bitsery {
         template<typename It, typename Fnc>
         void procContainer(It first, It last, Fnc fnc) {
             for (; first != last; ++first)
-                fnc(*first);
+                fnc(*this, *first);
         }
 
         //process object types
@@ -400,7 +374,7 @@ namespace bitsery {
             unsigned char tmp;
             _reader.template readBytes<1>(tmp);
             if (tmp > 1)
-                _reader.setError(ReaderError::InvalidData);
+                _reader.error(ReaderError::InvalidData);
             v = tmp == 1;
         }
 
@@ -413,12 +387,10 @@ namespace bitsery {
 
         template <typename Fnc>
         void procEnableBitPacking(const Fnc& fnc, std::false_type) {
-            //create serializer using bitpacking wrapper
-            BPEnabledType tmp(_reader, _context);
-            // move internal context to and from of bitpacking enabled serializer
-            tmp._internalContext = std::move(_internalContext);
-            fnc(tmp);
-            _internalContext = std::move(tmp._internalContext);
+            //create deserializer using bitpacking wrapper
+            AdapterReaderBitPackingWrapper<TAdapterReader> bitPackingWrapper{_reader};
+            BPEnabledType deserializer{bitPackingWrapper};
+            fnc(deserializer);
         }
 
         //these are dummy functions for extensions that have TValue = void
@@ -438,16 +410,14 @@ namespace bitsery {
     };
 
     //helper type
-    template <typename Adapter>
-    using Deserializer = BasicDeserializer<AdapterReader<Adapter, DefaultConfig>>;
 
     //helper function that set ups all the basic steps and after deserialziation returns status
-    template <typename Adapter, typename T>
-    std::pair<ReaderError, bool> quickDeserialization(Adapter adapter, T& value) {
-        Deserializer<Adapter> des{std::move(adapter)};
+    template <typename InputAdapter, typename T>
+    std::pair<ReaderError, bool> quickDeserialization(InputAdapter adapter, T& value) {
+        AdapterReader<InputAdapter, DefaultConfig> reader{std::move(adapter)};
+        BasicDeserializer<AdapterReader<InputAdapter, DefaultConfig>> des{reader};
         des.object(value);
-        auto& r = AdapterAccess::getReader(des);
-        return {r.error(), r.isCompletedSuccessfully()};
+        return {reader.error(), reader.isCompletedSuccessfully()};
     }
 
 }

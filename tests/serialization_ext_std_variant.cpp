@@ -77,10 +77,8 @@ TEST(SerializeExtensionStdVariant, ValueTypesCanBeSerializedWithLambdaAndOrCalla
         s.value4b(v);
     };
 
-    auto& ser = ctx.createSerializer();
-    ser.ext(t1, bitsery::ext::StdVariant{fncFloat, OverloadValue<char, 1>{}});
-    auto& des = ctx.createDeserializer();
-    des.ext(r1, bitsery::ext::StdVariant{fncFloat, OverloadValue<char, 1>{}});
+    ctx.createSerializer().ext(t1, bitsery::ext::StdVariant{fncFloat, OverloadValue<char, 1>{}});
+    ctx.createDeserializer().ext(r1, bitsery::ext::StdVariant{fncFloat, OverloadValue<char, 1>{}});
     EXPECT_THAT(t1, Eq(r1));
 }
 
@@ -99,8 +97,8 @@ TEST(SerializeExtensionStdVariant, CanOverloadDefaultSerializationFunction) {
         });
     };
 
-    exec(ctx.createSerializer(), t1);
-    exec(ctx.createDeserializer(), r1);
+    ctx.createSerializer().object(t1, exec);
+    ctx.createDeserializer().object(r1, exec);
     EXPECT_THAT(std::get<1>(r1).i2, Eq(0));
 }
 
@@ -135,8 +133,8 @@ TEST(SerializeExtensionStdVariant, CanUseNonDefaultConstructableTypes) {
         });
     };
 
-    exec(ctx.createSerializer(), t1);
-    exec(ctx.createDeserializer(), r1);
+    ctx.createSerializer().object(t1, exec);
+    ctx.createDeserializer().object(r1, exec);
 
     EXPECT_THAT(t1, Eq(r1));
 }
@@ -156,8 +154,8 @@ TEST(SerializeExtensionStdVariant, CorrectlyHandleMonoState) {
         });
     };
 
-    exec(ctx.createSerializer(), t1);
-    exec(ctx.createDeserializer(), r1);
+    ctx.createSerializer().object(t1, exec);
+    ctx.createDeserializer().object(r1, exec);
 
     EXPECT_THAT(t1, Eq(r1));
     std::variant<std::monostate> t2{};

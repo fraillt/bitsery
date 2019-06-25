@@ -128,7 +128,7 @@ TEST(SerializeExtensionEntropy, CustomFunctionNotEntropyEncodedWithNoAlignBefore
     SerializationContext ctx;
     ctx.createSerializer().enableBitPacking([&v, &values, &rangeForValue](BPSer& ser){
         //lambdas differ only in capture clauses, it would make sense to use std::bind, but debugger crashes when it sees std::bind...
-        auto serLambda = [&ser, &rangeForValue](MyStruct1& data) {
+        auto serLambda = [&rangeForValue](BPSer& ser, MyStruct1& data) {
             ser.ext(data.i1, rangeForValue);
             ser.ext(data.i2, rangeForValue);
         };
@@ -136,7 +136,7 @@ TEST(SerializeExtensionEntropy, CustomFunctionNotEntropyEncodedWithNoAlignBefore
     });
 
     ctx.createDeserializer().enableBitPacking([&res, &values, &rangeForValue](BPDes& des) {
-        auto desLambda = [&des, &rangeForValue](MyStruct1& data) {
+        auto desLambda = [&rangeForValue](BPDes& des, MyStruct1& data) {
             des.ext(data.i1, rangeForValue);
             des.ext(data.i2, rangeForValue);
         };
@@ -161,14 +161,14 @@ TEST(SerializeExtensionEntropy, CustomFunctionNotEntropyEncodedWithAlignBeforeDa
     SerializationContext ctx;
     ctx.createSerializer().enableBitPacking([&v, &values, &rangeForValue](BPSer& ser){
         //lambdas differ only in capture clauses, it would make sense to use std::bind, but debugger crashes when it sees std::bind...
-        auto serLambda = [&ser, &rangeForValue](MyStruct1& data) {
+        auto serLambda = [&rangeForValue](BPSer& ser, MyStruct1& data) {
             ser.ext(data.i1, rangeForValue);
             ser.ext(data.i2, rangeForValue);
         };
         ser.ext(v, Entropy<std::vector<MyStruct1>>(values, true), serLambda);
     });
     ctx.createDeserializer().enableBitPacking([&res, &values, &rangeForValue](BPDes& des) {
-        auto desLambda = [&des, &rangeForValue](MyStruct1& data) {
+        auto desLambda = [&rangeForValue](BPDes& des, MyStruct1& data) {
             des.ext(data.i1, rangeForValue);
             des.ext(data.i2, rangeForValue);
         };
@@ -189,10 +189,10 @@ TEST(SerializeExtensionEntropy, WhenEntropyEncodedThenCustomFunctionNotInvoked) 
 
     SerializationContext ctx;
     ctx.createSerializer().enableBitPacking([&v, &values](BPSer& ser) {
-        ser.ext(v, Entropy<std::list<MyStruct1>>{values}, [](MyStruct1& ) {});
+        ser.ext(v, Entropy<std::list<MyStruct1>>{values}, [](BPSer& ,MyStruct1& ) {});
     });
     ctx.createDeserializer().enableBitPacking([&res, &values](BPDes& des) {
-        des.ext(res, Entropy<std::list<MyStruct1>>{values}, []( MyStruct1& ) {});
+        des.ext(res, Entropy<std::list<MyStruct1>>{values}, [](BPDes& , MyStruct1& ) {});
     });
 
     EXPECT_THAT(res, Eq(v));

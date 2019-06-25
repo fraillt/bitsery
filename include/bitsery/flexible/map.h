@@ -31,7 +31,7 @@ namespace bitsery {
     template<typename S, typename Key, typename T, typename Compare, typename Allocator>
     void serialize(S &s, std::map<Key, T, Compare, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
         s.ext(obj, ext::StdMap{maxSize},
-              [&s](Key& key, T& value) {
+              [](S& s, Key& key, T& value) {
                   s.object(key);
                   s.object(value);
               });
@@ -40,7 +40,7 @@ namespace bitsery {
     template<typename S, typename Key, typename T, typename Compare, typename Allocator>
     void serialize(S &s, std::multimap<Key, T, Compare, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
         s.ext(obj, ext::StdMap{maxSize},
-              [&s](Key& key, T& value) {
+              [](S& s, Key& key, T& value) {
                   s.object(key);
                   s.object(value);
               });

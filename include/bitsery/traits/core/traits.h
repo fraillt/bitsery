@@ -147,7 +147,6 @@ namespace bitsery {
             //it is called only current buffer size is not enough to write.
             //it is used to dramaticaly improve performance by updating buffer directly
             //instead of using back_insert_iterator to append each byte to buffer.
-            //thats why Writer return range iterators
 
             static void increaseBufferSize(T& ) {
                 static_assert(std::is_void<T>::value,

@@ -25,7 +25,7 @@ namespace MyTypes {
         template <typename S>
         void serialize (S& s) {
             //forward/backward compatibility for monsters
-            s.ext(*this, bitsery::ext::Growable{}, [&s](Weapon& o1) {
+            s.ext(*this, bitsery::ext::Growable{}, [](S& s, Weapon& o1) {
                 s.text1b(o1.name, 20);
                 s.value2b(o1.damage);
             });
@@ -54,7 +54,7 @@ namespace MyTypes {
     template <typename S>
     void serialize (S& s, Monster& o) {
         //forward/backward compatibility for monsters
-        s.ext(o, bitsery::ext::Growable{}, [&s](Monster& o1) {
+        s.ext(o, bitsery::ext::Growable{}, [](S& s, Monster& o1) {
             s.value1b(o1.color);
             s.value2b(o1.mana);
             s.value2b(o1.hp);
@@ -75,11 +75,6 @@ using Buffer = std::array<uint8_t, 10000>;
 using OutputAdapter = OutputBufferAdapter<Buffer>;
 using InputAdapter = InputBufferAdapter<Buffer>;
 
-//create configuration that enables session support, to work with "growable" extension
-struct SessionsEnabled:public DefaultConfig {
-    static constexpr bool BufferSessionsEnabled = true;
-};
-
 int main() {
     //set some random data
     MyTypes::Monster data{};
@@ -89,17 +84,11 @@ int main() {
     //create buffer to store data to
     Buffer buffer{};
     //since we're using different configuration, we cannot use quickSerialization function.
-    BasicSerializer<AdapterWriter<OutputAdapter, SessionsEnabled>> ser{OutputAdapter{buffer}};
-    ser.object(data);
-    auto& w = AdapterAccess::getWriter(ser);
-    w.flush();
-    auto writtenSize = w.writtenBytesCount();
-
+    auto writtenSize = quickSerialization<OutputAdapter>(buffer, data);
 
     MyTypes::Monster res{};
     //deserialize
-    BasicDeserializer<AdapterReader<InputAdapter, SessionsEnabled>> des{InputAdapter{buffer.begin(), writtenSize}};
-    des.object(res);
-    auto& r = AdapterAccess::getReader(des);
-    assert(r.error() == ReaderError::NoError && r.isCompletedSuccessfully());
+    auto state = quickDeserialization<InputAdapter>({buffer.begin(), writtenSize}, res);
+
+    assert(state.first == ReaderError::NoError && state.second);
 }

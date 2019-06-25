@@ -125,7 +125,7 @@ namespace bitsery {
             void checkReadOverflow(Reader &r, unsigned shiftedBy, uint8_t remainder, std::true_type) const {
                 constexpr auto TBITS = sizeof(T)*8;
                 if (shiftedBy > TBITS && remainder >> (TBITS + 7 - shiftedBy)) {
-                    r.setError(bitsery::ReaderError::DataOverflow);
+                    r.error(bitsery::ReaderError::InvalidData);
                 }
             }
 

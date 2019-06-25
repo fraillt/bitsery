@@ -30,23 +30,38 @@ namespace bitsery {
     namespace ext {
 
         /*
-         * enables to add additional serialization methods at the end of method, without breaking existing older code
+         * enables forward and backward compatibility, by allowing to append additional data at the end of serialization
+         * old deserialization method will ignore additional data by jumping through it at the end of deserialization flow
+         * new deserialization method will read all 0 for new fields if there is no data for it
          */
         class Growable {
         public:
 
             template<typename Ser, typename Writer, typename T, typename Fnc>
-            void serialize(Ser &, Writer &writer, const T &obj, Fnc &&fnc) const {
-                writer.beginSession();
-                fnc(const_cast<T&>(obj));
-                writer.endSession();
+            void serialize(Ser &ser, Writer &writer, const T &obj, Fnc &&fnc) const {
+                const auto startPos = writer.currentWritePos();
+                writer.template writeBytes<4>(static_cast<uint32_t>(0));
+
+                fnc(ser, const_cast<T&>(obj));
+
+                const auto endPos = writer.currentWritePos();
+                writer.currentWritePos(startPos);
+                writer.template writeBytes<4>(static_cast<uint32_t>(endPos - startPos));
+                writer.currentWritePos(endPos);
             }
 
             template<typename Des, typename Reader, typename T, typename Fnc>
-            void deserialize(Des &, Reader &reader, T &obj, Fnc &&fnc) const {
-                reader.beginSession();
-                fnc(obj);
-                reader.endSession();
+            void deserialize(Des &des, Reader &reader, T &obj, Fnc &&fnc) const {
+                uint32_t size{};
+                const auto readEndPos = reader.currentReadEndPos();
+                const auto startPos = reader.currentReadPos();
+                reader.template readBytes<4>(size);
+                reader.currentReadEndPos(startPos + size);
+
+                fnc(des, obj);
+
+                reader.currentReadPos(startPos + size);
+                reader.currentReadEndPos(readEndPos);
             }
         };
     }

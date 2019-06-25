@@ -228,13 +228,10 @@ TEST(SerializeExtensionCompactValueAsObjectDeserializeOverflow, TestEnums) {
     SerializationContext ctx;
     auto data = getValue<uint32_t >(true, 17);
     uint16_t res{};
-    auto& ser = ctx.createSerializer();
-    ser.ext(data, CompactValueAsObject{});
-    auto& des = ctx.createDeserializer();
-    des.ext(res, CompactValueAsObject{});
-    auto& rd = bitsery::AdapterAccess::getReader(des);
+    ctx.createSerializer().ext(data, CompactValueAsObject{});
+    ctx.createDeserializer().ext(res, CompactValueAsObject{});
     EXPECT_THAT(data, ::testing::Ne(res));
-    EXPECT_THAT(rd.error(), Eq(bitsery::ReaderError::DataOverflow));
+    EXPECT_THAT(ctx.br->error(), Eq(bitsery::ReaderError::InvalidData));
 }
 
 

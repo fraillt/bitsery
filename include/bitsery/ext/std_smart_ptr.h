@@ -70,52 +70,52 @@ namespace bitsery {
                 }
 
                 template<typename TDeleter>
-                static void create(std::unique_ptr<TElement, TDeleter>& obj, PolymorphicAllocator& alloc,
+                static void create(std::unique_ptr<TElement, TDeleter>& obj, pointer_utils::PolymorphicAllocatorWithTypeId& alloc,
                                    size_t typeId) {
-                    obj.reset(alloc.allocate<TElement>(typeId));
+                    obj.reset(alloc.newObject<TElement>(typeId));
                 }
 
                 template<typename TDeleter>
-                static void createPolymorphic(std::unique_ptr<TElement, TDeleter>& obj, PolymorphicAllocator& alloc,
+                static void createPolymorphic(std::unique_ptr<TElement, TDeleter>& obj, pointer_utils::PolymorphicAllocatorWithTypeId& alloc,
                                               const std::shared_ptr<PolymorphicHandlerBase>& handler) {
                     obj.reset(static_cast<TElement*>(handler->create(alloc)));
                 }
 
                 template<typename TDel>
-                static void destroy(std::unique_ptr<TElement, TDel>& obj, PolymorphicAllocator& alloc, size_t typeId) {
+                static void destroy(std::unique_ptr<TElement, TDel>& obj, pointer_utils::PolymorphicAllocatorWithTypeId& alloc, size_t typeId) {
                     uniquePtrDestroy(obj, alloc, typeId, std::is_same<std::unique_ptr<TElement>, T>{});
                 }
 
                 template<typename TDel>
-                static void destroyPolymorphic(std::unique_ptr<TElement, TDel>& obj, PolymorphicAllocator& alloc,
+                static void destroyPolymorphic(std::unique_ptr<TElement, TDel>& obj, pointer_utils::PolymorphicAllocatorWithTypeId& alloc,
                                                const std::shared_ptr<PolymorphicHandlerBase>& handler) {
                     uniquePtrDestroyPolymorphic(obj, alloc, handler, std::is_same<std::unique_ptr<TElement>, T>{});
                 }
 
-                static void destroy(std::shared_ptr<TElement>& obj, PolymorphicAllocator&, size_t) {
+                static void destroy(std::shared_ptr<TElement>& obj, pointer_utils::PolymorphicAllocatorWithTypeId&, size_t) {
                     obj.reset();
                 }
 
-                static void destroyPolymorphic(std::shared_ptr<TElement>& obj, PolymorphicAllocator&,
+                static void destroyPolymorphic(std::shared_ptr<TElement>& obj, pointer_utils::PolymorphicAllocatorWithTypeId&,
                                                const std::shared_ptr<PolymorphicHandlerBase>&) {
                     obj.reset();
                 }
 
-                static void destroy(std::weak_ptr<TElement>& obj, PolymorphicAllocator&, size_t) {
+                static void destroy(std::weak_ptr<TElement>& obj, pointer_utils::PolymorphicAllocatorWithTypeId&, size_t) {
                     obj.reset();
                 }
 
-                static void destroyPolymorphic(std::weak_ptr<TElement>& obj, PolymorphicAllocator&,
+                static void destroyPolymorphic(std::weak_ptr<TElement>& obj, pointer_utils::PolymorphicAllocatorWithTypeId&,
                                                const std::shared_ptr<PolymorphicHandlerBase>&) {
                     obj.reset();
                 }
 
                 static std::unique_ptr<pointer_utils::PointerSharedStateBase> createShared(
-                    std::shared_ptr<TElement>& obj, PolymorphicAllocator& alloc, size_t typeId) {
+                    std::shared_ptr<TElement>& obj, pointer_utils::PolymorphicAllocatorWithTypeId& alloc, size_t typeId) {
                     // capture deleter parameters by value
-                    obj = std::shared_ptr<TElement>(alloc.allocate<TElement>(typeId),
-                                                    [&alloc, typeId](TElement* data) {
-                                                        alloc.deallocate(data, typeId);
+                    obj = std::shared_ptr<TElement>(alloc.newObject<TElement>(typeId),
+                                                    [alloc, typeId](TElement* data) {
+                                                        alloc.deleteObject(data, typeId);
                                                     });
                     auto state = new SharedPtrSharedState{};
                     state->obj = obj;
@@ -123,7 +123,7 @@ namespace bitsery {
                 }
 
                 static std::unique_ptr<pointer_utils::PointerSharedStateBase> createSharedPolymorphic(
-                    std::shared_ptr<TElement>& obj, PolymorphicAllocator& alloc,
+                    std::shared_ptr<TElement>& obj, pointer_utils::PolymorphicAllocatorWithTypeId& alloc,
                     const std::shared_ptr<PolymorphicHandlerBase>& handler) {
                     // capture deleter parameters by value
                     obj = std::shared_ptr<TElement>(static_cast<TElement*>(handler->create(alloc)),
@@ -136,10 +136,10 @@ namespace bitsery {
                 }
 
                 static std::unique_ptr<pointer_utils::PointerSharedStateBase> createShared(
-                    std::weak_ptr<TElement>& obj, PolymorphicAllocator& alloc, size_t typeId) {
-                    auto res = std::shared_ptr<TElement>(alloc.allocate<TElement>(typeId),
+                    std::weak_ptr<TElement>& obj, pointer_utils::PolymorphicAllocatorWithTypeId& alloc, size_t typeId) {
+                    auto res = std::shared_ptr<TElement>(alloc.newObject<TElement>(typeId),
                                                          [alloc, typeId](TElement* data) {
-                                                             alloc.deallocate(data, typeId);
+                                                             alloc.deleteObject(data, typeId);
                                                          });
                     obj = res;
                     auto state = new SharedPtrSharedState{};
@@ -148,7 +148,7 @@ namespace bitsery {
                 }
 
                 static std::unique_ptr<pointer_utils::PointerSharedStateBase> createSharedPolymorphic(
-                    std::weak_ptr<TElement>& obj, PolymorphicAllocator& alloc,
+                    std::weak_ptr<TElement>& obj, pointer_utils::PolymorphicAllocatorWithTypeId& alloc,
                     const std::shared_ptr<PolymorphicHandlerBase>& handler) {
                     auto res = std::shared_ptr<TElement>(static_cast<TElement*>(handler->create(alloc)),
                                                          [alloc, handler](TElement* data) {
@@ -177,15 +177,15 @@ namespace bitsery {
             private:
                 template<typename TDel>
                 static void
-                uniquePtrDestroy(std::unique_ptr<TElement, TDel>& obj, PolymorphicAllocator& alloc, size_t typeId,
+                uniquePtrDestroy(std::unique_ptr<TElement, TDel>& obj, pointer_utils::PolymorphicAllocatorWithTypeId& alloc, size_t typeId,
                                  std::true_type) {
                     auto ptr = obj.release();
-                    alloc.deallocate(ptr, typeId);
+                    alloc.deleteObject(ptr, typeId);
                 }
 
                 template<typename TDel>
                 static void
-                uniquePtrDestroyPolymorphic(std::unique_ptr<TElement, TDel>& obj, PolymorphicAllocator& alloc,
+                uniquePtrDestroyPolymorphic(std::unique_ptr<TElement, TDel>& obj, pointer_utils::PolymorphicAllocatorWithTypeId& alloc,
                                             const std::shared_ptr<PolymorphicHandlerBase>& handler, std::true_type) {
                     auto ptr = obj.release();
                     handler->destroy(alloc, ptr);
@@ -193,14 +193,14 @@ namespace bitsery {
 
                 template<typename TDel>
                 static void
-                uniquePtrDestroy(std::unique_ptr<TElement, TDel>& obj, PolymorphicAllocator&, size_t,
+                uniquePtrDestroy(std::unique_ptr<TElement, TDel>& obj, pointer_utils::PolymorphicAllocatorWithTypeId&, size_t,
                                  std::false_type) {
                     obj.reset();
                 }
 
                 template<typename TDel>
                 static void
-                uniquePtrDestroyPolymorphic(std::unique_ptr<TElement, TDel>& obj, PolymorphicAllocator&,
+                uniquePtrDestroyPolymorphic(std::unique_ptr<TElement, TDel>& obj, pointer_utils::PolymorphicAllocatorWithTypeId&,
                                             const std::shared_ptr<PolymorphicHandlerBase>&, std::false_type) {
                     obj.reset();
                 }

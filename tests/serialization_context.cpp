@@ -26,136 +26,83 @@
 
 using testing::Eq;
 
-template <typename ... Args>
-struct ConfigWithContext: bitsery::DefaultConfig {
-    using InternalContext = std::tuple<Args...>;
-};
-
-template <typename Context, typename ... Args>
-using SerializerConfigWithContext = bitsery::BasicSerializer<
-        bitsery::AdapterWriter<bitsery::OutputBufferAdapter<Buffer>, ConfigWithContext<Args...>>, Context>;
-
-template <typename Context, typename ... Args>
-using DeserializerConfigWithContext = bitsery::BasicDeserializer<
-        bitsery::AdapterReader<bitsery::InputBufferAdapter<Buffer>, ConfigWithContext<Args...>>, Context>;
-
-template <typename Context>
-using MySerializer = bitsery::BasicSerializer<Writer, Context>;
-
-template <typename Context>
-using MyDeserializer = bitsery::BasicDeserializer<Reader, Context>;
+using bitsery::DefaultConfig;
 
 using SingleTypeContext = int;
 using MultipleTypesContext = std::tuple<int, float, char>;
 
-TEST(SerializationContext, WhenUsingContextThenReturnsUnderlyingPointerOrNull) {
-    Buffer buf{};
-    MySerializer<SingleTypeContext> ser1{buf, nullptr};
-    EXPECT_THAT(ser1.context(), ::testing::IsNull());
+TEST(SerializationContext, WhenContextIsNotTupleThenReturnThisContext) {
+    SingleTypeContext ctx{54};
+    BasicSerializationContext<DefaultConfig, SingleTypeContext> c1;
+    auto ser1 = c1.createSerializer(ctx);
 
-    MySerializer<MultipleTypesContext> ser2{buf, nullptr};
-    EXPECT_THAT(ser2.context(), ::testing::IsNull());
-
-    SingleTypeContext sctx{};
-    MyDeserializer<SingleTypeContext> des1{InputAdapter{buf.begin(), 1}, &sctx};
-    EXPECT_THAT(des1.context(), Eq(&sctx));
-
-    MultipleTypesContext mctx{};
-    MyDeserializer<MultipleTypesContext> des2{InputAdapter{buf.begin(), 1}, &mctx};
-    EXPECT_THAT(des2.context(), Eq(&mctx));
-
+    EXPECT_THAT(ser1.context<SingleTypeContext>(), Eq(ctx));
 }
 
-TEST(SerializationContext, WhenContextIsTupleThenContextCastOverloadCastsToIndividualTupleTypes) {
-    Buffer buf{};
-    MySerializer<MultipleTypesContext> ser1{buf, nullptr};
-    EXPECT_THAT(ser1.context<int>(), ::testing::IsNull());
-    EXPECT_THAT(ser1.context<float>(), ::testing::IsNull());
-    EXPECT_THAT(ser1.context<char>(), ::testing::IsNull());
+TEST(SerializationContext, WhenContextIsTupleThenReturnsTupleElements) {
+
+    MultipleTypesContext ctx{5, 798.654, 'F'};
+    BasicSerializationContext<DefaultConfig, MultipleTypesContext> c1;
+    auto ser1 = c1.createSerializer(ctx);
+
+    EXPECT_THAT(ser1.context<int>(), std::get<0>(ctx));
+    EXPECT_THAT(ser1.context<float>(), std::get<1>(ctx));
+    EXPECT_THAT(ser1.context<char>(), std::get<2>(ctx));
 }
 
-TEST(SerializationContext, WhenContextIsNotTupleThenContextCastOverloadReturnSameType) {
-    Buffer buf{};
-    SingleTypeContext ctx{};
-    MySerializer<SingleTypeContext> ser1{buf, &ctx};
-    EXPECT_THAT(ser1.context<SingleTypeContext>(), Eq(&ctx));
-}
-
-TEST(SerializationContext, SerializerDeserializerCanHaveInternalContextViaConfig) {
-    Buffer buf{};
-    SerializerConfigWithContext<void, float, int> ser{buf};
-    EXPECT_THAT(ser.context<int>(), ::testing::NotNull());
-    EXPECT_THAT(*ser.context<int>(), Eq(0));
-    *ser.context<int>() = 10;
-    EXPECT_THAT(*ser.context<int>(), Eq(10));
-
-    DeserializerConfigWithContext<void, char> des{InputAdapter{buf.begin(), 1}};
-    EXPECT_THAT(des.context<char>(), ::testing::NotNull());
-    EXPECT_THAT(*des.context<char>(), Eq(0));
-    *des.context<char>() = 10;
-    EXPECT_THAT(*des.context<char>(), Eq(10));
-
-    //new instance has new context
-    SerializerConfigWithContext<void, float, int> ser2{buf};
-    EXPECT_THAT(ser2.context<int>(), ::testing::NotNull());
-    EXPECT_THAT(*ser2.context<int>(), Eq(0));
-}
-
-TEST(SerializationContext, WhenInternalAndExternalContextIsTheSamePriorityGoesToInternalContext) {
-    Buffer buf{};
-    int externalCtx = 5;
-
-    SerializerConfigWithContext<int, float, int> ser{buf, &externalCtx};
-    EXPECT_THAT(ser.context<int>(), ::testing::NotNull());
-    EXPECT_THAT(*ser.context<int>(), Eq(0));
-    *ser.context<int>() = 2;
-
-    DeserializerConfigWithContext<int, int, char> des{InputAdapter{buf.begin(), 1}, &externalCtx};
-    EXPECT_THAT(des.context<char>(), ::testing::NotNull());
-    EXPECT_THAT(*des.context<char>(), Eq(0));
-    *des.context<int>() = 3;
-
-    EXPECT_THAT(externalCtx, Eq(5));
-}
-
-TEST(SerializationContext, ContextIfExistsReturnsNullWhenTypeDoesntExists) {
-    Buffer buf{};
-    std::tuple<double, short> extCtx1{};
-
-    SerializerConfigWithContext<std::tuple<double, short>, float, int> ser{buf, &extCtx1};
-    EXPECT_THAT(ser.contextOrNull<int>(), ::testing::NotNull());
+TEST(SerializationContext, WhenContextDoesntExistsThenContextOrNullReturnsNull) {
+    SingleTypeContext ctx1= 32;
+    BasicSerializationContext<DefaultConfig, SingleTypeContext> c1;
+    auto ser = c1.createSerializer(ctx1);
     EXPECT_THAT(ser.contextOrNull<char>(), ::testing::IsNull());
+    EXPECT_THAT(ser.contextOrNull<int>(), ::testing::NotNull());
+    *ser.contextOrNull<int>() = 2;
+    EXPECT_THAT(ctx1, Eq(2));
 
-    double extCtx2{};
-    DeserializerConfigWithContext<double, int, char> des{InputAdapter{buf.begin(), 1}, &extCtx2};
-    EXPECT_THAT(des.contextOrNull<double>(), ::testing::NotNull());
-    EXPECT_THAT(des.contextOrNull<float>(), ::testing::IsNull());
+    MultipleTypesContext ctx2{5, 798.654, 'F'};
+    BasicSerializationContext<DefaultConfig, MultipleTypesContext> c2;
+    auto des = c2.createDeserializer(ctx2);
+    EXPECT_THAT(des.contextOrNull<double>(), ::testing::IsNull());
+    EXPECT_THAT(des.contextOrNull<int>(), ::testing::NotNull());
+    EXPECT_THAT(*des.contextOrNull<char>(), Eq('F'));
+    EXPECT_THAT(*des.contextOrNull<int>(), Eq(5));
 }
 
-TEST(SerializationContext, WhenBitPackingIsEnabledThenInternalContextIsMovedToNewInstanceAndMovedBackAfterwards) {
-  Buffer buf{};
-  using Ser = SerializerConfigWithContext<void, int>;
-  using BPSer = typename Ser::BPEnabledType;
+struct Base { int value{}; };
+struct Derived: Base{};
 
-  using Des = DeserializerConfigWithContext<void, int>;
-  using BPDes = typename Des::BPEnabledType;
+TEST(SerializationContext, ContextWillTryToConvertIfTypeIsConvertible) {
+    Derived ctx1{};
+    BasicSerializationContext<DefaultConfig, Derived> c1;
+    auto ser = c1.createSerializer(ctx1);
+    EXPECT_THAT(ser.contextOrNull<Derived>(), ::testing::NotNull());
+    EXPECT_THAT(ser.contextOrNull<Base>(), ::testing::NotNull());
+    ser.context<Derived>();
+    ser.context<Base>();
+}
 
-  Ser ser{buf, nullptr};
-  *ser.context<int>() = 1;
-  EXPECT_THAT(*ser.context<int>(), Eq(1));
-  ser.enableBitPacking([](BPSer& s) {
-    EXPECT_THAT(*s.context<int>(), Eq(1));
-    *s.context<int>() = 2;
-  });
-  EXPECT_THAT(*ser.context<int>(), Eq(2));
+TEST(SerializationContext, WhenMultipleConvertibleTypesExistsThenFirstMatchIsTaken) {
+    {
+        using CTX1 = std::tuple<Base, int, Derived>;
+        CTX1 ctx1{};
+        std::get<0>(ctx1).value = 1;
+        std::get<2>(ctx1).value = 2;
+        BasicSerializationContext<DefaultConfig, CTX1> c1;
+        auto ser = c1.createSerializer(ctx1);
+        EXPECT_THAT(ser.context<Derived>().value, Eq(std::get<2>(ctx1).value));
+        EXPECT_THAT(ser.context<Base>().value, Eq(std::get<0>(ctx1).value));
+    }
 
-  Des des{InputAdapter{buf.begin(), 1}, nullptr};
-  *des.context<int>() = 3;
-  EXPECT_THAT(*des.context<int>(), Eq(3));
-  des.enableBitPacking([](BPDes& d) {
-    EXPECT_THAT(*d.context<int>(), Eq(3));
-    *d.context<int>() = 4;
-  });
-  EXPECT_THAT(*des.context<int>(), Eq(4));
+    {
+        using CTX2 = std::tuple<float, Derived, Base>;
+        CTX2 ctx2{};
+        std::get<1>(ctx2).value = 1;
+        std::get<2>(ctx2).value = 2;
+        BasicSerializationContext<DefaultConfig, CTX2> c2;
+        auto des = c2.createSerializer(ctx2);
 
+        EXPECT_THAT(des.context<Derived>().value, Eq(std::get<1>(ctx2).value));
+        //Base will not be accessable in this case, because Derived is first valid match
+        EXPECT_THAT(des.context<Base>().value, Eq(std::get<1>(ctx2).value));
+    }
 }

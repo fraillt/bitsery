@@ -69,12 +69,12 @@ void serialize(S& s, X& o)
 template <typename S>
 void serialize(S& s, Y& o)
 {
-	auto writeInt = [&s]( int& v) { s.template value<sizeof(v)>(v); };
+	auto writeInt = [](S& s, int& v) { s.template value<sizeof(v)>(v); };
 	s.template text<1>(o.s, 10000);
 	s.template value<sizeof(o.y)>(o.y);
 	s.container(o.arr, writeInt);
 	s.container(o.carr, writeInt);
-	s.container(o.vx, 10000, [&s](X& v) { s.object(v); });
+	s.container(o.vx, 10000, [](S& s, X& v) { s.object(v); });
 }
 
 
@@ -99,7 +99,7 @@ TEST(SerializeObject, GeneralConceptTest) {
 	z.x = X{ 234 };
 	
 
-	auto& ser = ctx.createSerializer();
+	auto ser = ctx.createSerializer();
 	ser.object(y);
 	ser.object(z);
 
@@ -107,7 +107,7 @@ TEST(SerializeObject, GeneralConceptTest) {
 	Y yres{};
 	Z zres{};
 
-	auto& des = ctx.createDeserializer();
+	auto des = ctx.createDeserializer();
 	des.object(yres);
 	des.object(zres);
 

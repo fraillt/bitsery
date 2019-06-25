@@ -40,9 +40,6 @@ namespace bitsery {
     struct DefaultConfig {
         //data will be stored in little endian, independant of host.
         static constexpr EndiannessType NetworkEndianness = EndiannessType::LittleEndian;
-        //this functionality allows to support backward/forward compatibility
-        //however reading from streams is not supported, because this functionality requires random access to buffer.
-        static constexpr bool BufferSessionsEnabled = false;
         //list of contexts that will be instanciated internally within serializer/deserializer.
         //contexts must be default constructable.
         //internal context has priority, if external context with the same type exists.

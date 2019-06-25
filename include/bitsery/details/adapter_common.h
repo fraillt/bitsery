@@ -39,6 +39,15 @@ namespace bitsery {
 
     namespace details {
 
+        template<typename T, template<typename...> class Template>
+        struct IsSpecializationOf : std::false_type {
+        };
+
+        template<template<typename...> class Template, typename... Args>
+        struct IsSpecializationOf<Template<Args...>, Template> : std::true_type {
+        };
+
+
         template<typename T>
         struct BitsSize:public std::integral_constant<size_t, sizeof(T) * 8> {
             static_assert(CHAR_BIT == 8, "only support systems with byte size of 8 bits");
@@ -107,19 +116,77 @@ namespace bitsery {
             using type = uint16_t;
         };
 
-        /*
-         * class used by session reader, to access underlying iterators of buffer
-         */
-        struct SessionAccess {
-            template <typename TReader, typename Iterator>
-            static Iterator& posIteratorRef(TReader& r) {
-                return r.posIt;
+        template<typename Adapter, typename Config, typename Context>
+        class AdapterAndContext {
+            struct NoContext{};
+        public:
+            using TConfig = Config;
+            using TContext = typename std::conditional<std::is_void<Context>::value, NoContext, Context>::type;
+            using TValue = typename Adapter::TValue;
+
+            static_assert(details::IsDefined<TValue>::value, "Please define adapter traits or include from <bitsery/traits/...>");
+
+            // take ownership of adapter
+            template <typename T=Context, typename std::enable_if<std::is_void<T>::value>::type* = nullptr>
+            explicit AdapterAndContext(Adapter&& adapter)
+                : _adapter{std::move(adapter)},
+                  _context{}
+            {
             }
-            template <typename TReader, typename Iterator>
-            static Iterator& endIteratorRef(TReader& r) {
-                return r.endIt;
+
+            // get context by reference, do not take ownership of it
+            template <typename T=Context, typename std::enable_if<!std::is_void<T>::value>::type* = nullptr>
+            explicit AdapterAndContext(Adapter&& adapter, TContext& ctx)
+                : _adapter{std::move(adapter)},
+                  _context{ctx}
+            {
             }
+
+            AdapterAndContext(const AdapterAndContext &) = delete;
+            AdapterAndContext &operator=(const AdapterAndContext &) = delete;
+
+            // todo conditionally noexcept
+            AdapterAndContext(AdapterAndContext &&) = default;
+            AdapterAndContext &operator=(AdapterAndContext &&) = default;
+
+            TContext& context() {
+                return _context;
+            }
+
+        protected:
+            Adapter _adapter;
+        private:
+            typename std::conditional<std::is_void<Context>::value,
+                TContext,TContext&>::type _context;
         };
+
+        //this class is used as wrapper for real Adapter, it only stores reference to real thing
+        template<typename AdapterAndCtx>
+        struct AdapterAndContextWrapper {
+        public:
+            using TConfig = typename AdapterAndCtx::TConfig;
+            using TContext = typename AdapterAndCtx::TContext;
+            using TValue = typename AdapterAndCtx::TValue;
+
+            explicit AdapterAndContextWrapper(AdapterAndCtx& adapterAndCtx)
+                : _wrapped{adapterAndCtx}
+            {
+            }
+
+            AdapterAndContextWrapper(const AdapterAndContextWrapper &) = delete;
+            AdapterAndContextWrapper &operator=(const AdapterAndContextWrapper &) = delete;
+
+            AdapterAndContextWrapper(AdapterAndContextWrapper &&) noexcept = default;
+            AdapterAndContextWrapper &operator=(AdapterAndContextWrapper &&) noexcept = default;
+
+            TContext& context() {
+                return _wrapped.context();
+            }
+
+        protected:
+            AdapterAndCtx& _wrapped;
+        };
+
 
     }
 }

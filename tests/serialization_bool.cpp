@@ -38,12 +38,12 @@ TEST(SerializeBooleans, BoolAsBit) {
     bool t2{false};
     bool res1;
     bool res2;
-    auto& ser = ctx.createSerializer();
+    auto ser = ctx.createSerializer();
     ser.enableBitPacking([&t1, &t2](Serializer& sbp) {
         sbp.boolValue(t1);
         sbp.boolValue(t2);
     });
-    auto& des = ctx.createDeserializer();
+    auto des = ctx.createDeserializer();
     des.enableBitPacking([&res1, &res2](Deserializer& sbp) {
         sbp.boolValue(res1);
         sbp.boolValue(res2);
@@ -60,14 +60,28 @@ TEST(SerializeBooleans, BoolAsByte) {
     bool t2{false};
     bool res1;
     bool res2;
-    auto& ser = ctx.createSerializer();
+    auto ser = ctx.createSerializer();
     ser.boolValue(t1);
     ser.boolValue(t2);
-    auto& des = ctx.createDeserializer();
+    auto des = ctx.createDeserializer();
     des.boolValue(res1);
     des.boolValue(res2);
 
     EXPECT_THAT(res1, Eq(t1));
     EXPECT_THAT(res2, Eq(t2));
     EXPECT_THAT(ctx.getBufferSize(), Eq(2));
+}
+
+TEST(SerializeBooleans, WhenReadingBoolByteReadsMoreThanOneThenInvalidDataErrorAndResultIsFalse) {
+    SerializationContext ctx;
+    auto ser = ctx.createSerializer();
+    ser.value1b(uint8_t{1});
+    ser.value1b(uint8_t{2});
+    bool res{};
+    auto des = ctx.createDeserializer();
+    des.boolValue(res);
+    EXPECT_THAT(res, Eq(true));
+    des.boolValue(res);
+    EXPECT_THAT(res, Eq(false));
+    EXPECT_THAT(ctx.br->error(), Eq(bitsery::ReaderError::InvalidData));
 }

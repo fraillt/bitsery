@@ -21,8 +21,8 @@ void serialize(S& s, MyStruct& o) {
 
 using namespace bitsery;
 
-//some helper types
-using Stream = std::fstream;
+//buffered stream adapter allows for faster writes
+using Writer = AdapterWriter<OutputBufferedStreamAdapter, DefaultConfig>;
 
 int main() {
     //set some random data
@@ -31,17 +31,18 @@ int main() {
 
     //open file stream for writing and reading
     auto fileName = "test_file.bin";
-    Stream s{fileName, s.binary | s.trunc | s.out};
+    std::fstream s{fileName, s.binary | s.trunc | s.out};
     if (!s.is_open()) {
         std::cout << "cannot open " << fileName << " for writing\n";
         return 0;
     }
+
     //we cannot use quick serialization function, because streams cannot use writtenBytesCount method
-    //for serialization we can use buffered stream adapter, it can greatly improve performance for some streams
-    Serializer<OutputBufferedStreamAdapter> ser{s};
+    Writer writer{s};
+    BasicSerializer<Writer> ser{writer};
     ser.object(data);
     //flush to writer
-    AdapterAccess::getWriter(ser).flush();
+    writer.flush();
     s.close();
     //reopen for reading
 

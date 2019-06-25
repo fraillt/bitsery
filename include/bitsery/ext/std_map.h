@@ -38,7 +38,7 @@ namespace bitsery {
             constexpr explicit StdMap(size_t maxSize):_maxSize{maxSize} {}
 
             template<typename Ser, typename Writer, typename T, typename Fnc>
-            void serialize(Ser &, Writer &writer, const T &obj, Fnc &&fnc) const {
+            void serialize(Ser &ser, Writer &writer, const T &obj, Fnc &&fnc) const {
                 using TKey = typename T::key_type;
                 using TValue = typename T::mapped_type;
                 auto size = obj.size();
@@ -46,11 +46,11 @@ namespace bitsery {
                 details::writeSize(writer, size);
 
                 for (auto &v:obj)
-                    fnc(const_cast<TKey &>(v.first), const_cast<TValue &>(v.second));
+                    fnc(ser, const_cast<TKey &>(v.first), const_cast<TValue &>(v.second));
             }
 
             template<typename Des, typename Reader, typename T, typename Fnc>
-            void deserialize(Des &, Reader &reader, T &obj, Fnc &&fnc) const {
+            void deserialize(Des &des, Reader &reader, T &obj, Fnc &&fnc) const {
                 using TKey = typename T::key_type;
                 using TValue = typename T::mapped_type;
 
@@ -63,7 +63,7 @@ namespace bitsery {
                 for (auto i = 0u; i < size; ++i) {
                     auto key{bitsery::Access::create<TKey>()};
                     auto value{bitsery::Access::create<TValue>()};
-                    fnc(key, value);
+                    fnc(des, key, value);
                     hint = obj.emplace_hint(hint, std::move(key), std::move(value));
                 }
             }

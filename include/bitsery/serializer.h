@@ -30,50 +30,32 @@
 
 namespace bitsery {
 
-    template<typename TAdapterWriter, typename TContext = void>
+    template<typename TAdapterWriter>
     class BasicSerializer {
     public:
-        //this is used by AdapterAccess class
-        using TWriter = TAdapterWriter;
         //helper type, that always returns bit-packing enabled type, useful inside serialize function when enabling bitpacking
         using BPEnabledType = BasicSerializer<typename std::conditional<TAdapterWriter::BitPackingEnabled,
-                TAdapterWriter, AdapterWriterBitPackingWrapper<TAdapterWriter>>::type, TContext>;
+                TAdapterWriter,
+                AdapterWriterBitPackingWrapper<TAdapterWriter>>::type>;
 
-        static_assert(details::IsSpecializationOf<typename TWriter::TConfig::InternalContext, std::tuple>::value,
-                      "Config::InternalContext must be std::tuple");
-
-        template <typename WriterParam>
-        explicit BasicSerializer(WriterParam&& w, TContext* context = nullptr)
-                : _writer{std::forward<WriterParam>(w)},
-                  _context{context},
-                  _internalContext{}
+        explicit BasicSerializer(TAdapterWriter& writer)
+                : _writer{writer}
         {
         }
-
-        //copying disabled
-        BasicSerializer(const BasicSerializer&) = delete;
-        BasicSerializer& operator = (const BasicSerializer&) = delete;
-
-        //move enabled
-        BasicSerializer(BasicSerializer&& ) = default;
-        BasicSerializer& operator = (BasicSerializer&& ) = default;
 
         /*
          * get serialization context.
          * this is optional, but might be required for some specific serialization flows.
          */
-        TContext* context() {
-            return _context;
-        }
 
         template <typename T>
-        T* context() {
-            return details::getContext<T>(_context, _internalContext);
+        T& context() {
+            return *details::getContext<true, T>(_writer.context());
         }
 
         template <typename T>
         T* contextOrNull() {
-            return details::getContextIfTypeExists<T>(_context, _internalContext);
+            return details::getContext<false, T>(_writer.context());
         }
 
         /*
@@ -86,7 +68,7 @@ namespace bitsery {
 
         template<typename T, typename Fnc>
         void object(const T &obj, Fnc &&fnc) {
-            fnc(const_cast<T& >(obj));
+            fnc(*this, const_cast<T& >(obj));
         }
 
         /*
@@ -144,7 +126,7 @@ namespace bitsery {
                           "extension doesn't support overload with `value<N>`");
             using ExtVType = typename traits::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
-            extension.serialize(*this, _writer, obj, [this](VType &v) { value<VSIZE>(v); });
+            extension.serialize(*this, _writer, obj, [](BasicSerializer& s, VType &v) { s.value<VSIZE>(v); });
         }
 
         template<typename T, typename Ext>
@@ -154,7 +136,7 @@ namespace bitsery {
                           "extension doesn't support overload with `object`");
             using ExtVType = typename traits::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
-            extension.serialize(*this, _writer, obj, [this](VType &v) { object(v); });
+            extension.serialize(*this, _writer, obj, [](BasicSerializer& s, VType &v) { s.object(v); });
         }
 
         /*
@@ -261,10 +243,6 @@ namespace bitsery {
             procContainer(std::begin(obj), std::end(obj));
         }
 
-        void align() {
-            _writer.align();
-        }
-
         //overloads for functions with explicit type size
 
         template<typename T>
@@ -333,15 +311,10 @@ namespace bitsery {
         template<typename T>
         void container8b(T &&obj) { container<8>(std::forward<T>(obj)); }
 
+
     private:
-        friend AdapterAccess;
-        // this is required when creating bitpacking serializer, to access internal context
-        friend class BasicSerializer<typename details::GetNonWrappedAdapterWriter<TAdapterWriter>::Writer, TContext>;
 
-        TAdapterWriter _writer;
-        TContext* _context;
-        typename TWriter::TConfig::InternalContext _internalContext;
-
+        TAdapterWriter& _writer;
 
         //process value types
         //false_type means that we must process all elements individually
@@ -367,7 +340,7 @@ namespace bitsery {
         void procContainer(It first, It last, Fnc fnc) {
             using TValue = typename std::decay<decltype(*first)>::type;
             for (; first != last; ++first) {
-                fnc(const_cast<TValue&>(*first));
+                fnc(*this, const_cast<TValue&>(*first));
             }
         }
 
@@ -406,11 +379,9 @@ namespace bitsery {
         template <typename Fnc>
         void procEnableBitPacking(const Fnc& fnc, std::false_type) {
             //create serializer using bitpacking wrapper
-            BPEnabledType tmp(_writer, _context);
-            // move internal context to and from of bitpacking enabled serializer
-            tmp._internalContext = std::move(_internalContext);
-            fnc(tmp);
-            _internalContext = std::move(tmp._internalContext);
+            AdapterWriterBitPackingWrapper<TAdapterWriter> bitPackingWrapper{_writer};
+            BPEnabledType serializer{bitPackingWrapper};
+            fnc(serializer);
         }
 
         //these are dummy functions for extensions that have TValue = void
@@ -429,28 +400,23 @@ namespace bitsery {
 
     };
 
-
-    //helper type
-    template <typename Adapter>
-    using Serializer = BasicSerializer<AdapterWriter<Adapter, DefaultConfig>>;
-
     //helper function that set ups all the basic steps and after serialziation returns serialized bytes count
-    template <typename Adapter, typename T>
-    size_t quickSerialization(Adapter adapter, const T& value) {
-        Serializer<Adapter> ser{std::move(adapter)};
+    template <typename OutputAdapter, typename T>
+    size_t quickSerialization(OutputAdapter adapter, const T& value) {
+        AdapterWriter<OutputAdapter, DefaultConfig> writer{std::move(adapter)};
+        BasicSerializer<AdapterWriter<OutputAdapter, DefaultConfig>> ser{writer};
         ser.object(value);
-        auto& w = AdapterAccess::getWriter(ser);
-        w.flush();
-        return w.writtenBytesCount();
+        writer.flush();
+        return writer.writtenBytesCount();
     }
 
     template <typename T>
     size_t quickMeasureSize(const T& value) {
-        BasicSerializer<MeasureSize> ser{MeasureSize{}};
+        MeasureSize writer{};
+        BasicSerializer<MeasureSize> ser{writer};
         ser.object(value);
-        auto& w = AdapterAccess::getWriter(ser);
-        w.flush();
-        return w.writtenBytesCount();
+        writer.flush();
+        return writer.writtenBytesCount();
     }
 
 }

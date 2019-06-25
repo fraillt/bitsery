@@ -27,11 +27,7 @@
 using bitsery::ext::BaseClass;
 using bitsery::ext::VirtualBaseClass;
 
-struct ConfigWithInheritanceCtx:bitsery::DefaultConfig {
-    using InternalContext = std::tuple<bitsery::ext::InheritanceContext>;
-};
-
-using SerContext = BasicSerializationContext<ConfigWithInheritanceCtx, void>;
+using SerContext = BasicSerializationContext<bitsery::DefaultConfig, bitsery::ext::InheritanceContext>;
 
 using testing::Eq;
 
@@ -68,7 +64,7 @@ struct Derive2NonVirtually:Base {
 template <typename S>
 void serialize(S& s, Derive2NonVirtually& o) {
     //use lambda to serialize base
-    s.ext(o, BaseClass<Base>{}, [&s](Base& b) {
+    s.ext(o, BaseClass<Base>{}, [](S& s, Base& b) {
         s.object(b);
     });
     s.value1b(o.y2);
@@ -140,8 +136,10 @@ TEST(SerializeExtensionInheritance, BaseClass) {
     Derive1NonVirtually rd1{};
 
     SerContext ctx{};
-    ctx.createSerializer().object(d1);
-    ctx.createDeserializer().object(rd1);
+    bitsery::ext::InheritanceContext inherCtxSer{};
+    bitsery::ext::InheritanceContext inherCtxDes{};
+    ctx.createSerializer(inherCtxSer).object(d1);
+    ctx.createDeserializer(inherCtxDes).object(rd1);
 
     EXPECT_THAT(rd1.x, Eq(d1.x));
     EXPECT_THAT(rd1.y1, Eq(d1.y1));
@@ -155,8 +153,10 @@ TEST(SerializeExtensionInheritance, VirtualBaseClass) {
     Derive1Virtually rd1{};
 
     SerContext ctx{};
-    ctx.createSerializer().object(d1);
-    ctx.createDeserializer().object(rd1);
+    bitsery::ext::InheritanceContext inherCtxSer{};
+    bitsery::ext::InheritanceContext inherCtxDes{};
+    ctx.createSerializer(inherCtxSer).object(d1);
+    ctx.createDeserializer(inherCtxDes).object(rd1);
 
     EXPECT_THAT(rd1.x, Eq(d1.x));
     EXPECT_THAT(rd1.y1, Eq(d1.y1));
@@ -174,8 +174,10 @@ TEST(SerializeExtensionInheritance, MultipleBasesWithoutVirtualInheritance) {
     MultipleInheritanceNonVirtualBase res{};
 
     SerContext ctx{};
-    ctx.createSerializer().object(md);
-    ctx.createDeserializer().object(res);
+    bitsery::ext::InheritanceContext inherCtxSer{};
+    bitsery::ext::InheritanceContext inherCtxDes{};
+    ctx.createSerializer(inherCtxSer).object(md);
+    ctx.createDeserializer(inherCtxDes).object(res);
 
     EXPECT_THAT(static_cast<Derive1NonVirtually&>(res).x, Eq(static_cast<Derive1NonVirtually&>(md).x));
     EXPECT_THAT(static_cast<Derive2NonVirtually&>(res).x, Eq(static_cast<Derive2NonVirtually&>(md).x));
@@ -217,8 +219,10 @@ TEST(SerializeExtensionInheritance, MultipleBasesWithVirtualInheritance) {
     MultipleInheritanceVirtualBase res{};
 
     SerContext ctx{};
-    ctx.createSerializer().object(md);
-    ctx.createDeserializer().object(res);
+    bitsery::ext::InheritanceContext inherCtxSer{};
+    bitsery::ext::InheritanceContext inherCtxDes{};
+    ctx.createSerializer(inherCtxSer).object(md);
+    ctx.createDeserializer(inherCtxDes).object(res);
     EXPECT_THAT(res, Eq(md));
     EXPECT_THAT(ctx.getBufferSize(), Eq(4)); //4 because virtual base
 }
@@ -233,8 +237,10 @@ TEST(SerializeExtensionInheritance, MultipleBasesWithVirtualInheritanceMultipleO
     std::vector<MultipleInheritanceVirtualBase> res{};
 
     SerContext ctx{};
-    ctx.createSerializer().container(data, 10);
-    ctx.createDeserializer().container(res, 10);
+    bitsery::ext::InheritanceContext inherCtxSer{};
+    bitsery::ext::InheritanceContext inherCtxDes{};
+    ctx.createSerializer(inherCtxSer).container(data, 10);
+    ctx.createDeserializer(inherCtxDes).container(res, 10);
     EXPECT_THAT(res, ::testing::ContainerEq(data));
     EXPECT_THAT(ctx.getBufferSize(), Eq(1 + 4 * data.size())); //1 container size + 4 because virtual base * elements
 }
@@ -264,7 +270,7 @@ public:
 template <typename S>
 void serialize(S& s, DerivedPrivateBase& o) {
     //use lambda for base serialization
-    s.ext(o, BaseClass<BasePrivateSerialize>{}, [&s](BasePrivateSerialize& b) {
+    s.ext(o, BaseClass<BasePrivateSerialize>{}, [](S& s, BasePrivateSerialize& b) {
         s.object(b);
     });
     s.value1b(o.z);
@@ -309,10 +315,12 @@ TEST(SerializeExtensionInheritance, WhenDerivedClassHasAmbiguousSerializeFunctio
     DerivedMemberSerialize res2{};
 
     SerContext ctx{};
-    ctx.createSerializer().object(data1);
-    ctx.createSerializer().object(data2);
-    ctx.createDeserializer().object(res1);
-    ctx.createDeserializer().object(res2);
+    bitsery::ext::InheritanceContext inherCtxSer{};
+    bitsery::ext::InheritanceContext inherCtxDes{};
+    ctx.createSerializer(inherCtxSer).object(data1);
+    ctx.createSerializer(inherCtxSer).object(data2);
+    ctx.createDeserializer(inherCtxDes).object(res1);
+    ctx.createDeserializer(inherCtxDes).object(res2);
     EXPECT_THAT(res1.getX(), Eq(data1.getX()));
     EXPECT_THAT(res1.z, Eq(data1.z));
     EXPECT_THAT(res2.x, Eq(data2.x));
@@ -348,8 +356,10 @@ TEST(SerializeExtensionInheritance, CanSerializeAbstractClass) {
     data.exec();
     ImplementedBase res{};
     SerContext ctx{};
-    ctx.createSerializer().object(data);
-    ctx.createDeserializer().object(res);
+    bitsery::ext::InheritanceContext inherCtxSer{};
+    bitsery::ext::InheritanceContext inherCtxDes{};
+    ctx.createSerializer(inherCtxSer).object(data);
+    ctx.createDeserializer(inherCtxDes).object(res);
     EXPECT_THAT(res.x, Eq(data.x));
     EXPECT_THAT(res.y, Eq(data.y));
 }

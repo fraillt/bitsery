@@ -12,7 +12,6 @@
 //  BaseClass - normal inheritance
 //  VirtualBaseClass - when virtual inheritance is used
 //in order for virtual inheritance to work, InheritanceContext is required. for normal inheritance it is not required
-//it can be created either internally (via configuration) or externally (pointer to context).
 #include <bitsery/ext/inheritance.h>
 
 using bitsery::ext::BaseClass;
@@ -32,7 +31,7 @@ struct Derive1:virtual Base {// virtually inherits from base
 };
 template <typename S>
 void serialize(S& s, Derive1& o) {
-    //define virtual inheritance, it will not compile if InheritanceContext is not defined in serializer/deserialzer
+    //define virtual inheritance, it will not compile if InheritanceContext is not defined in serializer/deserializer
     s.ext(o, VirtualBaseClass<Base>{});
     s.value1b(o.y1);
 }
@@ -81,18 +80,11 @@ namespace bitsery {
 
 using namespace bitsery;
 
-// since in this example we're using virtual inheritance we need InheritanceContext as well.
-// InheritanceContext is default constructable and has no useful information outside of serializer/deserializer
-// lets create it internally, via configuration
-struct ConfigWithContext:DefaultConfig {
-    //always add internal contexts to tuple
-    using InternalContext = std::tuple<ext::InheritanceContext>;
-};
 
 //some helper types
 using Buffer = std::vector<uint8_t>;
-using Writer = AdapterWriter<OutputBufferAdapter<Buffer>, ConfigWithContext>;
-using Reader = AdapterReader<InputBufferAdapter<Buffer>, ConfigWithContext>;
+using Writer = AdapterWriter<OutputBufferAdapter<Buffer>, DefaultConfig, ext::InheritanceContext>;
+using Reader = AdapterReader<InputBufferAdapter<Buffer>, DefaultConfig, ext::InheritanceContext>;
 
 int main() {
 
@@ -103,15 +95,20 @@ int main() {
 
     Buffer buf{};
 
-    BasicSerializer<Writer> ser{OutputBufferAdapter<Buffer>{buf}, nullptr};
+    ext::InheritanceContext ctx1;
+    Writer writer{buf, ctx1};
+    BasicSerializer<Writer> ser{writer};
     ser.object(data);
-    auto writtenSize = AdapterAccess::getWriter(ser).writtenBytesCount();
+    writer.flush();
+
 
     MultipleInheritance res{0};
-    BasicDeserializer<Reader> des{InputBufferAdapter<Buffer>{buf.begin(), writtenSize}};
+    ext::InheritanceContext ctx2;
+    Reader reader{{buf.begin(), writer.writtenBytesCount()}, ctx2};
+    BasicDeserializer<Reader> des{reader};
     des.object(res);
-    assert(AdapterAccess::getReader(des).error() == ReaderError::NoError && AdapterAccess::getReader(des).isCompletedSuccessfully());
+    assert(reader.error() == ReaderError::NoError && reader.isCompletedSuccessfully());
 
     assert(data.x == res.x && data.y1 == res.y1 && data.getY2() == res.getY2() && data.z == res.z);
-    assert(writtenSize == 4);//base is serialized once, because it is inherited virtually
+    assert(writer.writtenBytesCount() == 4);//base is serialized once, because it is inherited virtually
 }

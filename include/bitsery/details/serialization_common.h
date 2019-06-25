@@ -26,7 +26,7 @@
 #include <type_traits>
 #include <utility>
 #include <tuple>
-#include "adapter_utils.h"
+#include "adapter_common.h"
 #include "../traits/core/traits.h"
 
 
@@ -53,6 +53,38 @@ namespace bitsery {
 
     };
 
+
+    // convenient functors that can be passed as lambda to serializer/deserializer instead of writing lambda
+    // e.g. instead of writing this:
+    // s.container(c, 100, [](S& s, float& v) { s.ext4b(v, CompactValue{});});
+    // you can write like this
+    // s.container(c, 100, FtorExtValue<2, CompactValue>{});
+    template<size_t N, typename Ext>
+    struct FtorExtValue : public Ext {
+        template <typename S, typename T>
+        void operator()(S& s, T& v) const {
+            s.template ext<N>(v, static_cast<const Ext&>(*this));
+        }
+    };
+
+    template <typename Ext>
+    struct FtorExtValue1b: FtorExtValue<1, Ext> {};
+    template <typename Ext>
+    struct FtorExtValue2b: FtorExtValue<2, Ext> {};
+    template <typename Ext>
+    struct FtorExtValue4b: FtorExtValue<4, Ext> {};
+    template <typename Ext>
+    struct FtorExtValue8b: FtorExtValue<8, Ext> {};
+
+    template<typename Ext>
+    struct FtorExtObject : public Ext {
+        template <typename S, typename T>
+        void operator()(S& s, T& v) const {
+            s.ext(v, static_cast<const Ext&>(*this));
+        }
+    };
+
+
     //when call to serialize function is ambiguous (member and non-member serialize function exists for a type)
     //specialize this class by inheriting from either UseNonMemberFnc or UseMemberFnc
     //e.g.
@@ -65,23 +97,6 @@ namespace bitsery {
     struct UseNonMemberFnc : std::integral_constant<int, 1> {
     };
     struct UseMemberFnc : std::integral_constant<int, 2> {
-    };
-
-
-    //serializer/deserializer, does not have public interface to get underlying writer/reader
-    //to prevent users from using writer/reader directly, because they have different interface
-    //and they cannot be used describing serialization flows.: use extensions for this reason.
-    //this class allows to get underlying adapter writer/reader, and only should be used outside serialization functions.
-    struct AdapterAccess {
-        template<typename Serializer>
-        static typename Serializer::TWriter &getWriter(Serializer &s) {
-            return s._writer;
-        }
-
-        template<typename Deserializer>
-        static typename Deserializer::TReader &getReader(Deserializer &s) {
-            return s._reader;
-        }
     };
 
     namespace details {
@@ -285,129 +300,72 @@ namespace bitsery {
          * helper function for getting context from serializer/deserializer
          */
 
-        template<typename T, template<typename...> class Template>
-        struct IsSpecializationOf : std::false_type {
-        };
+        template<int Index, typename... Conds>
+        struct FindIndex : std::integral_constant<int, Index> {};
 
-        template<template<typename...> class Template, typename... Args>
-        struct IsSpecializationOf<Template<Args...>, Template> : std::true_type {
-        };
+        template<int Index, typename Cond, typename... Conds>
+        struct FindIndex<Index, Cond, Conds...> :
+            std::conditional<Cond::value, std::integral_constant<int, Index>, FindIndex<Index+1, Conds...>>::type
+        {};
 
-        //helper types for better error messages
-        template<typename Find, typename ... TList>
-        struct GetTypeIndex : std::integral_constant<size_t, 0> {
-        };
+        template <typename T, typename Tuple>
+        struct GetConvertibleTypeIndexFromTuple;
 
-        //found it
-        template<typename Find, typename ... Tail>
-        struct GetTypeIndex<Find, Find, Tail...> : std::integral_constant<size_t, 0> {
-        };
+        template <typename T, typename... Us>
+        struct GetConvertibleTypeIndexFromTuple<T, std::tuple<Us...>> : FindIndex<0, std::is_convertible<Us&, T&>...> {};
 
-        //iteratates over types
-        template<typename Find, typename Head, typename ... Tail>
-        struct GetTypeIndex<Find, Head, Tail...> : std::integral_constant<size_t,
-                1 + GetTypeIndex<Find, Tail...>::value> {
-        };
 
-        template<typename Find, typename ... TList>
-        struct HasType : std::integral_constant<bool, (GetTypeIndex<Find, TList...>::value<(sizeof ... (TList)))> {
-        };
+        template <typename T, typename Tuple>
+        struct IsExistsConvertibleTupleType;
 
-        template<typename TCast, typename Tuple>
-        struct HasContext : std::is_same<TCast, Tuple> {
-        };
+        template <typename T, typename... Us>
+        struct IsExistsConvertibleTupleType<T, std::tuple<Us...>> :
+            std::integral_constant<bool, GetConvertibleTypeIndexFromTuple<T, std::tuple<Us...>>::value != sizeof...(Us)> {};
 
-        template<typename TCast, typename ... Args>
-        struct HasContext<TCast, std::tuple<Args...>> : HasType<TCast, Args...> {
-        };
 
         /*
-         * get context, and static assert if type doesn't exists
+         * get context from internal or external, and check if it's convertible or not
          */
 
-        template<typename TCast, typename ... Args>
-        TCast *getContextImpl(std::tuple<Args...> *ctx, std::true_type) {
-            using TCastIndex = GetTypeIndex<TCast, Args...>;
-            static_assert(HasType<TCast, Args...>::value, "Invalid context cast. Context type doesn't exists.\nSome functionality requires (de)seserializer to have specific context.");
-            return std::addressof(std::get<TCastIndex::value>(*ctx));
+
+        template<bool AssertExists, typename TCast, typename TContext>
+        TCast* getDirectlyIfExists(TContext& ctx, std::true_type) {
+            return &static_cast<TCast&>(ctx);
         }
 
-        template<typename TCast, typename TContext>
-        TCast *getContextImpl(TContext *ctx, std::false_type) {
-            static_assert(std::is_convertible<TContext *, TCast *>::value, "Invalid context cast. Context type doesn't exists.\nSome functionality requires (de)seserializer to have specific context.");
-            return static_cast<TCast *>(ctx);
-        }
-
-        //get local ctx
-        template<typename TCast, typename TContext, typename TInternalContext>
-        TCast *chooseInternalOrExternalContext(TContext *, TInternalContext &internalCtx, std::true_type) {
-            return getContextImpl<TCast>(&internalCtx, std::true_type{});
-        }
-
-        //get external ctx
-        template<typename TCast, typename TContext, typename TInternalContext>
-        TCast *chooseInternalOrExternalContext(TContext *ctx, TInternalContext &, std::false_type) {
-            return ctx
-                   ? getContextImpl<TCast>(ctx, IsSpecializationOf<TContext, std::tuple>{})
-                   : nullptr;
-        }
-
-        template<typename TCast, typename TContext, typename TInternalContext>
-        TCast *getContext(TContext *ctx, TInternalContext &internalCtx) {
-            return chooseInternalOrExternalContext<TCast>(ctx, internalCtx, HasContext<TCast, TInternalContext>{});
-        }
-
-        /*
-         * get context, if type doesn't exists then do not static_assert but return null instead
-         */
-
-        template<typename TCast, typename TContext>
-        TCast *getContextFromTypeIfExists(TContext *ctx, std::true_type) {
-            return static_cast<TCast *>(ctx);
-        }
-
-        template<typename TCast, typename TContext>
-        TCast *getContextFromTypeIfExists(TContext *, std::false_type) {
+        template<bool AssertExists, typename TCast, typename TContext>
+        TCast* getDirectlyIfExists(TContext& , std::false_type) {
+            // TCast cannot be convertible from provided context
+            static_assert(!AssertExists,
+                          "Invalid context cast. Context type doesn't exists.\nSome functionality requires (de)seserializer to have specific context.");
             return nullptr;
         }
 
-        template<typename TCast, typename TContext>
-        TCast *getContextImplIfExists(TContext *ctx, std::false_type) {
-            return getContextFromTypeIfExists<TCast>(ctx, std::is_convertible<TContext *, TCast *>{});
+
+        template<bool AssertExists, typename TCast, typename ... TArgs>
+        TCast* getFromTupleIfExists(std::tuple<TArgs...>& ctx, std::true_type) {
+            using TupleIndex = GetConvertibleTypeIndexFromTuple<TCast, std::tuple<TArgs...>>;
+            return &static_cast<TCast&>(std::get<TupleIndex::value>(ctx));
         }
 
-        template<typename TCast, typename TContext>
-        TCast *getContextFromTupleIfExists(TContext *ctx, std::true_type tmp) {
-            return getContextImpl<TCast>(ctx, tmp);
-        }
-
-        template<typename TCast, typename TContext>
-        TCast *getContextFromTupleIfExists(TContext *, std::false_type) {
+        template<bool AssertExists, typename TCast, typename ... TArgs>
+        TCast* getFromTupleIfExists(std::tuple<TArgs...>& , std::false_type) {
+            // TCast cannot be convertible from provided context
+            static_assert(!AssertExists,
+                "Invalid context cast. Context type doesn't exists.\nSome functionality requires (de)seserializer to have specific context.");
             return nullptr;
         }
 
-        template<typename TCast, typename TContext>
-        TCast *getContextImplIfExists(TContext *ctx, std::true_type) {
-            return getContextFromTupleIfExists<TCast>(ctx, HasContext<TCast, TContext>{});
+        //non tuple context
+        template<bool AssertExists, typename TCast, typename TContext>
+        TCast* getContext(TContext& ctx) {
+            return getDirectlyIfExists<AssertExists, TCast>(ctx, std::is_convertible<TContext&, TCast&>{});
         }
 
-        //get local ctx
-        template<typename TCast, typename TContext, typename TInternalContext>
-        TCast *chooseInternalOrExternalContextIfExists(TContext *, TInternalContext &internalCtx, std::true_type) {
-            return getContextImplIfExists<TCast>(&internalCtx, std::true_type{});
-        }
-
-        //get external ctx
-        template<typename TCast, typename TContext, typename TInternalContext>
-        TCast *chooseInternalOrExternalContextIfExists(TContext *ctx, TInternalContext &, std::false_type) {
-            return ctx
-                   ? getContextImplIfExists<TCast>(ctx, IsSpecializationOf<TContext, std::tuple>{})
-                   : nullptr;
-        }
-
-        template<typename TCast, typename TContext, typename TInternalContext>
-        TCast *getContextIfTypeExists(TContext *ctx, TInternalContext &internalCtx) {
-            return chooseInternalOrExternalContextIfExists<TCast>(ctx, internalCtx, HasContext<TCast, TInternalContext>{});
+        //tuple context
+        template<bool AssertExists, typename TCast, typename ... TArgs>
+        TCast* getContext(std::tuple<TArgs...>& ctx) {
+            return getFromTupleIfExists<AssertExists, TCast>(ctx, IsExistsConvertibleTupleType<TCast, std::tuple<TArgs...>>{});
         }
 
     }

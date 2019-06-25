@@ -57,27 +57,27 @@ namespace bitsery {
             };
 
             template<typename Ser, typename Writer, typename T, typename Fnc>
-            void serialize(Ser &s, Writer &, const T &obj, Fnc &&fnc) const {
+            void serialize(Ser &s, Writer &writer, const T &obj, Fnc &&fnc) const {
                 assert(traits::ContainerTraits<TContainer>::size(_values) > 0);
                 auto index = details::findEntropyIndex(obj, _values);
                 s.ext(index, ext::ValueRange<size_t>{0u, traits::ContainerTraits<TContainer>::size(_values)});
                 if (_alignBeforeData)
-                    s.align();
+                    writer.align();
                 if (!index)
-                    fnc(const_cast<T &>(obj));
+                    fnc(s, const_cast<T &>(obj));
             }
 
             template<typename Des, typename Reader, typename T, typename Fnc>
-            void deserialize(Des &d, Reader &, T &obj, Fnc &&fnc) const {
+            void deserialize(Des &d, Reader &reader, T &obj, Fnc &&fnc) const {
                 assert(traits::ContainerTraits<TContainer>::size(_values) > 0);
                 size_t index{};
                 d.ext(index, ext::ValueRange<size_t>{0u, traits::ContainerTraits<TContainer>::size(_values)});
                 if (_alignBeforeData)
-                    d.align();
+                    reader.align();
                 if (index)
                     obj = *std::next(std::begin(_values), index-1);
                 else
-                    fnc(obj);
+                    fnc(d, obj);
             }
 
         private:

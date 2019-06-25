@@ -23,75 +23,109 @@
 #ifndef BITSERY_ADAPTER_WRITER_H
 #define BITSERY_ADAPTER_WRITER_H
 
-#include "details/sessions.h"
+#include "details/adapter_common.h"
 
 #include <cassert>
 #include <utility>
 
 namespace bitsery {
 
-    template <typename Config>
-    struct BasicMeasureSize {
-        //measure class is bit-packing enabled, no need to create wrapper for it
-        static constexpr bool BitPackingEnabled = true;
 
+    template <typename Config, typename Context=void>
+    class BasicMeasureSize {
+        struct NoExternalContext{};
+    public:
+
+        static constexpr bool BitPackingEnabled = true;
         using TConfig = Config;
+        using InternalContext = typename Config::InternalContext;
+        using ExternalContext = typename std::conditional<std::is_void<Context>::value, NoExternalContext, Context>::type;
+        using TValue = void;
+
+        static_assert(details::IsSpecializationOf<InternalContext, std::tuple>::value,
+                      "Config::InternalContext must be std::tuple");
+
+        // take ownership of adapter
+        template <typename T=Context, typename std::enable_if<std::is_void<T>::value>::type* = nullptr>
+        explicit BasicMeasureSize()
+        :_internalContext{},
+        _externalContext{}
+        {
+        }
+
+        // get context by reference, do not take ownership of it
+        template <typename T=Context, typename std::enable_if<!std::is_void<T>::value>::type* = nullptr>
+        explicit BasicMeasureSize(ExternalContext& ctx)
+        :_internalContext{},
+        _externalContext{ctx}
+        {
+        }
+
+
         template<size_t SIZE, typename T>
         void writeBytes(const T &) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
-            _bitsCount += details::BitsSize<T>::value;
-        }
-
-        template<typename T>
-        void writeBits(const T &, size_t bitsCount) {
-            static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
-            assert(bitsCount <= details::BitsSize<T>::value);
-            _bitsCount += bitsCount;
+            _currPosBits += details::BitsSize<T>::value;
         }
 
         template<size_t SIZE, typename T>
         void writeBuffer(const T *, size_t count) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
-            _bitsCount += details::BitsSize<T>::value * count;
+            _currPosBits += details::BitsSize<T>::value * count;
+        }
+
+        template<typename T>
+        void writeBits(const T &, size_t bitsCount) {
+            static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
+            assert(bitsCount <= details::BitsSize<T>::value);
+            _currPosBits += bitsCount;
+        }
+
+        void currentWritePos(size_t pos) {
+            align();
+            const auto newPos = pos * 8;
+            if (_currPosBits > newPos)
+                _prevLargestPos = _currPosBits;
+            _currPosBits = newPos;
+        }
+
+        size_t currentWritePos() const {
+            return _currPosBits / 8;
         }
 
         void align() {
-            auto _scratch = (_bitsCount % 8);
-            _bitsCount += (8 - _scratch) % 8;
+            auto _scratch = (_currPosBits % 8);
+            _currPosBits += (8 - _scratch) % 8;
         }
 
         void flush() {
             align();
-            //flush sessions count
-            if (_sessionsBytesCount > 0) {
-                _bitsCount += (_sessionsBytesCount + 4) * 8;
-                _sessionsBytesCount = 0;
-            }
-        }
-
-        void beginSession() {
-
-        }
-
-        void endSession() {
-            auto endPos = writtenBytesCount();
-            details::writeSize(*this, endPos);
-            auto sessionEndBytesCount = writtenBytesCount() - endPos;
-            //remove written bytes, because we'll write them at the end
-            _bitsCount -= sessionEndBytesCount * 8;
-            _sessionsBytesCount += sessionEndBytesCount;
         }
 
         //get size in bytes
         size_t writtenBytesCount() const {
-            return _bitsCount / 8;
+            const auto max = _currPosBits > _prevLargestPos ? _currPosBits : _prevLargestPos;
+            return max / 8;
+        }
+
+        ExternalContext& externalContext() {
+            return _externalContext;
+        }
+
+        InternalContext& internalContext() {
+            return _internalContext;
         }
 
     private:
-        size_t _bitsCount{};
-        size_t _sessionsBytesCount{};
+        InternalContext _internalContext;
+        typename std::conditional<std::is_void<Context>::value,
+            ExternalContext,ExternalContext&>::type _externalContext;
+
+    private:
+        size_t _prevLargestPos{};
+        size_t _currPosBits{};
     };
 
     //helper type for default config
@@ -100,28 +134,13 @@ namespace bitsery {
     template <typename TWriter>
     class AdapterWriterBitPackingWrapper;
 
-    template<typename OutputAdapter, typename Config>
-    struct AdapterWriter {
-        //this is required by serializer
+    template<typename OutputAdapter, typename Config, typename Context=void>
+    struct AdapterWriter: public details::AdapterAndContext<OutputAdapter, Config, Context> {
+
+        using details::AdapterAndContext<OutputAdapter, Config, Context>::AdapterAndContext;
+
         static constexpr bool BitPackingEnabled = false;
-        using TConfig = Config;
-        using TValue = typename OutputAdapter::TValue;
-
-        static_assert(details::IsDefined<TValue>::value, "Please define adapter traits or include from <bitsery/traits/...>");
-
-        explicit AdapterWriter(OutputAdapter&& adapter)
-                : _outputAdapter{std::move(adapter)}
-        {
-        }
-
-        AdapterWriter(const AdapterWriter &) = delete;
-
-        AdapterWriter &operator=(const AdapterWriter &) = delete;
-
-        //todo add conditional noexcept
-        AdapterWriter(AdapterWriter &&) = default;
-
-        AdapterWriter &operator=(AdapterWriter &&) = default;
+        using typename details::AdapterAndContext<OutputAdapter, Config, Context>::TValue;
 
         ~AdapterWriter() {
             flush();
@@ -153,25 +172,24 @@ namespace bitsery {
 
         }
 
+        void currentWritePos(size_t pos) {
+            this->_adapter.currentWritePos(pos);
+        }
+
+        size_t currentWritePos() const {
+            return this->_adapter.currentWritePos();
+        }
+
         void flush() {
-            _session.flushSessions(*this);
-            _outputAdapter.flush();
+            this->_adapter.flush();
         }
 
         size_t writtenBytesCount() const {
-            return _outputAdapter.writtenBytesCount();
-        }
-
-        void beginSession() {
-            _session.begin(*this);
-        }
-
-        void endSession() {
-            _session.end(*this);
+            return this->_adapter.writtenBytesCount();
         }
 
     private:
-        friend class AdapterWriterBitPackingWrapper<AdapterWriter<OutputAdapter, Config>>;
+
         template<typename T>
         void directWrite(T &&v, size_t count) {
             _directWriteSwapTag(std::forward<T>(v), count, std::integral_constant<bool,
@@ -182,45 +200,23 @@ namespace bitsery {
         void _directWriteSwapTag(const T *v, size_t count, std::true_type) {
             std::for_each(v, std::next(v, count), [this](const T &v) {
                 const auto res = details::swap(v);
-                _outputAdapter.write(reinterpret_cast<const TValue *>(&res), sizeof(T));
+                this->_adapter.write(reinterpret_cast<const TValue *>(&res), sizeof(T));
             });
         }
 
         template<typename T>
         void _directWriteSwapTag(const T *v, size_t count, std::false_type) {
-            _outputAdapter.write(reinterpret_cast<const TValue *>(v), count * sizeof(T));
+            this->_adapter.write(reinterpret_cast<const TValue *>(v), count * sizeof(T));
         }
 
-        OutputAdapter _outputAdapter;
-        typename std::conditional<Config::BufferSessionsEnabled,
-                session::SessionsWriter<AdapterWriter<OutputAdapter, Config >>,
-                session::DisabledSessionsWriter<AdapterWriter<OutputAdapter, Config>>>::type
-                _session{};
     };
 
-    //this class is used as wrapper for real AdapterWriter, it doesn't store writer itself just a reference
     template<typename TWriter>
-    class AdapterWriterBitPackingWrapper {
+    class AdapterWriterBitPackingWrapper: public details::AdapterAndContextWrapper<TWriter> {
     public:
-        //this is required by serializer
+        using details::AdapterAndContextWrapper<TWriter>::AdapterAndContextWrapper;
+
         static constexpr bool BitPackingEnabled = true;
-        using TConfig = typename TWriter::TConfig;
-
-        //make TValue unsigned for bit packing
-        using UnsignedType = typename std::make_unsigned<typename TWriter::TValue>::type;
-        using ScratchType = typename details::ScratchType<UnsignedType>::type;
-        static_assert(details::IsDefined<ScratchType>::value, "Underlying adapter value type is not supported");
-
-        explicit AdapterWriterBitPackingWrapper(TWriter &writer)
-                : _writer{writer}
-        {
-        }
-
-        AdapterWriterBitPackingWrapper(const AdapterWriterBitPackingWrapper&) = delete;
-        AdapterWriterBitPackingWrapper& operator = (const AdapterWriterBitPackingWrapper&) = delete;
-
-        AdapterWriterBitPackingWrapper(AdapterWriterBitPackingWrapper&& ) noexcept = default;
-        AdapterWriterBitPackingWrapper& operator = (AdapterWriterBitPackingWrapper&& ) noexcept = default;
 
         ~AdapterWriterBitPackingWrapper() {
             align();
@@ -232,7 +228,7 @@ namespace bitsery {
             static_assert(sizeof(T) == SIZE, "");
 
             if (!_scratchBits) {
-                _writer.template writeBytes<SIZE,T>(v);
+                this->_wrapped.template writeBytes<SIZE,T>(v);
             } else {
                 using UT = typename std::make_unsigned<T>::type;
                 writeBitsInternal(reinterpret_cast<const UT &>(v), details::BitsSize<T>::value);
@@ -244,7 +240,7 @@ namespace bitsery {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
             if (!_scratchBits) {
-                _writer.template writeBuffer<SIZE,T>(buf, count);
+                this->_wrapped.template writeBuffer<SIZE,T>(buf, count);
             } else {
                 using UT = typename std::make_unsigned<T>::type;
                 //todo improve implementation
@@ -268,26 +264,30 @@ namespace bitsery {
             writeBitsInternal(UnsignedType{}, (details::BitsSize<UnsignedType>::value - _scratchBits) % 8);
         }
 
+        void currentWritePos(size_t pos) {
+            align();
+            this->_wrapped.currentWritePos(pos);
+        }
+
+        size_t currentWritePos() const {
+            return this->_wrapped.currentWritePos();
+        }
+
         void flush() {
             align();
-            _writer._session.flushSessions(_writer);
+            this->_wrapped.flush();
         }
 
         size_t writtenBytesCount() const {
-            return _writer.writtenBytesCount();
-        }
-
-        void beginSession() {
-            align();
-            _writer._session.begin(_writer);
-        }
-
-        void endSession() {
-            align();
-            _writer._session.end(_writer);
+            return this->_wrapped.writtenBytesCount();
         }
 
     private:
+
+        using UnsignedType = typename std::make_unsigned<typename TWriter::TValue>::type;
+        using ScratchType = typename details::ScratchType<UnsignedType>::type;
+        static_assert(details::IsDefined<ScratchType>::value, "Underlying adapter value type is not supported");
+
 
         template<typename T>
         void writeBitsInternal(const T &v, size_t size) {
@@ -300,7 +300,7 @@ namespace bitsery {
                 _scratchBits += bits;
                 if (_scratchBits >= valueSize) {
                     auto tmp = static_cast<UnsignedType>(_scratch & _MASK);
-                    _writer.template writeBytes<sizeof(UnsignedType), UnsignedType >(tmp);
+                    this->_wrapped.template writeBytes<sizeof(UnsignedType), UnsignedType >(tmp);
                     _scratch >>= valueSize;
                     _scratchBits -= valueSize;
 
@@ -317,7 +317,7 @@ namespace bitsery {
                 _scratchBits += size;
                 if (_scratchBits >= details::BitsSize<UnsignedType>::value) {
                     auto tmp = static_cast<UnsignedType>(_scratch & _MASK);
-                    _writer.template writeBytes<sizeof(UnsignedType), UnsignedType>(tmp);
+                    this->_wrapped.template writeBytes<sizeof(UnsignedType), UnsignedType>(tmp);
                     _scratch >>= details::BitsSize<UnsignedType>::value;
                     _scratchBits -= details::BitsSize<UnsignedType>::value;
                 }
@@ -327,8 +327,6 @@ namespace bitsery {
         const UnsignedType _MASK = (std::numeric_limits<UnsignedType>::max)();
         ScratchType _scratch{};
         size_t _scratchBits{};
-        TWriter& _writer;
-
     };
 
     namespace details {
