@@ -42,7 +42,7 @@ using bitsery::ext::ReferencedByPointer;
 using testing::Eq;
 
 using TContext = std::tuple<PointerLinkingContext, InheritanceContext, PolymorphicContext<StandardRTTI>>;
-using SerContext = BasicSerializationContext<bitsery::DefaultConfig, TContext>;
+using SerContext = BasicSerializationContext<TContext>;
 
 //this is useful for PolymorphicContext to bind classes to serializer/deserializer
 using TSerializer = typename SerContext::TSerializer;
@@ -148,16 +148,16 @@ public:
     TContext plctx{};
     SerContext sctx{};
 
-    typename SerContext::TSerializer createSerializer() {
-        auto res = sctx.createSerializer(plctx);
+    typename SerContext::TSerializer& createSerializer() {
+        auto& res = sctx.createSerializer(plctx);
         std::get<2>(plctx).clear();
         //bind serializer with classes
         std::get<2>(plctx).registerBasesList<SerContext::TSerializer>(bitsery::ext::PolymorphicClassesList<Base>{});
         return res;
     }
 
-    typename SerContext::TDeserializer createDeserializer() {
-        auto res = sctx.createDeserializer(plctx);
+    typename SerContext::TDeserializer& createDeserializer() {
+        auto& res = sctx.createDeserializer(plctx);
         std::get<2>(plctx).clear();
         //bind deserializer with classes
         std::get<2>(plctx).registerBasesList<SerContext::TDeserializer>(bitsery::ext::PolymorphicClassesList<Base>{});
@@ -319,10 +319,10 @@ TEST_F(SerializeExtensionPointerPolymorphicTypes,
     createSerializer().ext(baseData, PointerOwner{});
 
     BaseClone *baseRes = nullptr; //this class will be registered, but it doesn't have relationships specified via PolymorphicBaseClass
-    auto des = sctx.createDeserializer(plctx);
+    auto& des = sctx.createDeserializer(plctx);
     auto &pc = std::get<2>(plctx);
     pc.clear();
     pc.registerBasesList<SerContext::TDeserializer>(bitsery::ext::PolymorphicClassesList<BaseClone>{});
     des.ext(baseRes, PointerOwner{});
-    EXPECT_THAT(sctx.br->error(), Eq(bitsery::ReaderError::InvalidPointer));
+    EXPECT_THAT(sctx.des->adapter().error(), Eq(bitsery::ReaderError::InvalidPointer));
 }

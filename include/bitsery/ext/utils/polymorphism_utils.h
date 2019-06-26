@@ -209,7 +209,7 @@ namespace bitsery {
             void deserialize(Deserializer& des, Reader& reader, TBase* obj,
                              TCreateFnc createFnc, TDestroyFnc destroyFnc) const {
                 size_t derivedIndex{};
-                details::readSize(reader, derivedIndex, std::numeric_limits<size_t>::max());
+                details::readSize(reader, derivedIndex, 0, std::false_type{});
 
                 auto baseToDerivedVecIt = _baseToDerivedArray.find(RTTI::template get<TBase>());
                 //base class is known at compile time, so we can assert on this one

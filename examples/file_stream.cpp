@@ -21,9 +21,6 @@ void serialize(S& s, MyStruct& o) {
 
 using namespace bitsery;
 
-//buffered stream adapter allows for faster writes
-using Writer = AdapterWriter<OutputBufferedStreamAdapter, DefaultConfig>;
-
 int main() {
     //set some random data
     MyStruct data{8941, MyEnum::V2, 0.045};
@@ -38,11 +35,10 @@ int main() {
     }
 
     //we cannot use quick serialization function, because streams cannot use writtenBytesCount method
-    Writer writer{s};
-    BasicSerializer<Writer> ser{writer};
+    BasicSerializer<OutputBufferedStreamAdapter> ser{s};
     ser.object(data);
     //flush to writer
-    writer.flush();
+    ser.adapter().flush();
     s.close();
     //reopen for reading
 

@@ -22,6 +22,8 @@
 
 
 #include <bitsery/ext/value_range.h>
+#include <bitsery/serializer.h>
+#include <bitsery/deserializer.h>
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
 
@@ -29,8 +31,8 @@
 using testing::Eq;
 using testing::ContainerEq;
 
-using AdapterBitPackingWriter = bitsery::AdapterWriterBitPackingWrapper<Writer>;
-using AdapterBitPackingReader = bitsery::AdapterReaderBitPackingWrapper<Reader>;
+using AdapterBitPackingWriter = bitsery::details::OutputAdapterBitPackingWrapper<Writer>;
+using AdapterBitPackingReader = bitsery::details::InputAdapterBitPackingWrapper<Reader>;
 
 
 struct IntegralUnsignedTypes {
@@ -58,7 +60,7 @@ TEST(DataBitsAndBytesOperations, WriteAndReadBitsMaxTypeValues) {
     bpw.writeBits(std::numeric_limits<uint8_t>::max(), 8);
     bpw.flush();
 
-    Reader br{InputAdapter{buf.begin(), bpw.writtenBytesCount()}};
+    Reader br{buf.begin(), bpw.writtenBytesCount()};
     AdapterBitPackingReader bpr{br};
     uint64_t v64{};
     uint32_t v32{};
@@ -106,7 +108,7 @@ TEST(DataBitsAndBytesOperations, WriteAndReadBits) {
     auto bytesCount = ((aBITS + bBITS + cBITS + dBITS + eBITS) / 8) +1 ;
     EXPECT_THAT(writtenSize, Eq(bytesCount));
     //read from buffer
-    Reader br{InputAdapter{buf.begin(), writtenSize}};
+    Reader br{buf.begin(), writtenSize};
     AdapterBitPackingReader bpr{br};
 
     IntegralUnsignedTypes res{};
@@ -139,7 +141,7 @@ TEST(DataBitsAndBytesOperations, WrittenSizeIsCountedPerByteNotPerBit) {
     EXPECT_THAT(writtenSize, Eq(1));
 
     //read from buffer
-    Reader br{InputAdapter{buf.begin(), writtenSize}};
+    Reader br{buf.begin(), writtenSize};
     AdapterBitPackingReader bpr{br};
     uint16_t tmp;
     bpr.readBits(tmp,4);
@@ -150,7 +152,7 @@ TEST(DataBitsAndBytesOperations, WrittenSizeIsCountedPerByteNotPerBit) {
     EXPECT_THAT(bpr.error(), Eq(bitsery::ReaderError::DataOverflow));//false
 
     //part of next byte
-    Reader br1{InputAdapter{buf.begin(), writtenSize}};
+    Reader br1{buf.begin(), writtenSize};
     AdapterBitPackingReader bpr1{br1};
     bpr1.readBits(tmp,2);
     EXPECT_THAT(bpr1.error(), Eq(bitsery::ReaderError::NoError));
@@ -158,7 +160,7 @@ TEST(DataBitsAndBytesOperations, WrittenSizeIsCountedPerByteNotPerBit) {
     EXPECT_THAT(bpr1.error(), Eq(bitsery::ReaderError::DataOverflow));//false
 
     //bigger than byte
-    Reader br2{InputAdapter{buf.begin(), writtenSize}};
+    Reader br2{buf.begin(), writtenSize};
     AdapterBitPackingReader bpr2{br2};
     bpr2.readBits(tmp,9);
     EXPECT_THAT(bpr2.error(), Eq(bitsery::ReaderError::DataOverflow));//false
@@ -181,7 +183,7 @@ TEST(DataBitsAndBytesOperations, ConsecutiveCallsToAlignHasNoEffect) {
     bpw.flush();
 
     unsigned char tmp;
-    Reader br{InputAdapter{buf.begin(), bpw.writtenBytesCount()}};
+    Reader br{buf.begin(), bpw.writtenBytesCount()};
     AdapterBitPackingReader bpr{br};
     bpr.readBits(tmp,2);
     EXPECT_THAT(tmp, Eq(3u));
@@ -214,14 +216,14 @@ TEST(DataBitsAndBytesOperations, AlignWritesZerosBits) {
     auto writtenSize = bpw.writtenBytesCount();
     EXPECT_THAT(writtenSize, Eq(1));
     unsigned char tmp;
-    Reader br1{InputAdapter{buf.begin(), writtenSize}};
+    Reader br1{buf.begin(), writtenSize};
     AdapterBitPackingReader bpr1{br1};
     bpr1.readBits(tmp,2);
     //read aligned bits
     bpr1.readBits(tmp,6);
     EXPECT_THAT(tmp, Eq(0));
 
-    Reader br2{InputAdapter{buf.begin(), writtenSize}};
+    Reader br2{buf.begin(), writtenSize};
     AdapterBitPackingReader bpr2{br2};
     //read 2 bits
     bpr2.readBits(tmp,2);
@@ -266,7 +268,7 @@ TEST(DataBitsAndBytesOperations, WriteAndReadBytes) {
 
     EXPECT_THAT(writtenSize, Eq(18));
     //read from buffer
-    Reader br{InputAdapter{buf.begin(), writtenSize}};
+    Reader br{buf.begin(), writtenSize};
     IntegralTypes res{};
     br.readBytes<4>(res.b);
     br.readBytes<2>(res.c);
@@ -312,7 +314,7 @@ TEST(DataBitsAndBytesOperations, WriteAndReadBytesWithBitPackingWrapper) {
 
     EXPECT_THAT(writtenSize, Eq(18));
     //read from buffer
-    Reader br{InputAdapter{buf.begin(), writtenSize}};
+    Reader br{buf.begin(), writtenSize};
     AdapterBitPackingReader bpr{br};
     IntegralTypes res{};
     bpr.readBytes<4>(res.b);
@@ -343,7 +345,7 @@ TEST(DataBitsAndBytesOperations, ReadWriteFncCanAcceptSignedData) {
     bw.writeBuffer<2>(src, DATA_SIZE);
     bw.flush();
     //read from buffer
-    Reader br1{InputAdapter{buf.begin(), bw.writtenBytesCount()}};
+    Reader br1{buf.begin(), bw.writtenBytesCount()};
     int16_t dst[DATA_SIZE]{};
     br1.readBuffer<2>(dst, DATA_SIZE);
     EXPECT_THAT(br1.error(), Eq(bitsery::ReaderError::NoError));
@@ -366,7 +368,7 @@ TEST(DataBitsAndBytesOperations, ReadWriteCanWorkOnUnalignedData) {
     EXPECT_THAT(writtenSize, Eq(sizeof(src) + 1));
 
     //read from buffer
-    Reader br1{InputAdapter{buf.begin(), writtenSize}};
+    Reader br1{buf.begin(), writtenSize};
     AdapterBitPackingReader bpr1{br1};
     int16_t dst[DATA_SIZE]{};
     uint8_t tmp{};
@@ -394,7 +396,7 @@ TEST(DataBitsAndBytesOperations, RegressionTestReadBytesAfterReadBitsWithLotsOfZ
     bpw.flush();
 
     //read from buffer
-    Reader br{InputAdapter{buf.begin(), bpw.writtenBytesCount()}};
+    Reader br{buf.begin(), bpw.writtenBytesCount()};
     AdapterBitPackingReader bpr{br};
     uint8_t tmp{};
     bpr.readBits(tmp, 2);

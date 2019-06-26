@@ -125,5 +125,5 @@ TEST(SerializeText, WhenContainerOrTextSizeIsMoreThanMaxThenInvalidDataError) {
     std::string tmp = "larger text then allowed";
     ctx.createSerializer().text1b(tmp,100);
     ctx.createDeserializer().text1b(tmp, 10);
-    EXPECT_THAT(ctx.br->error(), Eq(bitsery::ReaderError::InvalidData));
+    EXPECT_THAT(ctx.des->adapter().error(), Eq(bitsery::ReaderError::InvalidData));
 }

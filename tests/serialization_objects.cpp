@@ -99,7 +99,7 @@ TEST(SerializeObject, GeneralConceptTest) {
 	z.x = X{ 234 };
 	
 
-	auto ser = ctx.createSerializer();
+	auto& ser = ctx.createSerializer();
 	ser.object(y);
 	ser.object(z);
 
@@ -107,7 +107,7 @@ TEST(SerializeObject, GeneralConceptTest) {
 	Y yres{};
 	Z zres{};
 
-	auto des = ctx.createDeserializer();
+	auto& des = ctx.createDeserializer();
 	des.object(yres);
 	des.object(zres);
 

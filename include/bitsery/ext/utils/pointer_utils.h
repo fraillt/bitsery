@@ -29,7 +29,7 @@
 #include <algorithm>
 #include <cassert>
 #include "polymorphism_utils.h"
-#include "../../details/adapter_utils.h"
+#include "../../details/adapter_common.h"
 #include "../../details/serialization_common.h"
 
 namespace bitsery {
@@ -282,7 +282,7 @@ namespace bitsery {
                 template<typename Des, typename Reader, typename T, typename Fnc>
                 void deserialize(Des& des, Reader& r, T& obj, Fnc&& fnc) const {
                     size_t id{};
-                    details::readSize(r, id, std::numeric_limits<size_t>::max());
+                    details::readSize(r, id, 0, std::false_type{});
                     auto& ctx = des.template context<PointerLinkingContext>();
                     auto& alloc = ctx.getAllocator();
                     if (id) {

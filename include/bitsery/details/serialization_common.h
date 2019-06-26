@@ -58,7 +58,7 @@ namespace bitsery {
     // e.g. instead of writing this:
     // s.container(c, 100, [](S& s, float& v) { s.ext4b(v, CompactValue{});});
     // you can write like this
-    // s.container(c, 100, FtorExtValue<2, CompactValue>{});
+    // s.container(c, 100, FtorExtValue2b<CompactValue>{});
     template<size_t N, typename Ext>
     struct FtorExtValue : public Ext {
         template <typename S, typename T>
@@ -367,6 +367,96 @@ namespace bitsery {
         TCast* getContext(std::tuple<TArgs...>& ctx) {
             return getFromTupleIfExists<AssertExists, TCast>(ctx, IsExistsConvertibleTupleType<TCast, std::tuple<TArgs...>>{});
         }
+
+        template <typename Adapter, typename Context>
+        class AdapterAndContextRef {
+        public:
+            static constexpr bool HasContext = true;
+            using Config = typename Adapter::TConfig;
+
+            // constructing adapter in place is important,
+            // because enableBitPacking might create instance with bit write/read enabled adapter wrapper,
+            // which has non trivial destructor
+            template <typename ... TArgs>
+            explicit AdapterAndContextRef(Context& ctx, TArgs&& ... args)
+                : _adapter{std::forward<TArgs>(args)...},
+                  _context{ctx}
+            {
+            }
+
+            /*
+             * get serialization context.
+             * this is optional, but might be required for some specific serialization flows.
+             */
+
+            template <typename T>
+            T& context() {
+                return *getContext<true, T>(_context);
+            }
+
+            template <typename T>
+            T* contextOrNull() {
+                return getContext<false, T>(_context);
+            }
+
+            Adapter& adapter() & {
+                return _adapter;
+            }
+
+            Adapter adapter() && {
+                return std::move(_adapter);
+            }
+
+        protected:
+            Adapter _adapter;
+            Context& _context;
+        };
+
+        template <typename Adapter>
+        class AdapterAndContextRef<Adapter, void> {
+        public:
+            static constexpr bool HasContext = false;
+            using Config = typename Adapter::TConfig;
+
+            template <typename ... TArgs>
+            explicit AdapterAndContextRef(TArgs&& ... args)
+                : _adapter{std::forward<TArgs>(args)...}
+            {
+            }
+
+            template <typename T>
+            T& context() {
+                static_assert(std::is_void<T>::value, "Context is not defined (is void).");
+            }
+
+            template <typename T>
+            T* contextOrNull() {
+                return nullptr;
+            }
+
+            Adapter& adapter() & {
+                return _adapter;
+            }
+
+            Adapter adapter() && {
+                return std::move(_adapter);
+            }
+
+        protected:
+            Adapter _adapter;
+        };
+
+/**
+ * other helper meta-functions
+ */
+
+        template<typename T, template<typename...> class Template>
+        struct IsSpecializationOf : std::false_type {
+        };
+
+        template<template<typename...> class Template, typename... Args>
+        struct IsSpecializationOf<Template<Args...>, Template> : std::true_type {
+        };
 
     }
 }

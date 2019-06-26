@@ -31,8 +31,8 @@ using namespace testing;
 
 using bitsery::ext::Entropy;
 
-using BPSer = bitsery::BasicSerializer<bitsery::AdapterWriterBitPackingWrapper<Writer>>;
-using BPDes = bitsery::BasicDeserializer<bitsery::AdapterReaderBitPackingWrapper<Reader>>;
+using BPSer = SerializationContext::TSerializerBPEnabled;
+using BPDes = SerializationContext::TDeserializerBPEnabled;
 
 
 TEST(SerializeExtensionEntropy, WhenEntropyEncodedThenOnlyWriteIndexUsingMinRequiredBits) {

@@ -34,8 +34,8 @@ using namespace bitsery;
 
 //some helper types
 using Buffer = std::vector<uint8_t>;
-using Writer = AdapterWriter<OutputBufferAdapter<Buffer>, DefaultConfig>;
-using Reader = AdapterReader<InputBufferAdapter<Buffer>, DefaultConfig>;
+using Writer = OutputBufferAdapter<Buffer>;
+using Reader = InputBufferAdapter<Buffer>;
 
 int main() {
 
@@ -44,23 +44,21 @@ int main() {
     data.emplace_back(145.4f, 84.48f);
     std::vector<MyData> res{};
 
-    //we cant use quick (de)serialization helper methods, because we ant to serialize container directly
     //create buffer
     Buffer buffer{};
 
+    //we cant use quick (de)serialization helper methods, because we ant to serialize container directly
     //create writer and serialize container
-    Writer writer{buffer};
-    BasicSerializer<Writer> ser{writer};
+    BasicSerializer<Writer> ser{buffer};
     ser.container(data, 10);
-    writer.flush();
+    ser.adapter().flush();
 
     //create reader and deserialize container
-    Reader reader{{buffer.begin(), writer.writtenBytesCount()}};
-    BasicDeserializer<Reader> des{reader};
+    BasicDeserializer<Reader> des{buffer.begin(), ser.adapter().writtenBytesCount()};
     des.container(res, 10);
 
     //check if everything went ok
-    assert(reader.error() == ReaderError::NoError && reader.isCompletedSuccessfully());
+    assert(des.adapter().error() == ReaderError::NoError && des.adapter().isCompletedSuccessfully());
     assert(res == data);
 }
 

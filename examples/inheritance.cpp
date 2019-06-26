@@ -83,8 +83,8 @@ using namespace bitsery;
 
 //some helper types
 using Buffer = std::vector<uint8_t>;
-using Writer = AdapterWriter<OutputBufferAdapter<Buffer>, DefaultConfig, ext::InheritanceContext>;
-using Reader = AdapterReader<InputBufferAdapter<Buffer>, DefaultConfig, ext::InheritanceContext>;
+using Writer = OutputBufferAdapter<Buffer>;
+using Reader = InputBufferAdapter<Buffer>;
 
 int main() {
 
@@ -96,19 +96,12 @@ int main() {
     Buffer buf{};
 
     ext::InheritanceContext ctx1;
-    Writer writer{buf, ctx1};
-    BasicSerializer<Writer> ser{writer};
-    ser.object(data);
-    writer.flush();
-
+    auto writtenSize = quickSerialization(ctx1, Writer{buf}, data);
+    assert(writtenSize == 4);//base is serialized once, because it is inherited virtually
 
     MultipleInheritance res{0};
     ext::InheritanceContext ctx2;
-    Reader reader{{buf.begin(), writer.writtenBytesCount()}, ctx2};
-    BasicDeserializer<Reader> des{reader};
-    des.object(res);
-    assert(reader.error() == ReaderError::NoError && reader.isCompletedSuccessfully());
-
+    auto state = quickDeserialization(ctx2, Reader{buf.begin(), writtenSize}, res);
+    assert(state.first == ReaderError::NoError && state.second);
     assert(data.x == res.x && data.y1 == res.y1 && data.getY2() == res.getY2() && data.z == res.z);
-    assert(writer.writtenBytesCount() == 4);//base is serialized once, because it is inherited virtually
 }

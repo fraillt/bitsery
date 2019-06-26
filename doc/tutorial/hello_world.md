@@ -76,9 +76,9 @@ Create buffer and use helper functions for serialization and deserialization.
 ```cpp
 Buffer buffer;
 
-auto writtenSize = quickSerialization<OutputAdapter>(buffer, data);
+auto writtenSize = quickSerialization<OutputAdapter>(data, buffer);
 
-auto state = quickDeserialization<InputAdapter>({buffer.begin(), writtenSize}, res);
+auto state = quickDeserialization<InputAdapter>(res, buffer.begin(), writtenSize);
 ```
 
 These helper functions use default configuration *bitsery::DefaultConfig*
@@ -118,9 +118,9 @@ int main() {
     MyStruct res{};
 
     Buffer buffer;
-    auto writtenSize = quickSerialization<OutputAdapter>(buffer, data);
+    auto writtenSize = quickSerialization<OutputAdapter>(data, buffer);
 
-    auto state = quickDeserialization<InputAdapter>({buffer.begin(), writtenSize}, res);
+    auto state = quickDeserialization<InputAdapter>(res, buffer.begin(), writtenSize);
 
     assert(state.first == ReaderError::NoError && state.second);
     assert(data.fs == res.fs && data.i == res.i && std::strcmp(data.str, res.str) == 0);

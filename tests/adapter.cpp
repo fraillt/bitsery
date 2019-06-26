@@ -22,25 +22,30 @@
 
 
 #include <bitsery/adapter/buffer.h>
-#include <bitsery/adapter_writer.h>
-#include <bitsery/adapter_reader.h>
+#include <bitsery/adapter/stream.h>
+#include <bitsery/adapter/measure_size.h>
+#include <bitsery/deserializer.h>
 #include <bitsery/traits/vector.h>
 #include <bitsery/traits/array.h>
 #include <bitsery/traits/string.h>
+
 #include <gmock/gmock.h>
-#include <bitsery/adapter/stream.h>
 
 //some helper types
 using Buffer = std::vector<char>;
 using OutputAdapter = bitsery::OutputBufferAdapter<Buffer>;
 using InputAdapter = bitsery::InputBufferAdapter<Buffer>;
-using Writer = bitsery::AdapterWriter<OutputAdapter, bitsery::DefaultConfig>;
-using Reader = bitsery::AdapterReader<InputAdapter, bitsery::DefaultConfig>;
 
 using bitsery::ReaderError;
 
 using testing::Eq;
 using testing::Ge;
+
+struct DisableAdapterErrorsConfig {
+    static constexpr bitsery::EndiannessType Endianness = bitsery::DefaultConfig::Endianness;
+    static constexpr bool CheckAdapterErrors = false;
+    static constexpr bool CheckDataErrors = true;
+};
 
 TEST(OutputBuffer, WhenInitialBufferIsEmptyThenResizeInAdapterConstructor) {
     //setup data
@@ -53,7 +58,7 @@ TEST(OutputBuffer, WhenInitialBufferIsEmptyThenResizeInAdapterConstructor) {
 TEST(OutputBuffer, WhenSetWritePositionThenResizeUnderlyingBufferIfRequired) {
     //setup data
     Buffer buf{};
-    Writer w{buf};
+    OutputAdapter w{buf};
     const auto initialSize = buf.size();
     EXPECT_THAT(buf.size(), Eq(initialSize));
     EXPECT_THAT(w.currentWritePos(), Eq(0));
@@ -65,7 +70,7 @@ TEST(OutputBuffer, WhenSetWritePositionThenResizeUnderlyingBufferIfRequired) {
 TEST(OutputBuffer, WhenSettingCurrentPositionBeforeBufferEndThenWrittenBytesCountIsNotAffected) {
     //setup data
     Buffer buf{};
-    Writer w{buf};
+    OutputAdapter w{buf};
     const auto initialSize = buf.size();
     EXPECT_THAT(buf.size(), Eq(initialSize));
     EXPECT_THAT(w.writtenBytesCount(), Eq(0));
@@ -76,11 +81,22 @@ TEST(OutputBuffer, WhenSettingCurrentPositionBeforeBufferEndThenWrittenBytesCoun
     EXPECT_THAT(w.writtenBytesCount(), Eq(initialSize + 10 + 8));
 }
 
+TEST(OutputBuffer, CanWorkWithFixedSizeBuffer) {
+    //setup data
+    std::array<uint8_t, 10> buf{};
+    bitsery::OutputBufferAdapter<std::array<uint8_t, 10>> w{buf};
+    const auto initialSize = buf.size();
+    EXPECT_THAT(buf.size(), Eq(initialSize));
+    EXPECT_THAT(w.currentWritePos(), Eq(0));
+    w.currentWritePos(5);
+    EXPECT_THAT(w.currentWritePos(), Eq(5));
+}
+
 TEST(InputBuffer, CorrectlySetsAndGetsCurrentReadPosition) {
 
     Buffer buf{};
     buf.resize(100);
-    Reader r{{buf.begin(), 10}};
+    InputAdapter r{buf.begin(), 10};
     r.currentReadPos(5);
     EXPECT_THAT(r.currentReadPos(), Eq(5));
     r.currentReadPos(0);
@@ -95,7 +111,7 @@ TEST(InputBuffer, WhenSetReadPositionOutOfRangeThenDataOverflow) {
 
     Buffer buf{};
     buf.resize(100);
-    Reader r{{buf.begin(), 10}};
+    InputAdapter r{buf.begin(), 10};
     r.currentReadPos(10);
     EXPECT_THAT(r.error(), Eq(ReaderError::NoError));
     r.currentReadPos(11);
@@ -105,7 +121,7 @@ TEST(InputBuffer, WhenSetReadPositionOutOfRangeThenDataOverflow) {
 TEST(InputBuffer, WhenSetReadEndPositionOutOfRangeThenDataOverflow) {
     Buffer buf{};
     buf.resize(100);
-    Reader r{{buf.begin(), 10}};
+    InputAdapter r{buf.begin(), 10};
     r.currentReadEndPos(11);
     EXPECT_THAT(r.error(), Eq(ReaderError::DataOverflow));
 }
@@ -113,7 +129,7 @@ TEST(InputBuffer, WhenSetReadEndPositionOutOfRangeThenDataOverflow) {
 TEST(InputBuffer, WhenReadEndPositionIsNotSetThenReturnZeroAsBufferEndPosition) {
     Buffer buf{};
     buf.resize(100);
-    Reader r{{buf.begin(), 10}};
+    InputAdapter r{buf.begin(), 10};
     EXPECT_THAT(r.currentReadEndPos(), Eq(0));
     r.currentReadEndPos(5);
     EXPECT_THAT(r.currentReadEndPos(), Eq(5));
@@ -124,7 +140,7 @@ TEST(InputBuffer, WhenReadEndPositionIsNotSetThenReturnZeroAsBufferEndPosition) 
 TEST(InputBuffer, WhenReadEndPositionIsNotZeroThenDataOverflowErrorWillBeIgnored) {
     Buffer buf{};
     buf.resize(100);
-    Reader r{{buf.begin(), 1}};
+    InputAdapter r{buf.begin(), 1};
     r.currentReadEndPos(1);
     uint32_t tmp{};
     r.readBytes<4>(tmp);
@@ -140,7 +156,7 @@ TEST(InputBuffer, WhenReadEndPositionIsNotZeroThenDataOverflowErrorWillBeIgnored
 TEST(InputBuffer, WhenReadingPastReadEndPositionOrBufferEndThenReadPositionDoesntChange) {
     Buffer buf{};
     buf.resize(10);
-    Reader r{{buf.begin(), 3}};
+    InputAdapter r{buf.begin(), 3};
     uint32_t tmp{};
     r.currentReadEndPos(2);
     r.readBytes<4>(tmp);
@@ -157,7 +173,7 @@ TEST(InputBuffer, WhenReadingPastReadEndPositionOrBufferEndThenReadPositionDoesn
 TEST(InputBuffer, WhenReaderHasErrorsThenSettingReadPosAndReadEndPosIsIgnoredAndGettingAlwaysReturnsZero) {
     Buffer buf{};
     buf.resize(10);
-    Reader r{{buf.begin(), 10}};
+    InputAdapter r{buf.begin(), 10};
     uint32_t tmp{};
     r.readBytes<4>(tmp);
     r.currentReadEndPos(5);
@@ -178,52 +194,79 @@ TEST(InputBuffer, ConstDataForBufferAllAdapters) {
     //create and write to buffer
     uint16_t data = 7549;
     Buffer bufWrite{};
-    Writer bw{bufWrite};
+    OutputAdapter bw{bufWrite};
     bw.writeBytes<2>(data);
     bw.flush();
     const Buffer buf{bufWrite};
 
     //read from buffer
-    using Adapter1 = bitsery::InputBufferAdapter<const Buffer>;
-    using Adapter2 = bitsery::UnsafeInputBufferAdapter<const Buffer>;
 
-    bitsery::AdapterReader<Adapter1, bitsery::DefaultConfig> r1{Adapter1{buf.begin(), buf.end()}};
-    bitsery::AdapterReader<Adapter2, bitsery::DefaultConfig> r2{Adapter2{buf.begin(), buf.end()}};
+    bitsery::InputBufferAdapter<const Buffer> r1{buf.begin(), buf.end()};
 
     uint16_t res1{};
     r1.readBytes<2>(res1);
-
-    uint16_t res2{};
-    r2.readBytes<2>(res2);
     EXPECT_THAT(res1, Eq(data));
-    EXPECT_THAT(res2, Eq(data));
 }
 
+#ifndef NDEBUG
+TEST(InputBuffer, WhenAdapterErrorsIsDisabledThenCanChangeAnyReadPositionAndReadsAsserts) {
+    //create and write to buffer
+    uint64_t data = 0x1122334455667788;
+    Buffer buf{};
+    OutputAdapter bw{buf};
+    bw.writeBytes<8>(data);
+    bw.flush();
+
+    bitsery::InputBufferAdapter<Buffer, DisableAdapterErrorsConfig> r1{buf.begin(), 2};
+    uint16_t res1{};
+    r1.readBytes<2>(res1);
+    EXPECT_THAT(res1, Eq(0x7788)); // default config is little endian
+    EXPECT_THAT(r1.currentReadPos(), Eq(2));
+    r1.currentReadPos(4);
+    EXPECT_THAT(r1.currentReadPos(), Eq(4));
+    EXPECT_DEATH(r1.readBytes<2>(res1), ""); // default config is little endian
+}
+#endif
+
+TEST(InputStream, WhenAdapterErrorsIsDisabledThenReadingPastEndDoesntSetErrorAndDoesntReturnZero) {
+    //create and write to buffer
+    std::stringstream ss{};
+    bitsery::OutputStreamAdapter bw{ss};
+    uint32_t data = 0x12345678;
+    bw.writeBytes<4>(data);
+    bw.flush();
+
+    bitsery::BasicInputStreamAdapter<char, DisableAdapterErrorsConfig, std::char_traits<char>> br{ss};
+    uint32_t res{};
+    br.readBytes<4>(res);
+    EXPECT_THAT(res, Eq(data));
+    br.readBytes<4>(res);
+    EXPECT_THAT(res, Eq(data));
+    EXPECT_THAT(br.isCompletedSuccessfully(), Eq(true));
+}
 
 template <template<typename...> class TAdapter>
-struct BufferConfig {
+struct InBufferConfig {
     using Data = std::vector<char>;
     using Adapter = TAdapter<Data>;
-    using Reader = bitsery::AdapterReader<Adapter, bitsery::DefaultConfig>;
 
     Data data{};
-    Reader createReader(const std::vector<char>& buffer) {
+    Adapter createReader(const std::vector<char>& buffer) {
         data = buffer;
-        return Reader{Adapter{data.begin(), data.size()}};
+        return Adapter{data.begin(), data.size()};
     }
 };
 
 template <typename TAdapter>
-struct StreamConfig {
+struct InStreamConfig {
     using Data = std::stringstream;
     using Adapter = TAdapter;
-    using Reader = bitsery::AdapterReader<Adapter, bitsery::DefaultConfig>;
 
     Data data{};
-    Reader createReader(const std::vector<char>& buffer) {
+    Adapter createReader(const std::vector<char>& buffer) {
         std::string str(buffer.begin(), buffer.end());
         data = std::stringstream{str};
-        return Reader{Adapter{data}};
+        return Adapter{data};
     }
 };
 
@@ -235,9 +278,8 @@ public:
 };
 
 using AdapterInputTypes = ::testing::Types<
-    BufferConfig<bitsery::InputBufferAdapter>,
-    BufferConfig<bitsery::UnsafeInputBufferAdapter>,
-    StreamConfig<bitsery::InputStreamAdapter>
+    InBufferConfig<bitsery::InputBufferAdapter>,
+    InStreamConfig<bitsery::InputStreamAdapter>
 >;
 
 template <typename TConfig>
@@ -245,18 +287,6 @@ class InputAll: public AdapterConfig<TConfig> {
 };
 
 TYPED_TEST_CASE(InputAll, AdapterInputTypes);
-
-
-using AdapterInputSafeOnlyTypes = ::testing::Types<
-    BufferConfig<bitsery::InputBufferAdapter>,
-    StreamConfig<bitsery::InputStreamAdapter>
->;
-
-template <typename TConfig>
-class InputSafeOnly: public AdapterConfig<TConfig> {
-};
-
-TYPED_TEST_CASE(InputSafeOnly, AdapterInputSafeOnlyTypes);
 
 
 TYPED_TEST(InputAll, SettingMultipleErrorsAlwaysReturnsFirstError) {
@@ -270,11 +300,26 @@ TYPED_TEST(InputAll, SettingMultipleErrorsAlwaysReturnsFirstError) {
     EXPECT_THAT(r.error(), Eq(ReaderError::InvalidPointer));
 }
 
+TYPED_TEST(InputAll, CanBeMoveConstructedAndMoveAssigned) {
+    auto r = this->config.createReader({1,2,3});
+    uint8_t res{};
+    r.template readBytes<1>(res);
+    EXPECT_THAT(res, Eq(1));
+    // move construct
+    auto r1 = std::move(r);
+    r1.template readBytes<1>(res);
+    EXPECT_THAT(res, Eq(2));
+    // move assign
+    r = std::move(r1);
+    r.template readBytes<1>(res);
+    EXPECT_THAT(res, Eq(3));
+}
+
 
 TYPED_TEST(InputAll, WhenAlignHasNonZerosThenInvalidDataError) {
 
     auto r = this->config.createReader({0x7F});
-    bitsery::AdapterReaderBitPackingWrapper<decltype(r)> bpr{r};
+    bitsery::details::InputAdapterBitPackingWrapper<decltype(r)> bpr{r};
 
     uint8_t tmp{0xFF};
     bpr.readBits(tmp,3);
@@ -292,7 +337,7 @@ TYPED_TEST(InputAll, WhenAllBytesAreReadWithoutErrorsThenIsCompletedSuccessfully
 
     //create and write to buffer
     Buffer buf{};
-    Writer bw{buf};
+    OutputAdapter bw{buf};
 
     bw.writeBytes<4>(tb);
     bw.writeBytes<2>(tc);
@@ -320,62 +365,13 @@ TYPED_TEST(InputAll, WhenAllBytesAreReadWithoutErrorsThenIsCompletedSuccessfully
     EXPECT_THAT(rd, Eq(td));
 }
 
-TYPED_TEST(InputSafeOnly, WhenAllBytesAreReadWithoutErrorsThenIsCompletedSuccessfully) {
-    //setup data
 
-    uint32_t tb = 94545646;
-    int16_t tc = -8778;
-    uint8_t td = 200;
-
-    //create and write to buffer
-    Buffer buf{};
-    Writer bw{buf};
-
-    bw.writeBytes<4>(tb);
-    bw.writeBytes<2>(tc);
-    bw.writeBytes<1>(td);
-    bw.flush();
-    buf.resize(bw.writtenBytesCount());
-
-    auto br = this->config.createReader(buf);
-
-    uint32_t rb = 94545646;
-    int16_t rc = -8778;
-    uint8_t rd = 200;
-
-    br.template readBytes<4>(rb);
-    EXPECT_THAT(br.error(), Eq(bitsery::ReaderError::NoError));
-    br.template readBytes<2>(rc);
-    EXPECT_THAT(br.error(), Eq(bitsery::ReaderError::NoError));
-    EXPECT_THAT(br.isCompletedSuccessfully(), Eq(false));
-    br.template readBytes<1>(rd);
-    EXPECT_THAT(br.error(), Eq(bitsery::ReaderError::NoError));
-    EXPECT_THAT(br.isCompletedSuccessfully(), Eq(true));
-    br.template readBytes<1>(rd);
-    EXPECT_THAT(br.error(), Eq(bitsery::ReaderError::DataOverflow));
-    EXPECT_THAT(br.isCompletedSuccessfully(), Eq(false));
-
-    Reader br1{InputAdapter{buf.begin(), bw.writtenBytesCount()}};
-    br1.template readBytes<4>(rb);
-    EXPECT_THAT(br1.error(), Eq(bitsery::ReaderError::NoError));
-    br1.template readBytes<2>(rc);
-    EXPECT_THAT(br1.error(), Eq(bitsery::ReaderError::NoError));
-    EXPECT_THAT(br1.isCompletedSuccessfully(), Eq(false));
-    br1.template readBytes<2>(rc);
-    EXPECT_THAT(br1.error(), Eq(bitsery::ReaderError::DataOverflow));
-    EXPECT_THAT(br1.isCompletedSuccessfully(), Eq(false));
-    br1.template readBytes<1>(rd);
-    EXPECT_THAT(br1.error(), Eq(bitsery::ReaderError::DataOverflow));
-    EXPECT_THAT(br1.isCompletedSuccessfully(), Eq(false));
-}
-
-
-TYPED_TEST(InputSafeOnly, WhenReadingMoreThanAvailableThenDataOverflow) {
+TYPED_TEST(InputAll, WhenReadingMoreThanAvailableThenDataOverflow) {
     //setup data
     uint8_t t1 = 111;
 
     Buffer buf{};
-    Writer w{buf};
+    OutputAdapter w{buf};
     w.writeBytes<1>(t1);
     w.flush();
     buf.resize(w.writtenBytesCount());
@@ -397,12 +393,12 @@ TYPED_TEST(InputSafeOnly, WhenReadingMoreThanAvailableThenDataOverflow) {
 
 }
 
-TYPED_TEST(InputSafeOnly, WhenReaderHasErrorsAllThenReadsReturnZero) {
+TYPED_TEST(InputAll, WhenReaderHasErrorsAllThenReadsReturnZero) {
     //setup data
     uint8_t t1 = 111;
 
     Buffer buf{};
-    Writer w{buf};
+    OutputAdapter w{buf};
     w.writeBytes<1>(t1);
     w.writeBytes<1>(t1);
     w.flush();
@@ -419,19 +415,83 @@ TYPED_TEST(InputSafeOnly, WhenReaderHasErrorsAllThenReadsReturnZero) {
 }
 
 
+template <template<typename...> class TAdapter>
+struct OutBufferConfig {
+    using Data = std::vector<char>;
+    using Adapter = TAdapter<Data>;
+
+    Data data{};
+    Adapter createWriter() {
+        return Adapter{data};
+    }
+
+    bitsery::InputBufferAdapter<Data> getReader() {
+        return bitsery::InputBufferAdapter<Data>{data.begin(), data.end()};
+    }
+};
+
+template <typename TAdapter>
+struct OutStreamConfig {
+    using Data = std::stringstream;
+    using Adapter = TAdapter;
+
+    Data data{};
+    Adapter createWriter() {
+        return Adapter{data};
+    }
+
+    bitsery::InputStreamAdapter getReader() {
+        return bitsery::InputStreamAdapter{data};
+    }
+};
+
+using AdapterOutputTypes = ::testing::Types<
+    OutBufferConfig<bitsery::OutputBufferAdapter>,
+    OutStreamConfig<bitsery::OutputStreamAdapter>,
+    OutStreamConfig<bitsery::OutputBufferedStreamAdapter>
+>;
+
+template <typename TConfig>
+class OutputAll: public AdapterConfig<TConfig> {
+};
+
+TYPED_TEST_CASE(OutputAll, AdapterOutputTypes);
+
+TYPED_TEST(OutputAll, CanBeMoveConstructedAndMoveAssigned) {
+    auto w = this->config.createWriter();
+    uint8_t data{1};
+    w.template writeBytes<1>(data);
+    // move construct
+    auto w1 = std::move(w);
+    data = 2;
+    w1.template writeBytes<1>(data);
+    // move assignment
+    w = std::move(w1);
+    data = 3;
+    w.template writeBytes<1>(data);
+    w.flush();
+
+    auto r = this->config.getReader();
+    r.template readBytes<1>(data);
+    EXPECT_THAT(data, Eq(1));
+    r.template readBytes<1>(data);
+    EXPECT_THAT(data, Eq(2));
+    r.template readBytes<1>(data);
+    EXPECT_THAT(data, Eq(3));
+}
+
 
 template<typename T>
 class OutputStreamBuffered : public testing::Test {
 public:
     using Buffer = T;
-    using Adapter = bitsery::BasicBufferedOutputStreamAdapter<char, std::char_traits<char>, Buffer>;
-    using Writer = bitsery::AdapterWriter<Adapter, bitsery::DefaultConfig>;
+    using Adapter = bitsery::BasicBufferedOutputStreamAdapter<char, bitsery::DefaultConfig, std::char_traits<char>, Buffer>;
 
     static constexpr size_t InternalBufferSize = 128;
 
     std::stringstream stream{};
 
-    Writer writer{{stream, 128}};
+    Adapter writer{stream, 128};
 };
 
 using BufferedAdapterInternalBufferTypes = ::testing::Types<
@@ -442,7 +502,7 @@ using BufferedAdapterInternalBufferTypes = ::testing::Types<
 
 TYPED_TEST_CASE(OutputStreamBuffered, BufferedAdapterInternalBufferTypes);
 
-TYPED_TEST(OutputStreamBuffered, WhenBufferOverflowThenWriteBufferAndRemainingDataToStream) {
+TYPED_TEST(OutputStreamBuffered, WhenInternalBufferIsFullThenWriteBufferAndRemainingDataToStream) {
     uint8_t x{};
     for (auto i = 0u; i < TestFixture::InternalBufferSize; ++i)
         this->writer.template writeBytes<1>(x);
@@ -465,7 +525,7 @@ TYPED_TEST(OutputStreamBuffered, WhenBufferIsStackAllocatedThenBufferSizeViaCtor
 
     //create writer with half the internal buffer size
     //for std::vector it should overflow, and for std::array it should have no effect
-    typename TestFixture::Writer w{{this->stream, TestFixture::InternalBufferSize / 2}};
+    typename TestFixture::Adapter w{this->stream, TestFixture::InternalBufferSize / 2};
 
     uint8_t x{};
     for (auto i = 0u; i < TestFixture::InternalBufferSize; ++i)
@@ -497,16 +557,4 @@ TEST(AdapterWriterMeasureSize, CorrectlyMeasuresWrittenBytesCountForSerializatio
     // doesn't compile on older compilers if I write bitsery::MeasureSize::BitPackingEnabled directly in EXPECT_THAT macro.
     constexpr bool bpEnabled = bitsery::MeasureSize::BitPackingEnabled;
     EXPECT_THAT(bpEnabled, Eq(true));
-}
-
-
-struct CustomInternalContextConfig: bitsery::DefaultConfig {
-    using InternalContext = std::tuple<int, float>;
-};
-
-TEST(AdapterWriterMeasureSize, SupportsInternalAndExternalContexts) {
-    char extCtx{'A'};
-    bitsery::BasicMeasureSize<CustomInternalContextConfig, char> w{extCtx};
-    EXPECT_THAT(w.externalContext(), Eq('A'));
-    std::tuple<int, float>& tmp = w.internalContext();
 }

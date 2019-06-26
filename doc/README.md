@@ -16,14 +16,13 @@ Library design:
 
 Core Serializer/Deserializer functions (alphabetical order):
 * `operator()` (4.6.1) (when flexible syntax is enabled)
-* `align` (1.0.0)
+* `adapter` (5.0.0)
 * `archive` (4.0.0) (when flexible syntax is enabled)
 * `boolValue` (4.0.0)
-* `container` (1.0.0)
-* `ext` (2.0.0)
-* `context` (3.0.0)
 * `context<T>` (4.1.0)
 * `contextOrNull<T>` (4.2.0)
+* `enableBitPacking` (4.0.0)
+* `ext` (2.0.0)
 * `object` (1.0.0)
 * `text` (1.0.0)
 * `value` (1.0.0)
@@ -50,27 +49,23 @@ Serializer/Deserializer extensions via `ext` method (alphabetical order):
 * `ValueRange` (3.0.0)
 * `VirtualBaseClass` (4.2.0)
 
-AdapterWriter/Reader functions:
-* `writeBits/readBits`
-* `writeBytes/readBytes`
-* `writeBuffer/readBuffer`
-* `align`
-* `beginSession/endSession`
-* `flush (writer only)`
-* `writtenBytesCount (writer only)`
-* `setError (reader only)`
-* `getError (reader only)`
-* `isCompletedSuccessfully (reader only)`
-
 Input adapters (buffer and stream) functions:
-* `read`
-* `error`
-* `setError`
+* `align`
+* `readBits`
+* `readBytes`
+* `readBuffer`
+* `currentReadPos (get/set)` (buffer adapter only)
+* `currentReadEndPos (get/set)` (buffer adapter only)
+* `error (get/set)`
 * `isCompletedSuccessfully`
 
 Output adapters (buffer and stream) functions:
-* `write`
+* `align`
+* `writeBits`
+* `writeBytes`
+* `writeBuffer`
 * `flush`
+* `currentyWritePos (get/set)` (buffer adapter only)
 * `writtenBytesCount` (buffer adapter only)
 
 

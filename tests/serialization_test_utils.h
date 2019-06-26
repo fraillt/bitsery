@@ -87,71 +87,66 @@ void serialize(S&s, MyStruct2& o) {
 }
 
 using Buffer = std::vector<char>;
-using InputAdapter = bitsery::InputBufferAdapter<Buffer>;
-using OutputAdapter = bitsery::OutputBufferAdapter<Buffer>;
-using Writer = bitsery::AdapterWriter<OutputAdapter, bitsery::DefaultConfig>;
-using Reader = bitsery::AdapterReader<InputAdapter, bitsery::DefaultConfig>;
+using Reader = bitsery::InputBufferAdapter<Buffer>;
+using Writer = bitsery::OutputBufferAdapter<Buffer>;
 
-
-template <typename Config, typename Context>
+template <typename Context>
 class BasicSerializationContext {
 public:
-    using TWriter = bitsery::AdapterWriter<OutputAdapter, Config, Context>;
-    using TReader = bitsery::AdapterReader<InputAdapter, Config, Context>;
-    using TSerializer = bitsery::BasicSerializer<TWriter>;
-    using TDeserializer = bitsery::BasicDeserializer<TReader>;
+    using TSerializer = bitsery::BasicSerializer<Writer, Context>;
+    using TDeserializer = bitsery::BasicDeserializer<Reader, Context>;
     using TSerializerBPEnabled = typename TSerializer::BPEnabledType;
     using TDeserializerBPEnabled = typename TDeserializer::BPEnabledType;
 
     Buffer buf{};
-    std::unique_ptr<TWriter> bw{};
-    std::unique_ptr<TReader> br{};
+    std::unique_ptr<TSerializer> ser{};
+    std::unique_ptr<TDeserializer> des{};
 
     template <typename T=Context, typename std::enable_if<std::is_void<T>::value>::type* = nullptr>
-    TSerializer createSerializer() {
-        if (!bw) {
-            bw = std::unique_ptr<TWriter>(new TWriter{OutputAdapter{buf}});
+    TSerializer& createSerializer() {
+        if (!ser) {
+            ser = std::unique_ptr<TSerializer>(new TSerializer{buf});
         }
-        return TSerializer{*bw};
+        return *ser;
     }
 
     template <typename T=Context>
-    TSerializer createSerializer(typename std::enable_if<!std::is_void<T>::value, T>::type& ctx) {
-        if (!bw) {
-            bw = std::unique_ptr<TWriter>(new TWriter{OutputAdapter{buf}, ctx});
+    TSerializer& createSerializer(typename std::enable_if<!std::is_void<T>::value, T>::type& ctx) {
+        if (!ser) {
+            ser = std::unique_ptr<TSerializer>(new TSerializer{ctx, buf});
         }
-        return TSerializer{*bw};
+        return *ser;
     }
 
 
     template <typename T=Context, typename std::enable_if<std::is_void<T>::value>::type* = nullptr>
-    TDeserializer createDeserializer() {
+    TDeserializer& createDeserializer() {
         size_t writtenBytes = 0;
-        if (bw) {
-            bw->flush();
-            writtenBytes = bw->writtenBytesCount();
+        if (ser) {
+            ser->adapter().flush();
+            writtenBytes = ser->adapter().writtenBytesCount();
         }
-        if (!br) {
-            br = std::unique_ptr<TReader>(new TReader{InputAdapter{buf.begin(), writtenBytes}});
+        if (!des) {
+            des = std::unique_ptr<TDeserializer>(new TDeserializer{buf.begin(), writtenBytes});
         }
-        return TDeserializer{*br};
+        return *des;
     }
 
     template <typename T=Context>
-    TDeserializer createDeserializer(typename std::enable_if<!std::is_void<T>::value, T>::type& ctx) {
+    TDeserializer& createDeserializer(typename std::enable_if<!std::is_void<T>::value, T>::type& ctx) {
         size_t writtenBytes = 0;
-        if (bw) {
-            bw->flush();
-            writtenBytes = bw->writtenBytesCount();
+        if (ser) {
+            ser->adapter().flush();
+            writtenBytes = ser->adapter().writtenBytesCount();
         }
-        if (!br) {
-            br = std::unique_ptr<TReader>(new TReader{InputAdapter{buf.begin(), writtenBytes}, ctx});
+        if (!des) {
+            des = std::unique_ptr<TDeserializer>(new TDeserializer{ctx, buf.begin(), writtenBytes});
         }
-        return TDeserializer{*br};
+        return *des;
     }
 
     size_t getBufferSize() const {
-        return bw->writtenBytesCount();
+        return ser->adapter().writtenBytesCount();
     }
 
     //since all containers .size() method returns size_t, it cannot be directly serialized, because size_t is platform dependant
@@ -167,6 +162,6 @@ public:
 };
 
 //helper type
-using SerializationContext = BasicSerializationContext<bitsery::DefaultConfig, void>;
+using SerializationContext = BasicSerializationContext<void>;
 
 #endif //BITSERY_SERIALIZER_TEST_UTILS_H

@@ -27,7 +27,7 @@
 using bitsery::ext::BaseClass;
 using bitsery::ext::VirtualBaseClass;
 
-using SerContext = BasicSerializationContext<bitsery::DefaultConfig, bitsery::ext::InheritanceContext>;
+using SerContext = BasicSerializationContext<bitsery::ext::InheritanceContext>;
 
 using testing::Eq;
 

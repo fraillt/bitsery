@@ -33,7 +33,12 @@ namespace bitsery {
     class BufferIterators {
         static constexpr bool isConstBuffer = std::is_const<Buffer>::value;
         using BuffNonConst = typename std::remove_const<Buffer>::type;
-
+    public:
+        BufferIterators(const BufferIterators&) = delete;
+        BufferIterators& operator=(const BufferIterators&) = delete;
+        BufferIterators(BufferIterators&&) = default;
+        BufferIterators& operator=(BufferIterators&&) = default;
+        virtual ~BufferIterators() = default;
     protected:
 
         using TIterator = typename std::conditional<isConstBuffer,
@@ -52,9 +57,12 @@ namespace bitsery {
         TIterator endIt;
     };
 
-    template<typename Buffer>
-    class InputBufferAdapter : public BufferIterators<Buffer> {
+    template<typename Buffer, typename Config = DefaultConfig>
+    class InputBufferAdapter: public BufferIterators<Buffer>,
+        public details::InputAdapterBaseCRTP<InputBufferAdapter<Buffer,Config>> {
     public:
+        friend details::InputAdapterBaseCRTP<InputBufferAdapter<Buffer,Config>>;
+        using TConfig = Config;
         using TIterator = typename BufferIterators<Buffer>::TIterator;
         using TValue = typename traits::BufferAdapterTraits<typename std::remove_const<Buffer>::type>::TValue;
         static_assert(details::IsDefined<TValue>::value,
@@ -73,27 +81,14 @@ namespace bitsery {
                   _endReadPos{std::next(begin, size)} {
         }
 
-        void read(TValue *data, size_t size) {
-            //for optimization
-            auto tmp = this->posIt;
-            this->posIt += size;
-            if (std::distance(this->posIt, _endReadPos) >= 0) {
-                std::memcpy(data, std::addressof(*tmp), size);
-            } else {
-                this->posIt -= size;
-                //set everything to zeros
-                std::memset(data, 0, size);
-                if (_overflowOnReadEndPos)
-                    error(ReaderError::DataOverflow);
-            }
-        }
+        InputBufferAdapter(const InputBufferAdapter&) = delete;
+        InputBufferAdapter& operator=(const InputBufferAdapter&) = delete;
+
+        InputBufferAdapter(InputBufferAdapter&&) = default;
+        InputBufferAdapter& operator = (InputBufferAdapter&&) = default;
 
         void currentReadPos(size_t pos) {
-            if (static_cast<size_t>(std::distance(this->beginIt, this->endIt)) >= pos) {
-                this->posIt = std::next(this->beginIt, pos);
-            } else {
-                error(ReaderError::DataOverflow);
-            }
+            currentReadPosChecked(pos, std::integral_constant<bool, Config::CheckAdapterErrors>{});
         }
 
         size_t currentReadPos() const {
@@ -101,6 +96,8 @@ namespace bitsery {
         }
 
         void currentReadEndPos(size_t pos) {
+            // assert that CheckAdapterErrors is enabled, otherwise it will simply will not work even if data and buffer is not corrupted
+            static_assert(Config::CheckAdapterErrors, "Please enable CheckAdapterErrors to use this functionality.");
             const auto buffSize = static_cast<size_t>(std::distance(this->beginIt, this->endIt));
             if (buffSize >= pos) {
                 _overflowOnReadEndPos = pos == 0;
@@ -134,32 +131,10 @@ namespace bitsery {
         bool isCompletedSuccessfully() const {
             return this->posIt == this->endIt && _err == ReaderError::NoError;
         }
+
     private:
-        TIterator _endReadPos;
-        ReaderError _err = ReaderError::NoError;
-        bool _overflowOnReadEndPos = true;
-    };
 
-    // this adapter ignore all errors, it is undefined behaviour when error happens
-    template<typename Buffer>
-    class UnsafeInputBufferAdapter : public BufferIterators<Buffer> {
-    public:
-
-        using TIterator = typename BufferIterators<Buffer>::TIterator;
-        using TValue = typename traits::BufferAdapterTraits<typename std::remove_const<Buffer>::type>::TValue;
-        static_assert(details::IsDefined<TValue>::value,
-                      "Please define BufferAdapterTraits or include from <bitsery/traits/...>");
-        static_assert(traits::ContainerTraits<typename std::remove_const<Buffer>::type>::isContiguous,
-                      "BufferAdapter only works with contiguous containers");
-
-        UnsafeInputBufferAdapter(TIterator beginIt, TIterator endIt) : BufferIterators<Buffer>(beginIt, endIt) {
-        }
-
-        UnsafeInputBufferAdapter(TIterator begin, size_t size)
-                : BufferIterators<Buffer>(begin, std::next(begin, size)) {
-        }
-
-        void read(TValue *data, size_t size) {
+        void readChecked(TValue *data, size_t size, std::false_type) {
             //for optimization
             auto tmp = this->posIt;
             this->posIt += size;
@@ -167,48 +142,47 @@ namespace bitsery {
             std::memcpy(data, std::addressof(*tmp), size);
         }
 
-        void currentReadPos(size_t pos) {
-            if (std::distance(this->beginIt, this->endIt) >= pos) {
+        void readChecked(TValue *data, size_t size, std::true_type) {
+            //for optimization
+            auto tmp = this->posIt;
+            this->posIt += size;
+            if (std::distance(this->posIt, _endReadPos) >= 0) {
+                std::memcpy(data, std::addressof(*tmp), size);
+            } else {
+                this->posIt -= size;
+                //set everything to zeros
+                std::memset(data, 0, size);
+                if (_overflowOnReadEndPos)
+                    error(ReaderError::DataOverflow);
+            }
+        }
+
+        void readInternal(TValue *data, size_t size) {
+            readChecked(data, size, std::integral_constant<bool, Config::CheckAdapterErrors>{});
+        }
+
+        void currentReadPosChecked(size_t pos, std::true_type) {
+            if (static_cast<size_t>(std::distance(this->beginIt, this->endIt)) >= pos) {
                 this->posIt = std::next(this->beginIt, pos);
             } else {
                 error(ReaderError::DataOverflow);
             }
         }
 
-        size_t currentReadPos() const {
-            return static_cast<size_t>(std::distance(this->beginIt, this->posIt));
+        void currentReadPosChecked(size_t pos, std::false_type) {
+            this->posIt = std::next(this->beginIt, pos);
         }
 
-        void currentReadEndPos(size_t) {
-            static_assert(std::is_void<Buffer>::value, "`currentReadEndPos(size_t)` is not supported with UnsafeInputBufferAdapter");
-        }
-
-        size_t currentReadEndPos() const {
-            return static_cast<size_t>(std::distance(this->beginIt, this->endIt));
-        }
-
-        ReaderError error() const {
-            return _err;
-        }
-
-        void error(ReaderError error) {
-            if (_err == ReaderError::NoError) {
-                _err = error;
-            }
-        }
-
-        bool isCompletedSuccessfully() const {
-            return this->posIt == this->endIt && _err == ReaderError::NoError;
-        }
-
-    private:
+        TIterator _endReadPos;
         ReaderError _err = ReaderError::NoError;
+        bool _overflowOnReadEndPos = true;
     };
 
-    template<typename Buffer>
-    class OutputBufferAdapter {
+    template<typename Buffer, typename Config = DefaultConfig>
+    class OutputBufferAdapter: public details::OutputAdapterBaseCRTP<OutputBufferAdapter<Buffer,Config>> {
     public:
-
+        friend details::OutputAdapterBaseCRTP<OutputBufferAdapter<Buffer,Config>>;
+        using TConfig = Config;
         using TIterator = typename traits::BufferAdapterTraits<Buffer>::TIterator;
         using TValue = typename traits::BufferAdapterTraits<Buffer>::TValue;
 
@@ -223,9 +197,10 @@ namespace bitsery {
             init(TResizable{});
         }
 
-        void write(const TValue *data, size_t size) {
-            writeInternal(data, size, TResizable{});
-        }
+        OutputBufferAdapter(const OutputBufferAdapter&) = delete;
+        OutputBufferAdapter& operator=(const OutputBufferAdapter&) = delete;
+        OutputBufferAdapter(OutputBufferAdapter&&) = default;
+        OutputBufferAdapter& operator = (OutputBufferAdapter&&) = default;
 
         void currentWritePos(size_t pos) {
             const auto currPos =static_cast<size_t>(std::distance(std::begin(*_buffer), _outIt));
@@ -252,7 +227,11 @@ namespace bitsery {
     private:
         using TResizable = std::integral_constant<bool, traits::ContainerTraits<Buffer>::isResizable>;
 
-        Buffer *_buffer;
+        void writeInternal(const TValue *data, size_t size) {
+            writeInternalImpl(data, size, TResizable{});
+        }
+
+        Buffer* _buffer;
         TIterator _outIt{};
         TIterator _end{};
         size_t _biggestCurrentPos{};
@@ -270,7 +249,7 @@ namespace bitsery {
             _outIt = std::begin(*_buffer);
         }
 
-        void writeInternal(const TValue *data, const size_t size, std::true_type) {
+        void writeInternalImpl(const TValue *data, const size_t size, std::true_type) {
             //optimization
 #if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0)
             using TDistance = typename std::iterator_traits<TIterator>::difference_type;
@@ -297,7 +276,7 @@ namespace bitsery {
                 _end = std::end(*_buffer);
                 _outIt = std::next(std::begin(*_buffer), pos);
 
-                writeInternal(data, size, std::true_type{});
+                writeInternalImpl(data, size, std::true_type{});
             }
         }
 
@@ -319,7 +298,7 @@ namespace bitsery {
             _end = std::end(*_buffer);
         }
 
-        void writeInternal(const TValue *data, size_t size, std::false_type) {
+        void writeInternalImpl(const TValue *data, size_t size, std::false_type) {
             //optimization
             auto tmp = _outIt;
             _outIt += size;

@@ -25,39 +25,151 @@
 #define BITSERY_DESERIALIZER_H
 
 #include "details/serialization_common.h"
-#include "adapter_reader.h"
+#include "details/adapter_common.h"
 #include <utility>
 
 namespace bitsery {
 
+    namespace details {
+        template<typename TAdapter>
+        class InputAdapterBitPackingWrapper {
+        public:
 
-    template<typename TAdapterReader>
-    class BasicDeserializer {
+            static constexpr bool BitPackingEnabled = true;
+            using TConfig = typename TAdapter::TConfig;
+            using TValue = typename TAdapter::TValue;
+
+            InputAdapterBitPackingWrapper(TAdapter& adapter)
+                : _wrapped{adapter}
+            {
+            }
+
+
+            ~InputAdapterBitPackingWrapper() {
+                align();
+            }
+
+            template<size_t SIZE, typename T>
+            void readBytes(T &v) {
+                static_assert(std::is_integral<T>(), "");
+                static_assert(sizeof(T) == SIZE, "");
+                using UT = typename std::make_unsigned<T>::type;
+                if (!m_scratchBits)
+                    this->_wrapped.template readBytes<SIZE,T>(v);
+                else
+                    readBits(reinterpret_cast<UT &>(v), details::BitsSize<T>::value);
+            }
+
+            template<size_t SIZE, typename T>
+            void readBuffer(T *buf, size_t count) {
+                static_assert(std::is_integral<T>(), "");
+                static_assert(sizeof(T) == SIZE, "");
+
+                if (!m_scratchBits) {
+                    this->_wrapped.template readBuffer<SIZE,T>(buf, count);
+                } else {
+                    using UT = typename std::make_unsigned<T>::type;
+                    //todo improve implementation
+                    const auto end = buf + count;
+                    for (auto it = buf; it != end; ++it)
+                        readBits(reinterpret_cast<UT &>(*it), details::BitsSize<T>::value);
+                }
+            }
+
+            template<typename T>
+            void readBits(T &v, size_t bitsCount) {
+                static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
+                readBitsInternal(v, bitsCount);
+            }
+
+            void align() {
+                if (m_scratchBits) {
+                    ScratchType tmp{};
+                    readBitsInternal(tmp, m_scratchBits);
+                    handleAlignErrors(tmp, std::integral_constant<bool, TConfig::CheckDataErrors>{});
+                }
+            }
+
+            void currentReadPos(size_t pos) {
+                align();
+                this->_wrapped.currentReadPos(pos);
+            }
+
+            size_t currentReadPos() const {
+                return this->_wrapped.currentReadPos();
+            }
+
+            void currentReadEndPos(size_t pos) {
+                this->_wrapped.currentReadEndPos(pos);
+            }
+
+            size_t currentReadEndPos() const {
+                return this->_wrapped.currentReadEndPos();
+            }
+
+            bool isCompletedSuccessfully() const {
+                return this->_wrapped.isCompletedSuccessfully();
+            }
+
+            ReaderError error() const {
+                return this->_wrapped.error();
+            }
+
+            void error(ReaderError error) {
+                this->_wrapped.error(error);
+            }
+
+        private:
+            TAdapter& _wrapped;
+            using UnsignedValue = typename std::make_unsigned<typename TAdapter::TValue>::type;
+            using ScratchType = typename details::ScratchType<UnsignedValue>::type;
+
+            ScratchType m_scratch{};
+            size_t m_scratchBits{};
+
+            template<typename T>
+            void readBitsInternal(T &v, size_t size) {
+                auto bitsLeft = size;
+                T res{};
+                while (bitsLeft > 0) {
+                    auto bits = (std::min)(bitsLeft, details::BitsSize<UnsignedValue>::value);
+                    if (m_scratchBits < bits) {
+                        UnsignedValue tmp;
+                        this->_wrapped.template readBytes<sizeof(UnsignedValue), UnsignedValue>(tmp);
+                        m_scratch |= static_cast<ScratchType>(tmp) << m_scratchBits;
+                        m_scratchBits += details::BitsSize<UnsignedValue>::value;
+                    }
+                    auto shiftedRes =
+                        static_cast<T>(m_scratch & ((static_cast<ScratchType>(1) << bits) - 1)) << (size - bitsLeft);
+                    res |= shiftedRes;
+                    m_scratch >>= bits;
+                    m_scratchBits -= bits;
+                    bitsLeft -= bits;
+                }
+                v = res;
+            }
+
+            void handleAlignErrors(ScratchType value, std::true_type) {
+                if (value)
+                    error(ReaderError::InvalidData);
+            }
+
+            void handleAlignErrors(ScratchType, std::false_type) {
+            }
+
+        };
+
+    }
+
+    template<typename TInputAdapter, typename TContext = void>
+    class BasicDeserializer: public details::AdapterAndContextRef<TInputAdapter, TContext> {
     public:
         //helper type, that always returns bit-packing enabled type, useful inside deserialize function when enabling bitpacking
-        using BPEnabledType = BasicDeserializer<typename std::conditional<TAdapterReader::BitPackingEnabled,
-            TAdapterReader,
-            AdapterReaderBitPackingWrapper<TAdapterReader>>::type>;
+        using BPEnabledType = BasicDeserializer<typename std::conditional<TInputAdapter::BitPackingEnabled,
+            TInputAdapter,
+            details::InputAdapterBitPackingWrapper<TInputAdapter>>::type, TContext>;
 
-        explicit BasicDeserializer(TAdapterReader& reader)
-            : _reader{reader}
-        {
-        }
-
-        /*
-         * get serialization context.
-         * this is optional, but might be required for some specific serialization flows.
-         */
-
-        template <typename T>
-        T& context() {
-            return *details::getContext<true, T>(_reader.context());
-        }
-
-        template <typename T>
-        T* contextOrNull() {
-            return details::getContext<false, T>(_reader.context());
-        }
+        using details::AdapterAndContextRef<TInputAdapter, TContext>::AdapterAndContextRef;
 
         /*
          * object function
@@ -100,7 +212,7 @@ namespace bitsery {
         template<size_t VSIZE, typename T, typename std::enable_if<details::IsFundamentalType<T>::value>::type * = nullptr>
         void value(T &v) {
             using TValue = typename details::IntegralFromFundamental<T>::TValue;
-            _reader.template readBytes<VSIZE>(reinterpret_cast<TValue &>(v));
+            this->_adapter.template readBytes<VSIZE>(reinterpret_cast<TValue &>(v));
         }
 
         /*
@@ -108,7 +220,7 @@ namespace bitsery {
          */
         template <typename Fnc>
         void enableBitPacking(Fnc&& fnc) {
-            procEnableBitPacking(std::forward<Fnc>(fnc), std::integral_constant<bool, TAdapterReader::BitPackingEnabled>{});
+            procEnableBitPacking(std::forward<Fnc>(fnc), std::integral_constant<bool, TInputAdapter::BitPackingEnabled>{});
         }
 
         /*
@@ -120,7 +232,7 @@ namespace bitsery {
             static_assert(details::IsExtensionTraitsDefined<Ext, T>::value, "Please define ExtensionTraits");
             static_assert(traits::ExtensionTraits<Ext,T>::SupportLambdaOverload,
                           "extension doesn't support overload with lambda");
-            extension.deserialize(*this, _reader, obj, std::forward<Fnc>(fnc));
+            extension.deserialize(*this, this->_adapter, obj, std::forward<Fnc>(fnc));
         }
 
         template<size_t VSIZE, typename T, typename Ext>
@@ -130,7 +242,7 @@ namespace bitsery {
                           "extension doesn't support overload with `value<N>`");
             using ExtVType = typename traits::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
-            extension.deserialize(*this, _reader, obj, [](BasicDeserializer& s, VType &v) { s.value<VSIZE>(v);});
+            extension.deserialize(*this, this->_adapter, obj, [](BasicDeserializer& s, VType &v) { s.value<VSIZE>(v);});
         }
 
         template<typename T, typename Ext>
@@ -140,14 +252,16 @@ namespace bitsery {
                           "extension doesn't support overload with `object`");
             using ExtVType = typename traits::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
-            extension.deserialize(*this, _reader, obj, [](BasicDeserializer& s, VType &v) { s.object(v); });
+            extension.deserialize(*this, this->_adapter, obj, [](BasicDeserializer& s, VType &v) { s.object(v); });
         }
 
         /*
          * boolValue
          */
         void boolValue(bool &v) {
-            procBoolValue(v, std::integral_constant<bool, TAdapterReader::BitPackingEnabled>{});
+            procBoolValue(v,
+                std::integral_constant<bool, TInputAdapter::BitPackingEnabled>{},
+                std::integral_constant<bool, TInputAdapter::TConfig::CheckDataErrors>{});
         }
 
         /*
@@ -161,7 +275,7 @@ namespace bitsery {
             static_assert(traits::ContainerTraits<T>::isResizable,
                           "use text(T&) overload without `maxSize` for static containers");
             size_t length;
-            details::readSize(_reader, length, maxSize);
+            readSize(length, maxSize);
             traits::ContainerTraits<T>::resize(str, length + (traits::TextTraits<T>::addNUL ? 1u : 0u));
             procText<VSIZE>(str, length);
         }
@@ -173,7 +287,7 @@ namespace bitsery {
             static_assert(!traits::ContainerTraits<T>::isResizable,
                           "use text(T&, size_t) overload with `maxSize` for dynamic containers");
             size_t length;
-            details::readSize(_reader, length, traits::ContainerTraits<T>::size(str));
+            readSize(length, traits::ContainerTraits<T>::size(str));
             procText<VSIZE>(str, length);
         }
 
@@ -190,7 +304,7 @@ namespace bitsery {
             static_assert(traits::ContainerTraits<T>::isResizable,
                           "use container(T&) overload without `maxSize` for static containers");
             size_t size{};
-            details::readSize(_reader, size, maxSize);
+            readSize(size, maxSize);
             traits::ContainerTraits<T>::resize(obj, size);
             procContainer(std::begin(obj), std::end(obj), std::forward<Fnc>(fnc));
         }
@@ -202,7 +316,7 @@ namespace bitsery {
             static_assert(traits::ContainerTraits<T>::isResizable,
                           "use container(T&) overload without `maxSize` for static containers");
             size_t size{};
-            details::readSize(_reader, size, maxSize);
+            readSize(size, maxSize);
             traits::ContainerTraits<T>::resize(obj, size);
             procContainer<VSIZE>(std::begin(obj), std::end(obj), std::integral_constant<bool, traits::ContainerTraits<T>::isContiguous>{});
         }
@@ -214,7 +328,7 @@ namespace bitsery {
             static_assert(traits::ContainerTraits<T>::isResizable,
                           "use container(T&) overload without `maxSize` for static containers");
             size_t size{};
-            details::readSize(_reader, size, maxSize);
+            readSize(size, maxSize);
             traits::ContainerTraits<T>::resize(obj, size);
             procContainer(std::begin(obj), std::end(obj));
         }
@@ -318,7 +432,10 @@ namespace bitsery {
 
     private:
 
-        TAdapterReader& _reader;
+        void readSize(size_t& size, size_t maxSize) {
+            details::readSize(this->_adapter, size, maxSize,
+                std::integral_constant<bool, TInputAdapter::TConfig::CheckDataErrors>{});
+        }
 
         //process value types
         //false_type means that we must process all elements individually
@@ -335,7 +452,7 @@ namespace bitsery {
             using TValue = typename std::decay<decltype(*first)>::type;
             using TIntegral = typename details::IntegralFromFundamental<TValue>::TValue;
             if (first != last)
-                _reader.template readBuffer<VSIZE>(reinterpret_cast<TIntegral*>(&(*first)), std::distance(first, last));
+                this->_adapter.template readBuffer<VSIZE>(reinterpret_cast<TIntegral*>(&(*first)), std::distance(first, last));
         }
 
         //process by calling functions
@@ -364,20 +481,26 @@ namespace bitsery {
         }
 
         //proc bool writing bit or byte, depending on if BitPackingEnabled or not
-        void procBoolValue(bool &v, std::true_type) {
+        template <typename HandleDataErrors>
+        void procBoolValue(bool &v, std::true_type, HandleDataErrors) {
             uint8_t tmp{};
-            _reader.readBits(tmp, 1);
+            this->_adapter.readBits(tmp, 1);
             v = tmp == 1;
         }
 
-        void procBoolValue(bool &v, std::false_type) {
-            unsigned char tmp;
-            _reader.template readBytes<1>(tmp);
+        void procBoolValue(bool &v, std::false_type, std::true_type) {
+            uint8_t tmp{};
+            this->_adapter.template readBytes<1>(tmp);
             if (tmp > 1)
-                _reader.error(ReaderError::InvalidData);
+                this->_adapter.error(ReaderError::InvalidData);
             v = tmp == 1;
         }
 
+        void procBoolValue(bool &v, std::false_type, std::false_type) {
+            uint8_t tmp{};
+            this->_adapter.template readBytes<1>(tmp);
+            v = tmp > 0;
+        }
 
         //enable bit-packing or do nothing if it is already enabled
         template <typename Fnc>
@@ -388,10 +511,18 @@ namespace bitsery {
         template <typename Fnc>
         void procEnableBitPacking(const Fnc& fnc, std::false_type) {
             //create deserializer using bitpacking wrapper
-            AdapterReaderBitPackingWrapper<TAdapterReader> bitPackingWrapper{_reader};
-            BPEnabledType deserializer{bitPackingWrapper};
-            fnc(deserializer);
+            auto des = createWithContext(std::integral_constant<bool, BasicDeserializer::HasContext>{});
+            fnc(des);
         }
+
+        BPEnabledType createWithContext(std::true_type) {
+            return BPEnabledType{this->_context, this->_adapter};
+        }
+
+        BPEnabledType createWithContext(std::false_type) {
+            return BPEnabledType{this->_adapter};
+        }
+
 
         //these are dummy functions for extensions that have TValue = void
         void object(details::DummyType&) {
@@ -414,10 +545,16 @@ namespace bitsery {
     //helper function that set ups all the basic steps and after deserialziation returns status
     template <typename InputAdapter, typename T>
     std::pair<ReaderError, bool> quickDeserialization(InputAdapter adapter, T& value) {
-        AdapterReader<InputAdapter, DefaultConfig> reader{std::move(adapter)};
-        BasicDeserializer<AdapterReader<InputAdapter, DefaultConfig>> des{reader};
+        BasicDeserializer<InputAdapter> des{std::move(adapter)};
         des.object(value);
-        return {reader.error(), reader.isCompletedSuccessfully()};
+        return {des.adapter().error(), des.adapter().isCompletedSuccessfully()};
+    }
+
+    template <typename Context , typename InputAdapter, typename T>
+    std::pair<ReaderError, bool> quickDeserialization(Context& ctx, InputAdapter adapter, T& value) {
+        BasicDeserializer<InputAdapter, Context> des{ctx, std::move(adapter)};
+        des.object(value);
+        return {des.adapter().error(), des.adapter().isCompletedSuccessfully()};
     }
 
 }

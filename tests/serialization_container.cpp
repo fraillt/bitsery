@@ -113,11 +113,11 @@ TYPED_TEST(SerializeContainerDynamicSizeArthmeticTypes, CustomFunctionIncrements
     SerializationContext ctx{};
     using TValue = typename TestFixture::TValue;
 
-    auto ser = ctx.createSerializer();
+    auto& ser = ctx.createSerializer();
     ser.container(this->src, 1000, [](decltype(ser)& ser, TValue& v) {
         ser.template value<sizeof(v)>(v);
     });
-    auto des = ctx.createDeserializer();
+    auto& des = ctx.createDeserializer();
     des.container(this->res, 1000, [](decltype(des)& des, TValue &v) {
         des.template value<sizeof(v)>(v);
         //increment by 1 after reading
@@ -237,13 +237,13 @@ TYPED_TEST(SerializeContainerFixedSizeCompositeTypes, CustomFunctionThatSerializ
     using TValue = decltype(*std::begin(res));
 
     SerializationContext ctx{};
-    auto ser = ctx.createSerializer();
+    auto& ser = ctx.createSerializer();
     ser.container(src, [](decltype(ser)& ser, TValue &v) {
         char tmp{};
         ser.object(v);
         ser.value1b(tmp);
     });
-    auto des = ctx.createDeserializer();
+    auto& des = ctx.createDeserializer();
     des.container(res, [](decltype(des)& des, TValue &v) {
         char tmp{};
         des.object(v);

@@ -33,7 +33,7 @@ using bitsery::EndiannessType;
 template <typename BufType>
 class DataWriting:public testing::Test {
 public:
-    using TWriter = bitsery::AdapterWriter<bitsery::OutputBufferAdapter<BufType>, bitsery::DefaultConfig>;
+    using TWriter = bitsery::OutputBufferAdapter<BufType>;
     using TBuffer = BufType;
 };
 
@@ -74,7 +74,7 @@ TYPED_TEST(DataWriting, WhenWritingBitsThenMustFlushWriter) {
     using TBuffer = typename TestFixture::TBuffer;
     TBuffer buf{};
     TWriter bw{buf};
-    bitsery::AdapterWriterBitPackingWrapper<TWriter> bpw{bw};
+    bitsery::details::OutputAdapterBitPackingWrapper<TWriter> bpw{bw};
     bpw.writeBits(3u, 2);
     auto writtenSize1 = bpw.writtenBytesCount();
     bpw.flush();
@@ -88,7 +88,7 @@ TYPED_TEST(DataWriting, WhenDataAlignedThenFlushHasNoEffect) {
     using TBuffer = typename TestFixture::TBuffer;
     TBuffer buf{};
     TWriter bw{buf};
-    bitsery::AdapterWriterBitPackingWrapper<TWriter> bpw{bw};
+    bitsery::details::OutputAdapterBitPackingWrapper<TWriter> bpw{bw};
     bpw.writeBits(3u, 2);
     bpw.align();
     auto writtenSize1 = bpw.writtenBytesCount();
@@ -101,7 +101,7 @@ TYPED_TEST(DataWriting, WhenDataAlignedThenFlushHasNoEffect) {
 
 TEST(DataWritingNonFixedBufferContainer, ContainerIsAlwaysResizedToCapacity) {
     NonFixedContainer buf{};
-    bitsery::AdapterWriter<bitsery::OutputBufferAdapter<NonFixedContainer>, bitsery::DefaultConfig> bw{buf};
+    bitsery::OutputBufferAdapter<NonFixedContainer> bw{buf};
     for (auto i = 0; i < 5; ++i) {
         uint32_t tmp{};
         bw.writeBytes<4>(tmp);

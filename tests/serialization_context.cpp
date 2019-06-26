@@ -33,8 +33,8 @@ using MultipleTypesContext = std::tuple<int, float, char>;
 
 TEST(SerializationContext, WhenContextIsNotTupleThenReturnThisContext) {
     SingleTypeContext ctx{54};
-    BasicSerializationContext<DefaultConfig, SingleTypeContext> c1;
-    auto ser1 = c1.createSerializer(ctx);
+    BasicSerializationContext<SingleTypeContext> c1;
+    auto& ser1 = c1.createSerializer(ctx);
 
     EXPECT_THAT(ser1.context<SingleTypeContext>(), Eq(ctx));
 }
@@ -42,8 +42,8 @@ TEST(SerializationContext, WhenContextIsNotTupleThenReturnThisContext) {
 TEST(SerializationContext, WhenContextIsTupleThenReturnsTupleElements) {
 
     MultipleTypesContext ctx{5, 798.654, 'F'};
-    BasicSerializationContext<DefaultConfig, MultipleTypesContext> c1;
-    auto ser1 = c1.createSerializer(ctx);
+    BasicSerializationContext<MultipleTypesContext> c1;
+    auto& ser1 = c1.createSerializer(ctx);
 
     EXPECT_THAT(ser1.context<int>(), std::get<0>(ctx));
     EXPECT_THAT(ser1.context<float>(), std::get<1>(ctx));
@@ -52,16 +52,16 @@ TEST(SerializationContext, WhenContextIsTupleThenReturnsTupleElements) {
 
 TEST(SerializationContext, WhenContextDoesntExistsThenContextOrNullReturnsNull) {
     SingleTypeContext ctx1= 32;
-    BasicSerializationContext<DefaultConfig, SingleTypeContext> c1;
-    auto ser = c1.createSerializer(ctx1);
+    BasicSerializationContext<SingleTypeContext> c1;
+    auto& ser = c1.createSerializer(ctx1);
     EXPECT_THAT(ser.contextOrNull<char>(), ::testing::IsNull());
     EXPECT_THAT(ser.contextOrNull<int>(), ::testing::NotNull());
     *ser.contextOrNull<int>() = 2;
     EXPECT_THAT(ctx1, Eq(2));
 
     MultipleTypesContext ctx2{5, 798.654, 'F'};
-    BasicSerializationContext<DefaultConfig, MultipleTypesContext> c2;
-    auto des = c2.createDeserializer(ctx2);
+    BasicSerializationContext<MultipleTypesContext> c2;
+    auto& des = c2.createDeserializer(ctx2);
     EXPECT_THAT(des.contextOrNull<double>(), ::testing::IsNull());
     EXPECT_THAT(des.contextOrNull<int>(), ::testing::NotNull());
     EXPECT_THAT(*des.contextOrNull<char>(), Eq('F'));
@@ -73,8 +73,8 @@ struct Derived: Base{};
 
 TEST(SerializationContext, ContextWillTryToConvertIfTypeIsConvertible) {
     Derived ctx1{};
-    BasicSerializationContext<DefaultConfig, Derived> c1;
-    auto ser = c1.createSerializer(ctx1);
+    BasicSerializationContext<Derived> c1;
+    auto& ser = c1.createSerializer(ctx1);
     EXPECT_THAT(ser.contextOrNull<Derived>(), ::testing::NotNull());
     EXPECT_THAT(ser.contextOrNull<Base>(), ::testing::NotNull());
     ser.context<Derived>();
@@ -87,8 +87,8 @@ TEST(SerializationContext, WhenMultipleConvertibleTypesExistsThenFirstMatchIsTak
         CTX1 ctx1{};
         std::get<0>(ctx1).value = 1;
         std::get<2>(ctx1).value = 2;
-        BasicSerializationContext<DefaultConfig, CTX1> c1;
-        auto ser = c1.createSerializer(ctx1);
+        BasicSerializationContext<CTX1> c1;
+        auto& ser = c1.createSerializer(ctx1);
         EXPECT_THAT(ser.context<Derived>().value, Eq(std::get<2>(ctx1).value));
         EXPECT_THAT(ser.context<Base>().value, Eq(std::get<0>(ctx1).value));
     }
@@ -98,8 +98,8 @@ TEST(SerializationContext, WhenMultipleConvertibleTypesExistsThenFirstMatchIsTak
         CTX2 ctx2{};
         std::get<1>(ctx2).value = 1;
         std::get<2>(ctx2).value = 2;
-        BasicSerializationContext<DefaultConfig, CTX2> c2;
-        auto des = c2.createSerializer(ctx2);
+        BasicSerializationContext<CTX2> c2;
+        auto& des = c2.createSerializer(ctx2);
 
         EXPECT_THAT(des.context<Derived>().value, Eq(std::get<1>(ctx2).value));
         //Base will not be accessable in this case, because Derived is first valid match

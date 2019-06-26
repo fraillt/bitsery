@@ -50,8 +50,8 @@ TEST(SerializeExtensionValueRange, RequiredBitsIsConstexpr) {
 
 #endif
 
-using BPSer = bitsery::BasicSerializer<bitsery::AdapterWriterBitPackingWrapper<Writer>>;
-using BPDes = bitsery::BasicDeserializer<bitsery::AdapterReaderBitPackingWrapper<Reader>>;
+using BPSer = SerializationContext::TSerializerBPEnabled;
+using BPDes = SerializationContext::TDeserializerBPEnabled;
 
 
 TEST(SerializeExtensionValueRange, IntegerNegative) {
@@ -206,5 +206,5 @@ TEST(SerializeExtensionValueRange, WhenDataIsInvalidThenReturnMinimumRangeValue)
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(1));
     EXPECT_THAT(res1, Eq(4));
-    EXPECT_THAT(ctx.br->error(), Eq(bitsery::ReaderError::InvalidData));
+    EXPECT_THAT(ctx.des->adapter().error(), Eq(bitsery::ReaderError::InvalidData));
 }

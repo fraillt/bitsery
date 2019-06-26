@@ -74,7 +74,7 @@ namespace bitsery {
             void deserializeImpl(Des &, Reader &reader, T &v, std::true_type) const {
                 using TUnsigned = SameSizeUnsigned<T>;
                 TUnsigned res{};
-                readBytes(reader, res);
+                readBytes<Reader::TConfig::CheckDataErrors>(reader, res);
                 v = zigZagDecode<T>(res, std::is_signed<typename IntegralFromFundamental<T>::TValue>{});
             }
 
@@ -110,7 +110,7 @@ namespace bitsery {
                 w.template writeBytes<1>(static_cast<uint8_t>(val));
             }
 
-            template<typename Reader, typename T>
+            template<bool CheckErrors, typename Reader, typename T>
             void readBytes(Reader &r, T &v) const {
                 constexpr auto TBITS = sizeof(T)*8;
                 uint8_t b1{0x80u};
@@ -119,10 +119,11 @@ namespace bitsery {
                     r.template readBytes<1>(b1);
                     v += static_cast<T>(b1 & 0x7Fu) << i;
                 }
-                checkReadOverflow<Reader, T>(r, i, b1, std::integral_constant<bool, CheckOverflow>{});
+                handleReadOverflow<Reader, T>(r, i, b1,
+                                              std::integral_constant<bool, CheckOverflow && CheckErrors>{});
             }
             template <typename Reader, typename T>
-            void checkReadOverflow(Reader &r, unsigned shiftedBy, uint8_t remainder, std::true_type) const {
+            void handleReadOverflow(Reader& r, unsigned shiftedBy, uint8_t remainder, std::true_type) const {
                 constexpr auto TBITS = sizeof(T)*8;
                 if (shiftedBy > TBITS && remainder >> (TBITS + 7 - shiftedBy)) {
                     r.error(bitsery::ReaderError::InvalidData);
@@ -130,7 +131,7 @@ namespace bitsery {
             }
 
             template <typename Reader, typename T>
-            void checkReadOverflow(Reader &, unsigned , uint8_t , std::false_type) const {
+            void handleReadOverflow(Reader &, unsigned , uint8_t , std::false_type) const {
 
             }
 

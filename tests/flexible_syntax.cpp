@@ -84,7 +84,7 @@ TEST(FlexibleSyntax, UseObjectFncInsteadOfValueN) {
     double td = -454184.48445;
     bool tb = true;
     SerializationContext ctx;
-    auto ser = ctx.createSerializer();
+    auto& ser = ctx.createSerializer();
     ser.object(ti);
     ser.object(te);
     ser.object(tf);
@@ -97,7 +97,7 @@ TEST(FlexibleSyntax, UseObjectFncInsteadOfValueN) {
     float rf{};
     double rd{};
     bool rb{};
-    auto des = ctx.createDeserializer();
+    auto& des = ctx.createDeserializer();
     des.object(ri);
     des.object(re);
     des.object(rf);
@@ -119,7 +119,7 @@ TEST(FlexibleSyntax, MixDifferentSyntax) {
     double td = -454184.48445;
     bool tb = true;
     SerializationContext ctx;
-    auto ser = ctx.createSerializer();
+    auto& ser = ctx.createSerializer();
     ser.value<sizeof(ti)>(ti);
     ser.archive(te, tf, td);
     ser.object(tb);
@@ -130,7 +130,7 @@ TEST(FlexibleSyntax, MixDifferentSyntax) {
     float rf{};
     double rd{};
     bool rb{};
-    auto des = ctx.createDeserializer();
+    auto& des = ctx.createDeserializer();
     des.archive(ri, re, rf);
     des.value8b(rd);
     des.object(rb);
@@ -383,7 +383,7 @@ TEST(FlexibleSyntax, StdSmartPtr) {
     std::unique_ptr<std::string> dataUnique1{new std::string{"hello world"}};
 
     bitsery::ext::PointerLinkingContext plctx1{};
-    BasicSerializationContext<bitsery::DefaultConfig, bitsery::ext::PointerLinkingContext> ctx;
+    BasicSerializationContext<bitsery::ext::PointerLinkingContext> ctx;
     ctx.createSerializer(plctx1).archive(dataShared1, dataWeak1, dataUnique1);
 
     std::shared_ptr<int> resShared1{};

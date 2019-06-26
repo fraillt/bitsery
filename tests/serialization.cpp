@@ -1,6 +1,6 @@
 //MIT License
 //
-//Copyright (c) 2017 Mindaugas Vinkelis
+//Copyright (c) 2019 Mindaugas Vinkelis
 //
 //Permission is hereby granted, free of charge, to any person obtaining a copy
 //of this software and associated documentation files (the "Software"), to deal
@@ -21,32 +21,28 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_COMMON_H
-#define BITSERY_COMMON_H
+#include <gmock/gmock.h>
+#include "serialization_test_utils.h"
 
-#include <tuple>
+using testing::Eq;
 
-namespace bitsery {
+TEST(Serialization, AdapterCanBeMovedInAndOut) {
+    Buffer buf{};
+    bitsery::BasicSerializer<Writer> ser1{buf};
+    ser1.object(MyStruct1{1, 2});
+    auto writeAdapter = std::move(ser1).adapter();
+    bitsery::BasicSerializer<Writer> ser2(std::move(writeAdapter));
+    ser2.object(MyStruct1{3, 4});
+    auto writtenBytesCount = ser2.adapter().writtenBytesCount();
+    EXPECT_THAT(writtenBytesCount, Eq(MyStruct1::SIZE + MyStruct1::SIZE));
 
-/*
- * endianness
- */
-    enum class EndiannessType {
-        LittleEndian,
-        BigEndian
-    };
-
-    // default configuration for serialization and deserialization
-    struct DefaultConfig {
-        // defines endianness of data that is read from input adapter and written to output adapter.
-        static constexpr EndiannessType Endianness = EndiannessType::LittleEndian;
-        // these flags allow to improve deserialization performance if data is trusted
-        // enables/disables checks for buffer end or stream read errors in input adapter
-        static constexpr bool CheckAdapterErrors = true;
-        // enables/disables checks for other errors that can significantly affect performance
-        static constexpr bool CheckDataErrors = true;
-    };
-
+    MyStruct1 res{};
+    bitsery::BasicDeserializer<Reader> des1{buf.begin(), writtenBytesCount};
+    des1.object(res);
+    EXPECT_THAT(res, Eq(MyStruct1{1, 2}));
+    auto readerAdapter = std::move(des1).adapter();
+    bitsery::BasicDeserializer<Reader> des2(std::move(readerAdapter));
+    des2.object(res);
+    EXPECT_THAT(res, Eq(MyStruct1{3, 4}));
+    EXPECT_TRUE(des2.adapter().isCompletedSuccessfully());
 }
-
-#endif //BITSERY_COMMON_H

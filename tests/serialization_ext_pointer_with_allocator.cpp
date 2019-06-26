@@ -44,7 +44,7 @@ using bitsery::ext::StdSmartPtr;
 using testing::Eq;
 
 using TContext = std::tuple<PointerLinkingContext, InheritanceContext, PolymorphicContext<StandardRTTI>>;
-using SerContext = BasicSerializationContext<bitsery::DefaultConfig, TContext>;
+using SerContext = BasicSerializationContext<TContext>;
 
 //this is useful for PolymorphicContext to bind classes to serializer/deserializer
 using TSerializer = typename SerContext::TSerializer;
@@ -172,8 +172,8 @@ public:
     TContext plctx{};
     SerContext sctx{};
 
-    typename SerContext::TSerializer createSerializer() {
-        auto res = sctx.createSerializer(plctx);
+    typename SerContext::TSerializer& createSerializer() {
+        auto& res = sctx.createSerializer(plctx);
         std::get<2>(plctx).clear();
         //bind serializer with classes
         std::get<2>(plctx).registerBasesList<SerContext::TSerializer>(
@@ -181,8 +181,8 @@ public:
         return res;
     }
 
-    typename SerContext::TDeserializer createDeserializer() {
-        auto res = sctx.createDeserializer(plctx);
+    typename SerContext::TDeserializer& createDeserializer() {
+        auto& res = sctx.createDeserializer(plctx);
         std::get<2>(plctx).clear();
         //bind deserializer with classes
         std::get<2>(plctx).registerBasesList<SerContext::TDeserializer>(

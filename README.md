@@ -22,7 +22,7 @@ All cross-platform requirements are enforced at compile time, so serialized data
   * smart and raw pointers with customizable runtime polymorphism support.
   * fine-grained bit-level serialization control.
 * Easily extendable for any type.
-* Allows flexible or/and verbose syntax for better serialization control.
+* Allows brief or/and verbose syntax for better serialization control.
 * Configurable endianness support.
 * No macros.
 
@@ -61,7 +61,7 @@ void serialize(S& s, MyStruct& o) {
     s.value4b(o.i);
     s.value2b(o.e);
     s.container4b(o.fs, 10);
-};
+}
 
 using namespace bitsery;
 
@@ -75,9 +75,9 @@ int main() {
 
     Buffer buffer;
 
-    auto writtenSize = quickSerialization<OutputAdapter>(buffer, data);
+    auto writtenSize = quickSerialization<OutputAdapter>(data, buffer);
 
-    auto state = quickDeserialization<InputAdapter>({buffer.begin(), writtenSize}, res);
+    auto state = quickDeserialization<InputAdapter>(res, buffer.begin(), writtenSize);
 
     assert(state.first == ReaderError::NoError && state.second);
     assert(data.fs == res.fs && data.i == res.i && data.e == res.e);

@@ -51,21 +51,28 @@ TValue getValue(bool isPositive, size_t significantBits) {
 }
 
 // helper function, that serialize and return deserialized value
-template <typename TSerContext, typename TValue>
+template <typename TConfig, typename TValue>
 std::pair<TValue, size_t> serializeAndGetDeserialized(TValue data) {
-    TSerContext ctx;
-    TValue res{};
-    ctx.createSerializer().template ext<sizeof(TValue)>(data, CompactValue{});
-    ctx.createDeserializer().template ext<sizeof(TValue)>(res, CompactValue{});
-    return {res, ctx.getBufferSize()};
+    Buffer buf{};
+    bitsery::BasicSerializer<bitsery::OutputBufferAdapter<Buffer, TConfig>> ser{buf};
+    ser.template ext<sizeof(TValue)>(data, CompactValue{});
+
+    bitsery::BasicDeserializer<bitsery::InputBufferAdapter<Buffer, TConfig>> des{buf.begin(), ser.adapter().writtenBytesCount()};
+    TValue res;
+    des.template ext<sizeof(TValue)>(res, CompactValue{});
+    return {res, ser.adapter().writtenBytesCount()};
 }
 
-struct LittleEndianConfig: public bitsery::DefaultConfig {
-    static constexpr EndiannessType NetworkEndianness = EndiannessType::LittleEndian;
+struct LittleEndianConfig {
+    static constexpr EndiannessType Endianness = EndiannessType::LittleEndian;
+    static constexpr bool CheckDataErrors = true;
+    static constexpr bool CheckAdapterErrors = true;
 };
 
-struct BigEndianConfig: public bitsery::DefaultConfig {
-    static constexpr EndiannessType NetworkEndianness = EndiannessType::BigEndian;
+struct BigEndianConfig {
+    static constexpr EndiannessType Endianness = EndiannessType::BigEndian;
+    static constexpr bool CheckDataErrors = true;
+    static constexpr bool CheckAdapterErrors = true;
 };
 
 template <typename TValue, bool isPositiveNr, typename TConfig>
@@ -120,7 +127,7 @@ TYPED_TEST(SerializeExtensionCompactValueCorrectness, TestDifferentSizeValues) {
 
     for (auto i = 0u; i < bitsery::details::BitsSize<TValue>::value + 1; ++i) {
         auto data = getValue<TValue>(tc.isPositive, i);
-        auto res = serializeAndGetDeserialized<BasicSerializationContext<typename TCase::Config, void>>(data);
+        auto res = serializeAndGetDeserialized<typename TCase::Config>(data);
         EXPECT_THAT(res.first, Eq(data));
     }
 }
@@ -202,7 +209,7 @@ TYPED_TEST(SerializeExtensionCompactValueRequiredBytes, Test) {
     using TValue = typename TCase::Value;
     TCase tc{};
     TValue data = getValue<TValue>(tc.isPositive, tc.fillBits);
-    auto res = serializeAndGetDeserialized<SerializationContext>(data);
+    auto res = serializeAndGetDeserialized<bitsery::DefaultConfig>(data);
     EXPECT_THAT(res.first, Eq(data));
     EXPECT_THAT(res.second, tc.bytesCount);
 }
@@ -219,9 +226,9 @@ TEST(SerializeExtensionCompactValueEnum, TestEnums) {
     auto d1 = b1En::E;
     auto d2 = b8En::B;
     auto d3 = b8En::F;
-    EXPECT_THAT(serializeAndGetDeserialized<SerializationContext>(d1).first, Eq(d1));
-    EXPECT_THAT(serializeAndGetDeserialized<SerializationContext>(d2).first, Eq(d2));
-    EXPECT_THAT(serializeAndGetDeserialized<SerializationContext>(d3).first, Eq(d3));
+    EXPECT_THAT(serializeAndGetDeserialized<bitsery::DefaultConfig>(d1).first, Eq(d1));
+    EXPECT_THAT(serializeAndGetDeserialized<bitsery::DefaultConfig>(d2).first, Eq(d2));
+    EXPECT_THAT(serializeAndGetDeserialized<bitsery::DefaultConfig>(d3).first, Eq(d3));
 }
 
 TEST(SerializeExtensionCompactValueAsObjectDeserializeOverflow, TestEnums) {
@@ -231,7 +238,7 @@ TEST(SerializeExtensionCompactValueAsObjectDeserializeOverflow, TestEnums) {
     ctx.createSerializer().ext(data, CompactValueAsObject{});
     ctx.createDeserializer().ext(res, CompactValueAsObject{});
     EXPECT_THAT(data, ::testing::Ne(res));
-    EXPECT_THAT(ctx.br->error(), Eq(bitsery::ReaderError::InvalidData));
+    EXPECT_THAT(ctx.des->adapter().error(), Eq(bitsery::ReaderError::InvalidData));
 }
 
 

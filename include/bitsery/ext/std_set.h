@@ -24,7 +24,7 @@
 #define BITSERY_EXT_STD_SET_H
 
 #include <cassert>
-#include "../details/adapter_utils.h"
+#include "../details/adapter_common.h"
 #include "../details/serialization_common.h"
 //we need this, so we could reserve for non ordered set
 #include <unordered_set>
@@ -53,7 +53,7 @@ namespace bitsery {
                 using TKey = typename T::key_type;
 
                 size_t size{};
-                details::readSize(reader, size, _maxSize);
+                details::readSize(reader, size, _maxSize, std::integral_constant<bool, Reader::TConfig::CheckDataErrors>{});
                 obj.clear();
                 reserve(obj, size);
                 auto hint = obj.begin();

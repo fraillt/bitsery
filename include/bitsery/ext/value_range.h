@@ -178,16 +178,26 @@ namespace bitsery {
             void deserialize(Des &, Reader &reader, T &v, Fnc &&) const {
                 reader.readBits(reinterpret_cast<details::SameSizeUnsigned<T> &>(v), _range.bitsRequired);
                 details::setRangeValue(v, _range);
-                if (!details::isRangeValid(v, _range)) {
-                    reader.error(ReaderError::InvalidData);
-                    v = _range.min;
-                }
+                handleInvalidRange(reader, v, std::integral_constant<bool, Reader::TConfig::CheckDataErrors>{});
             }
 
             constexpr size_t getRequiredBits() const {
                 return _range.bitsRequired;
             };
         private:
+
+            template <typename Reader, typename T>
+            void handleInvalidRange(Reader& reader, T& v, std::true_type) const {
+                if (!details::isRangeValid(v, _range)) {
+                    reader.error(ReaderError::InvalidData);
+                    v = _range.min;
+                }
+            }
+
+            template <typename Reader, typename T>
+            void handleInvalidRange(Reader&, T&, std::false_type) const {
+            }
+
             details::RangeSpec<TValue> _range;
         };
     }

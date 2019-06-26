@@ -32,7 +32,7 @@ using bitsery::ext::PointerType;
 
 using testing::Eq;
 
-using SerContext = BasicSerializationContext<bitsery::DefaultConfig, PointerLinkingContext>;
+using SerContext = BasicSerializationContext<PointerLinkingContext>;
 
 class SerializeExtensionPointerSerialization : public testing::Test {
 public:
@@ -61,11 +61,11 @@ public:
     SerContext sctx1{};
 
 
-    typename SerContext::TSerializer createSerializer() {
+    typename SerContext::TSerializer& createSerializer() {
         return sctx1.createSerializer(plctx1);
     }
 
-    typename SerContext::TDeserializer createDeserializer() {
+    typename SerContext::TDeserializer& createDeserializer() {
         return sctx1.createDeserializer(plctx1);
     }
 
@@ -86,7 +86,7 @@ TEST(SerializeExtensionPointer, RequiresPointerLinkingContext) {
     //linking context in tuple
     using ContextInTuple = std::tuple<int, PointerLinkingContext, float, char>;
     ContextInTuple plctx2(0, PointerLinkingContext{}, 0.0f, 'a');
-    BasicSerializationContext<bitsery::DefaultConfig, ContextInTuple> sctx2;
+    BasicSerializationContext<ContextInTuple> sctx2;
     sctx2.createSerializer(plctx2).ext(data, PointerObserver{});
     sctx2.createDeserializer(plctx2).ext(data, PointerObserver{});
 }
@@ -121,13 +121,13 @@ TEST(SerializeExtensionPointer, WhenOnlySharedObserverThenPointerLinkingContextI
 
 TEST_F(SerializeExtensionPointerSerialization, WhenPointersAreNullThenIsValid) {
 
-    auto ser = createSerializer();
+    auto& ser = createSerializer();
     ser.ext2b(p1null, PointerOwner{});
     ser.ext2b(p1null, PointerObserver{});
     ser.ext(p3null, PointerOwner{});
     ser.ext(p3null, PointerObserver{});
     createDeserializer();
-    EXPECT_THAT(sctx1.bw->writtenBytesCount(), Eq(4));
+    EXPECT_THAT(sctx1.ser->adapter().writtenBytesCount(), Eq(4));
 
     EXPECT_THAT(plctx1.isValid(), Eq(true));
 }
@@ -136,7 +136,7 @@ TEST_F(SerializeExtensionPointerSerialization, WhenPointersAreNullThenIsValid) {
 
 TEST_F(SerializeExtensionPointerSerialization, WhenPointerOwnerIsNotUniqueThenAssert) {
 
-    auto ser = createSerializer();
+    auto& ser = createSerializer();
     ser.ext2b(p1null, PointerOwner{});
     ser.ext2b(pd1, PointerOwner{});
     ser.ext4b(pd2, PointerOwner{});
@@ -146,7 +146,7 @@ TEST_F(SerializeExtensionPointerSerialization, WhenPointerOwnerIsNotUniqueThenAs
 }
 
 TEST_F(SerializeExtensionPointerSerialization, WhenRererencedByPointerIsSameAsPointerOwnerThenAssert1) {
-    auto ser1 = createSerializer();
+    auto& ser1 = createSerializer();
     ser1.ext4b(pd2, PointerOwner{});
     ser1.ext(d3, ReferencedByPointer{});
 
@@ -154,14 +154,14 @@ TEST_F(SerializeExtensionPointerSerialization, WhenRererencedByPointerIsSameAsPo
 }
 
 TEST_F(SerializeExtensionPointerSerialization, WhenRererencedByPointerIsSameAsPointerOwnerThenAssert2) {
-    auto ser1 = createSerializer();
+    auto& ser1 = createSerializer();
     ser1.ext2b(pd1, PointerOwner{});
     ser1.ext4b(d2, ReferencedByPointer{});
     EXPECT_DEATH(ser1.ext2b(d1, ReferencedByPointer{}), "");
 }
 
 TEST_F(SerializeExtensionPointerSerialization, WhenNonNullPointerIsNullThenAssert) {
-    auto ser1 = createSerializer();
+    auto& ser1 = createSerializer();
     EXPECT_DEATH(ser1.ext2b(p1null, PointerOwner{PointerType::NotNull}), "");
     EXPECT_DEATH(ser1.ext2b(p1null, PointerObserver{PointerType::NotNull}), "");
 }
@@ -169,7 +169,7 @@ TEST_F(SerializeExtensionPointerSerialization, WhenNonNullPointerIsNullThenAsser
 #endif
 
 TEST_F(SerializeExtensionPointerSerialization, WhenPointerObserverPointsToOwnerThenIsValid) {
-    auto ser1 = createSerializer();
+    auto& ser1 = createSerializer();
     ser1.ext2b(pd1, PointerOwner{});
     ser1.ext2b(p1null, PointerObserver{});
     EXPECT_THAT(plctx1.isValid(), Eq(true));
@@ -182,7 +182,7 @@ TEST_F(SerializeExtensionPointerSerialization, WhenPointerObserverPointsToOwnerT
 }
 
 TEST_F(SerializeExtensionPointerSerialization, ReferenceTypeCanAlsoBeReferencedByPointerObservers) {
-    auto ser1 = createSerializer();
+    auto& ser1 = createSerializer();
     ser1.ext2b(p1null, PointerObserver{});
     EXPECT_THAT(plctx1.isValid(), Eq(true));
     ser1.ext4b(pd2, PointerObserver{});//points to d2, and d2 is not still marked as owner
@@ -194,78 +194,78 @@ TEST_F(SerializeExtensionPointerSerialization, ReferenceTypeCanAlsoBeReferencedB
 }
 
 TEST_F(SerializeExtensionPointerSerialization, WhenPointerIsNullThenPointerIdIsZero) {
-    auto ser1 = createSerializer();
+    auto& ser1 = createSerializer();
     ser1.ext(p3null, PointerOwner{});
     ser1.ext2b(p1null, PointerObserver{});
     createDeserializer();
-    EXPECT_THAT(sctx1.bw->writtenBytesCount(), Eq(2));
+    EXPECT_THAT(sctx1.ser->adapter().writtenBytesCount(), Eq(2));
     size_t res;
-    bitsery::details::readSize(*sctx1.br, res, 10000u);
+    bitsery::details::readSize(sctx1.des->adapter(), res, 0, std::false_type{});
     EXPECT_THAT(res, Eq(0));
-    bitsery::details::readSize(*sctx1.br, res, 10000u);
+    bitsery::details::readSize(sctx1.des->adapter(), res, 0, std::false_type{});
     EXPECT_THAT(res, Eq(0));
 }
 
 TEST_F(SerializeExtensionPointerSerialization, PointerIdsStartsFromOne) {
-    auto ser1 = createSerializer();
+    auto& ser1 = createSerializer();
     ser1.ext2b(pd1, PointerObserver{});
     ser1.ext4b(pd2, PointerObserver{});
     ser1.ext4b(pd2, PointerObserver{});
     ser1.ext2b(p1null, PointerObserver{});
     createDeserializer();
-    EXPECT_THAT(sctx1.bw->writtenBytesCount(), Eq(4));
+    EXPECT_THAT(sctx1.ser->adapter().writtenBytesCount(), Eq(4));
     size_t res;
-    bitsery::details::readSize(*sctx1.br, res, 10000u);
+    bitsery::details::readSize(sctx1.des->adapter(), res, 0, std::false_type{});
     EXPECT_THAT(res, Eq(1));
-    bitsery::details::readSize(*sctx1.br, res, 10000u);
+    bitsery::details::readSize(sctx1.des->adapter(), res, 0, std::false_type{});
     EXPECT_THAT(res, Eq(2));
-    bitsery::details::readSize(*sctx1.br, res, 10000u);
+    bitsery::details::readSize(sctx1.des->adapter(), res, 0, std::false_type{});
     EXPECT_THAT(res, Eq(2));
-    bitsery::details::readSize(*sctx1.br, res, 10000u);
+    bitsery::details::readSize(sctx1.des->adapter(), res, 0, std::false_type{});
     EXPECT_THAT(res, Eq(0));
 }
 
 TEST_F(SerializeExtensionPointerSerialization, PointerObserversDoesntSerializeObject) {
-    auto ser1 = createSerializer();
+    auto& ser1 = createSerializer();
     ser1.ext2b(pd1, PointerObserver{});
     ser1.ext4b(pd2, PointerObserver{});
     ser1.ext4b(pd2, PointerObserver{});
     createDeserializer();
-    EXPECT_THAT(sctx1.bw->writtenBytesCount(), Eq(3));
+    EXPECT_THAT(sctx1.ser->adapter().writtenBytesCount(), Eq(3));
 }
 
 TEST_F(SerializeExtensionPointerSerialization, ReferencedByPointerSerializesIdAndObject) {
-    auto ser1 = createSerializer();
+    auto& ser1 = createSerializer();
     ser1.ext2b(d1, ReferencedByPointer{});
     ser1.ext4b(d2, ReferencedByPointer{});
     ser1.ext4b(pd2, PointerObserver{});
-    auto des = createDeserializer();
-    EXPECT_THAT(sctx1.bw->writtenBytesCount(), Eq(3 + 6));
+    auto& des = createDeserializer();
+    EXPECT_THAT(sctx1.ser->adapter().writtenBytesCount(), Eq(3 + 6));
     size_t id{};
-    bitsery::details::readSize(*sctx1.br, id, 10000u);
+    bitsery::details::readSize(sctx1.des->adapter(), id, 0, std::false_type{});
     EXPECT_THAT(id, Eq(1));
     des.value2b(r1);
     EXPECT_THAT(r1, Eq(d1));
-    bitsery::details::readSize(*sctx1.br, id, 10000u);
+    bitsery::details::readSize(sctx1.des->adapter(), id, 0, std::false_type{});
     EXPECT_THAT(id, Eq(2));
     des.value4b(r2);
     EXPECT_THAT(r2, Eq(d2));
-    bitsery::details::readSize(*sctx1.br, id, 10000u);
+    bitsery::details::readSize(sctx1.des->adapter(), id, 0, std::false_type{});
     EXPECT_THAT(id, Eq(2));
 }
 
 TEST_F(SerializeExtensionPointerSerialization, PointerOwnerSerializesIdAndObject) {
-    auto ser1 = createSerializer();
+    auto& ser1 = createSerializer();
     ser1.ext4b(pd2, PointerOwner{});
     ser1.ext(pd3, PointerOwner{});
-    auto des1 = createDeserializer();
+    auto& des1 = createDeserializer();
     //2x ids + int32_t + MyStruct1
-    EXPECT_THAT(sctx1.bw->writtenBytesCount(), Eq(2 + 4 + MyStruct1::SIZE));
+    EXPECT_THAT(sctx1.ser->adapter().writtenBytesCount(), Eq(2 + 4 + MyStruct1::SIZE));
     size_t id;
-    bitsery::details::readSize(*sctx1.br, id, 10000u);
+    bitsery::details::readSize(sctx1.des->adapter(), id, 0, std::false_type{});
     des1.value4b(r2);
     EXPECT_THAT(r2, Eq(*pd2));
-    bitsery::details::readSize(*sctx1.br, id, 10000u);
+    bitsery::details::readSize(sctx1.des->adapter(), id, 0, std::false_type{});
     des1.object(r3);
     EXPECT_THAT(r3, Eq(*pd3));
 }
@@ -276,11 +276,11 @@ public:
 };
 
 TEST_F(SerializeExtensionPointerDeserialization, ReferencedByPointer) {
-    auto ser = createSerializer();
+    auto& ser = createSerializer();
     ser.ext2b(d1, ReferencedByPointer{});
     ser.ext4b(d2, ReferencedByPointer{});
     ser.ext(d3, ReferencedByPointer{});
-    auto des = createDeserializer();
+    auto& des = createDeserializer();
     des.ext2b(r1, ReferencedByPointer{});
     des.ext4b(r2, ReferencedByPointer{});
     des.ext(r3, ReferencedByPointer{});
@@ -291,32 +291,32 @@ TEST_F(SerializeExtensionPointerDeserialization, ReferencedByPointer) {
 }
 
 TEST_F(SerializeExtensionPointerDeserialization, WhenReferencedByPointerReadsNullPointerThenInvalidPointerError) {
-    auto ser = createSerializer();
-    bitsery::details::writeSize(*sctx1.bw, 0u);
+    auto& ser = createSerializer();
+    bitsery::details::writeSize(sctx1.ser->adapter(), 0u);
     ser.ext2b(d1, ReferencedByPointer{});
-    auto des = createDeserializer();
+    auto& des = createDeserializer();
     des.ext2b(r1, ReferencedByPointer{});
-    EXPECT_THAT(sctx1.br->error(), Eq(bitsery::ReaderError::InvalidPointer));
+    EXPECT_THAT(sctx1.des->adapter().error(), Eq(bitsery::ReaderError::InvalidPointer));
 }
 
 TEST_F(SerializeExtensionPointerDeserialization, WhenNonNullPointerIsNullThenInvalidPointerError) {
     createSerializer();
-    bitsery::details::writeSize(*sctx1.bw, 0u);
-    auto des1 = createDeserializer();
+    bitsery::details::writeSize(sctx1.ser->adapter(), 0u);
+    auto& des1 = createDeserializer();
     des1.ext2b(p1null, PointerOwner{PointerType::NotNull});
-    EXPECT_THAT(sctx1.br->error(), Eq(bitsery::ReaderError::InvalidPointer));
+    EXPECT_THAT(sctx1.des->adapter().error(), Eq(bitsery::ReaderError::InvalidPointer));
 
-    auto des2 = createDeserializer();
+    auto& des2 = createDeserializer();
     des2.ext2b(p1null, PointerObserver{PointerType::NotNull});
-    EXPECT_THAT(sctx1.br->error(), Eq(bitsery::ReaderError::InvalidPointer));
+    EXPECT_THAT(sctx1.des->adapter().error(), Eq(bitsery::ReaderError::InvalidPointer));
 }
 
 TEST_F(SerializeExtensionPointerDeserialization, PointerOwnerCreatesObjects) {
-    auto ser = createSerializer();
+    auto& ser = createSerializer();
     ser.ext2b(pd1, PointerOwner{});
     ser.ext4b(pd2, PointerOwner{});
     ser.ext(pd3, PointerOwner{});
-    auto des = createDeserializer();
+    auto& des = createDeserializer();
     des.ext2b(p1null, PointerOwner{});
     des.ext4b(p2null, PointerOwner{});
     des.ext(p3null, PointerOwner{});
@@ -331,11 +331,11 @@ TEST_F(SerializeExtensionPointerDeserialization, PointerOwnerCreatesObjects) {
 }
 
 TEST_F(SerializeExtensionPointerDeserialization, PointerOwnerDestroysObjects) {
-    auto ser = createSerializer();
+    auto& ser = createSerializer();
     ser.ext2b(p1null, PointerOwner{});
     ser.ext4b(p2null, PointerOwner{});
     ser.ext(p3null, PointerOwner{});
-    auto des = createDeserializer();
+    auto& des = createDeserializer();
     //pr cannot link to local variables, need to allocate them separately
     pr1 = new int16_t{};
     pr2 = new MyEnumClass{};
@@ -351,7 +351,7 @@ TEST_F(SerializeExtensionPointerDeserialization, PointerOwnerDestroysObjects) {
 }
 
 TEST_F(SerializeExtensionPointerDeserialization, PointerObserver) {
-    auto ser = createSerializer();
+    auto& ser = createSerializer();
     //first owner, than observer
     ser.ext4b(d2, ReferencedByPointer{});
     ser.ext2b(p1null, PointerObserver{});
@@ -359,7 +359,7 @@ TEST_F(SerializeExtensionPointerDeserialization, PointerObserver) {
     //first observer, than owner
     ser.ext(pd3, PointerObserver{});
     ser.ext(pd3, PointerOwner{});
-    auto des = createDeserializer();
+    auto& des = createDeserializer();
     des.ext4b(r2, ReferencedByPointer{});
     des.ext2b(pr1, PointerObserver{});
     des.ext4b(p2null, PointerObserver{});
@@ -463,12 +463,12 @@ TEST(SerializeExtensionPointer, PointerOwnerWithNonPolymorphicTypeCanUseLambdaOv
     //linking context
     PointerLinkingContext plctx1{};
     SerContext sctx1;
-    auto ser = sctx1.createSerializer(plctx1);
+    auto& ser = sctx1.createSerializer(plctx1);
     ser.ext(data, PointerOwner{}, [](decltype(ser)& ser, MyStruct1 &o) {
         //serialize only one field
         ser.value4b(o.i1);
     });
-    auto des = sctx1.createDeserializer(plctx1);
+    auto& des = sctx1.createDeserializer(plctx1);
     des.ext(res, PointerOwner{}, [](decltype(des)& des,MyStruct1 &o) {
         //deserialize only one field
         des.value4b(o.i1);
@@ -489,12 +489,12 @@ TEST(SerializeExtensionPointer, ReferencedByPointerCanUseLambdaOverload) {
     //linking context
     PointerLinkingContext plctx1{};
     SerContext sctx1;
-    auto ser = sctx1.createSerializer(plctx1);
+    auto& ser = sctx1.createSerializer(plctx1);
     ser.ext(data, ReferencedByPointer{}, [](decltype(ser)& ser,MyStruct1 &o) {
         //serialize only one field
         ser.value4b(o.i1);
     });
-    auto des = sctx1.createDeserializer(plctx1);
+    auto& des = sctx1.createDeserializer(plctx1);
     des.ext(res, ReferencedByPointer{}, [](decltype(des)& des,MyStruct1 &o) {
         //deserialize only one field
         des.value4b(o.i1);

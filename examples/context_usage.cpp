@@ -68,9 +68,9 @@ using Context = std::tuple<int, std::pair<uint32_t, uint32_t>>;
 //use fixed-size buffer
 using Buffer = std::vector<uint8_t>;
 using namespace bitsery;
-// define Writer and Reader types,
-using Writer = AdapterWriter<OutputBufferAdapter<Buffer>, DefaultConfig, Context>;
-using Reader = AdapterReader<InputBufferAdapter<Buffer>, DefaultConfig, Context>;
+// define adapter types,
+using OutputAdapter = OutputBufferAdapter<Buffer>;
+using InputAdapter = InputBufferAdapter<Buffer>;
 
 int main() {
 
@@ -90,18 +90,10 @@ int main() {
 
     //create buffer to store data to
     Buffer buffer{};
-    //create adapter writer with context
-    //context is passed by reference without taking ownership
-    Writer writer{buffer, ctx};
-    //serialize data
-    BasicSerializer<Writer> ser{writer};
-    ser.object(data);
-    writer.flush();
+    auto writtenSize = quickSerialization(ctx, OutputAdapter{buffer}, data);
 
     MyTypes::GameState res{};
-    Reader reader {{buffer.begin(), writer.writtenBytesCount()}, ctx};
-    BasicDeserializer<Reader> des {reader };
-    des.object(res);
+    auto state = quickDeserialization(ctx, InputAdapter{buffer.begin(), writtenSize}, res);
 
-    assert(reader.error() == ReaderError::NoError && reader.isCompletedSuccessfully());
+    assert(state.first == ReaderError::NoError && state.second);
 }

@@ -182,12 +182,12 @@ TEST(DeserializeNonDefaultConstructible, StdMap) {
     data.emplace(NonDefaultConstructible{2}, NonDefaultConstructible{3});
     data.emplace(NonDefaultConstructible{4}, NonDefaultConstructible{4});
 
-    auto ser = ctx.createSerializer();
+    auto& ser = ctx.createSerializer();
     ser.ext(data, bitsery::ext::StdMap{10},[](decltype(ser)& ser, NonDefaultConstructible& key, NonDefaultConstructible& value) {
         ser.object(key);
         ser.object(value);
     });
-    auto des = ctx.createDeserializer();
+    auto& des = ctx.createDeserializer();
     des.ext(res, bitsery::ext::StdMap{10},[](decltype(des)& des, NonDefaultConstructible& key, NonDefaultConstructible& value) {
         des.object(key);
         des.object(value);
@@ -213,7 +213,7 @@ void serialize(S& s, NonPolymorphicPointers& o) {
 }
 
 TEST(DeserializeNonDefaultConstructible, NonPolymorphicPointerAndSmartPointer) {
-    using SerContext = BasicSerializationContext<bitsery::DefaultConfig, bitsery::ext::PointerLinkingContext>;
+    using SerContext = BasicSerializationContext<bitsery::ext::PointerLinkingContext>;
     SerContext ctx{};
     NonPolymorphicPointers data{};
     data.pp = new NonDefaultConstructible{3};
@@ -306,7 +306,7 @@ void serialize(S& s, PolymorphicPointers& o) {
 
 TEST(DeserializeNonDefaultConstructible, PolymorphicPointerAndSmartPointer) {
     using TContext = std::tuple<bitsery::ext::PointerLinkingContext, bitsery::ext::PolymorphicContext<bitsery::ext::StandardRTTI>>;
-    using SerContext = BasicSerializationContext<bitsery::DefaultConfig, TContext>;
+    using SerContext = BasicSerializationContext<TContext>;
     SerContext ctx{};
     PolymorphicPointers data{};
     data.pp = new PolymorphicNDC1{-4};

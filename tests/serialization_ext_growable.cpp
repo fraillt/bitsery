@@ -63,7 +63,7 @@ struct DataV3 {
 
 TEST(SerializeExtensionGrowable, SessionsLengthIsStoredWith4BytesBeforeSessionDataStarts) {
     SerializationContext ctx;
-    auto ser = ctx.createSerializer();
+    auto& ser = ctx.createSerializer();
     //session cannot be empty
     ser.value2b(int16_t{1});
     ser.ext(int8_t{2}, Growable{}, [] (decltype(ser)& ser, int8_t& v) {
@@ -71,7 +71,7 @@ TEST(SerializeExtensionGrowable, SessionsLengthIsStoredWith4BytesBeforeSessionDa
     });
     ser.value1b(int8_t{3});
 
-    auto des = ctx.createDeserializer();
+    auto& des = ctx.createDeserializer();
     uint8_t res1b{};
     uint16_t res2b{};
     uint32_t res4b{};
@@ -83,149 +83,149 @@ TEST(SerializeExtensionGrowable, SessionsLengthIsStoredWith4BytesBeforeSessionDa
     EXPECT_THAT(res1b, Eq(2));
     des.value1b(res1b);
     EXPECT_THAT(res1b, Eq(3));
-    EXPECT_THAT(ctx.bw->writtenBytesCount(), Eq(8));
+    EXPECT_THAT(ctx.ser->adapter().writtenBytesCount(), Eq(8));
 }
 
 TEST(SerializeExtensionGrowable, MultipleSessionsReadSameVersionData) {
     SerializationContext ctx;
     DataV2 data{8454,987451};
-    auto ser = ctx.createSerializer();
+    auto& ser = ctx.createSerializer();
 
     for (auto i = 0; i < 10; ++i) {
-        bitsery::FtorExtObject<Growable>{}(ser, data);
+        ser.ext(data, Growable{});
     }
     ctx.createDeserializer();
     DataV2 res{};
-    auto des = ctx.createDeserializer();
+    auto& des = ctx.createDeserializer();
     for (auto i = 0; i < 10; ++i) {
-        bitsery::FtorExtObject<Growable>{}(des, res);
+        des.ext(res, Growable{});
         EXPECT_THAT(res.v1, Eq(data.v1));
         EXPECT_THAT(res.v2, Eq(data.v2));
     }
-    EXPECT_THAT(ctx.br->isCompletedSuccessfully(), Eq(true));
+    EXPECT_THAT(ctx.des->adapter().isCompletedSuccessfully(), Eq(true));
 }
 
 TEST(SerializeExtensionGrowable, MultipleSessionsReadNewerVersionData) {
     SerializationContext ctx;
     DataV3 data{8454,987451, 45612};
-    auto ser = ctx.createSerializer();
+    auto& ser = ctx.createSerializer();
 
     for (auto i = 0; i < 10; ++i) {
-        bitsery::FtorExtObject<Growable>{}(ser, data);
+        ser.ext(data, Growable{});
     }
     ctx.createDeserializer();
     DataV2 res{};
-    auto des = ctx.createDeserializer();
+    auto& des = ctx.createDeserializer();
     for (auto i = 0; i < 10; ++i) {
-        bitsery::FtorExtObject<Growable>{}(des, res);
+        des.ext(res, Growable{});
         EXPECT_THAT(res.v1, Eq(data.v1));
         EXPECT_THAT(res.v2, Eq(data.v2));
     }
-    EXPECT_THAT(ctx.br->isCompletedSuccessfully(), Eq(true));
+    EXPECT_THAT(ctx.des->adapter().isCompletedSuccessfully(), Eq(true));
 }
 
 TEST(SerializeExtensionGrowable, MultipleSessionsReadOlderVersionData) {
     SerializationContext ctx;
     DataV2 data{8454,987451};
-    auto ser = ctx.createSerializer();
+    auto& ser = ctx.createSerializer();
 
     for (auto i = 0; i < 10; ++i) {
-        bitsery::FtorExtObject<Growable>{}(ser, data);
+        ser.ext(data, Growable{});
     }
     ctx.createDeserializer();
     DataV3 res{};
-    auto des = ctx.createDeserializer();
+    auto& des = ctx.createDeserializer();
     for (auto i = 0; i < 10; ++i) {
-        bitsery::FtorExtObject<Growable>{}(des, res);
+        des.ext(res, Growable{});
         EXPECT_THAT(res.v1, Eq(data.v1));
         EXPECT_THAT(res.v2, Eq(data.v2));
         EXPECT_THAT(res.v3, Eq(0));
     }
-    EXPECT_THAT(ctx.br->isCompletedSuccessfully(), Eq(true));
+    EXPECT_THAT(ctx.des->adapter().isCompletedSuccessfully(), Eq(true));
 }
 
 TEST(SerializeExtensionGrowable, MultipleNestedSessionsReadSameVersionData) {
     SerializationContext ctx;
     DataV2 data{8454,987451};
-    auto ser = ctx.createSerializer();
+    auto& ser = ctx.createSerializer();
 
     for (auto i = 0; i < 10; ++i) {
         ser.ext(data, Growable{}, [](decltype(ser)& ser, DataV2& o) {
             ser.value4b(o.v1);
             ser.value4b(o.v2);
-            bitsery::FtorExtObject<Growable>{}(ser, o);
+            ser.ext(o, Growable{});
         });
     }
     ctx.createDeserializer();
     DataV2 res{};
-    auto des = ctx.createDeserializer();
+    auto& des = ctx.createDeserializer();
     for (auto i = 0; i < 10; ++i) {
         des.ext(res, Growable{}, [&res, &data](decltype(des)& des, DataV2& o) {
             des.value4b(o.v1);
             des.value4b(o.v2);
             EXPECT_THAT(res.v1, Eq(data.v1));
             EXPECT_THAT(res.v2, Eq(data.v2));
-            bitsery::FtorExtObject<Growable>{}(des, o);
+            des.ext(o, Growable{});
             EXPECT_THAT(res.v1, Eq(data.v1));
             EXPECT_THAT(res.v2, Eq(data.v2));
         });
     }
-    EXPECT_THAT(ctx.br->isCompletedSuccessfully(), Eq(true));
+    EXPECT_THAT(ctx.des->adapter().isCompletedSuccessfully(), Eq(true));
 }
 
 TEST(SerializeExtensionGrowable, MultipleNestedSessionsReadNewerVersionData) {
     SerializationContext ctx;
     DataV3 data{8454,987451, 54124};
-    auto ser = ctx.createSerializer();
+    auto& ser = ctx.createSerializer();
 
     for (auto i = 0; i < 10; ++i) {
         ser.ext(data, Growable{}, [](decltype(ser)& ser, DataV3& o) {
             ser.value4b(o.v1);
             ser.value4b(o.v2);
-            bitsery::FtorExtObject<Growable>{}(ser, o);
+            ser.ext(o, Growable{});
             //new fields can only be added at the end
             ser.value4b(o.v3);
         });
     }
     ctx.createDeserializer();
     DataV2 res{};
-    auto des = ctx.createDeserializer();
+    auto& des = ctx.createDeserializer();
     for (auto i = 0; i < 10; ++i) {
         des.ext(res, Growable{}, [&res, &data](decltype(des)& des, DataV2& o) {
             des.value4b(o.v1);
             des.value4b(o.v2);
             EXPECT_THAT(res.v1, Eq(data.v1));
             EXPECT_THAT(res.v2, Eq(data.v2));
-            bitsery::FtorExtObject<Growable>{}(des, o);
+            des.ext(o, Growable{});
             EXPECT_THAT(res.v1, Eq(data.v1));
             EXPECT_THAT(res.v2, Eq(data.v2));
         });
     }
-    EXPECT_THAT(ctx.br->isCompletedSuccessfully(), Eq(true));
+    EXPECT_THAT(ctx.des->adapter().isCompletedSuccessfully(), Eq(true));
 }
 
 TEST(SerializeExtensionGrowable, MultipleNestedSessionsReadOlderVersionData) {
     SerializationContext ctx;
     DataV2 data{8454,987451};
-    auto ser = ctx.createSerializer();
+    auto& ser = ctx.createSerializer();
 
     for (auto i = 0; i < 10; ++i) {
         ser.ext(data, Growable{}, [](decltype(ser)& ser, DataV2& o) {
             ser.value4b(o.v1);
             ser.value4b(o.v2);
-            bitsery::FtorExtObject<Growable>{}(ser, o);
+            ser.ext(o, Growable{});
         });
     }
     ctx.createDeserializer();
     DataV3 res{};
-    auto des = ctx.createDeserializer();
+    auto& des = ctx.createDeserializer();
     for (auto i = 0; i < 10; ++i) {
         des.ext(res, Growable{}, [&res, &data](decltype(des)& des, DataV3& o) {
             des.value4b(o.v1);
             des.value4b(o.v2);
             EXPECT_THAT(res.v1, Eq(data.v1));
             EXPECT_THAT(res.v2, Eq(data.v2));
-                bitsery::FtorExtObject<Growable>{}(des, o);
+                des.ext(o, Growable{});
                 EXPECT_THAT(res.v1, Eq(data.v1));
                 EXPECT_THAT(res.v2, Eq(data.v2));
                 EXPECT_THAT(res.v3, Eq(0));
@@ -234,5 +234,5 @@ TEST(SerializeExtensionGrowable, MultipleNestedSessionsReadOlderVersionData) {
             EXPECT_THAT(res.v3, Eq(0));
         });
     }
-    EXPECT_THAT(ctx.br->isCompletedSuccessfully(), Eq(true));
+    EXPECT_THAT(ctx.des->adapter().isCompletedSuccessfully(), Eq(true));
 }

@@ -82,16 +82,14 @@ using namespace bitsery;
 
 //some helper types
 using Buffer = std::vector<uint8_t>;
-using OutputAdapter = OutputBufferAdapter<Buffer>;
-using InputAdapter = InputBufferAdapter<Buffer>;
+using Writer = OutputBufferAdapter<Buffer>;
+using Reader = InputBufferAdapter<Buffer>;
 
 //we will need PointerLinkingContext to work with pointers
 //if we would require additional context for our own custom flow, we can define it as tuple like this:
 //  std::tuple<MyContext,ext::PointerLinkingContext>
 //and other code will work as expected as long as it cast to proper type.
 //see context_usage.cpp for usage example
-using Writer = AdapterWriter<OutputBufferAdapter<Buffer>, DefaultConfig, ext::PointerLinkingContext>;
-using Reader = AdapterReader<InputBufferAdapter<Buffer>, DefaultConfig, ext::PointerLinkingContext>;
 
 int main() {
     //set some random data
@@ -114,15 +112,10 @@ int main() {
     //create buffer to store data
     Buffer buffer{};
     size_t writtenSize{};
-    //in order to use pointers, we need to pass pointer linking context to writer/reader
+    //in order to use pointers, we need to pass pointer linking context serializer/deserializer
     {
         ext::PointerLinkingContext ctx{};
-        Writer writer{buffer, ctx};
-        BasicSerializer<Writer> ser{writer};
-        //serialize our data
-        ser.object(data);
-        writer.flush();
-        writtenSize = writer.writtenBytesCount();
+        writtenSize = quickSerialization(ctx, Writer{buffer}, data);
 
         //make sure that pointer linking context is valid
         //this ensures that all non-owning pointers points to data that has been serialized,
@@ -133,13 +126,9 @@ int main() {
     Test1Data res{};
     {
         ext::PointerLinkingContext ctx{};
-        //pass lining context to reader
-        Reader reader{{buffer.begin(), writtenSize}, ctx};
-        BasicDeserializer<Reader> des{reader};
-        //deserialize our data
-        des.object(res);
+        auto state = quickDeserialization(ctx, Reader{buffer.begin(), writtenSize}, res);
         //check if everything went find
-        assert(reader.error() == ReaderError::NoError && reader.isCompletedSuccessfully());
+        assert(state.first == ReaderError::NoError && state.second);
         //also check for dangling pointers, after deserialization
         assert(ctx.isValid());
     }

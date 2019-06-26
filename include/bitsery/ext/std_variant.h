@@ -50,7 +50,7 @@ namespace bitsery {
             template<typename Des, typename Reader, typename Fnc, typename ...Ts>
             void deserialize(Des& des, Reader& reader, std::variant<Ts...>& obj, Fnc&&) const {
                 size_t index{};
-                details::readSize(reader, index, sizeof...(Ts));
+                details::readSize(reader, index, sizeof...(Ts), std::integral_constant<bool, Reader::TConfig::CheckDataErrors>{});
                 this->execIndex(index, obj, [this, &des](auto& data, auto index) {
                     constexpr size_t Index = decltype(index)::value;
                     using TElem = typename std::variant_alternative<Index, std::variant<Ts...>>::type;

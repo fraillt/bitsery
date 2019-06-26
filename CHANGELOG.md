@@ -5,42 +5,47 @@
 * align from serializer/deserializer
 * AdapterAccess class
 * helper class Serializer/Deserializer
-* setError renamed to error
 * deprecated registerBasesList from PolymorphicContext
-* removed internal context from config, because it doesn't actually solve any problems, only allows to do same thing in multiple ways
+* internal context from config, because it doesn't actually solve any problems, only allows to do same thing in multiple ways
+* AdapterWriter/Reader classes, and their functionality is moved to `adapters`.
+* UnsafeInputBufferAdapter, instead config option is provided to disable buffer read errors
+* isValidState from stream output adapter, because it didn't provide any additional information that couldn't be queried directly on stream object.
 
 ## other breaking changes
 
 * changed signature to all lambda methods, instead of accepting (T&) as only parameter, now accept (S& ,T& )
     since it is no longer needed to store serializer/deserializer reference, this allows
     to pass functors, function pointers or stateless lambdas
-* BufferedSessions reworked, it was removed from core bitsery functionality, and instead ability to change read/write position was added for buffered adapter
-* Growable extension now uses adapter reader/writer to directly change read/write position
+* BufferedSessions reworked, it was removed from core bitsery functionality, and instead was added ability to change read/write position directly for buffered adapters
+* if context is defined, in serializer/deserializer, it is passed as first argument by reference (instead of pointer). Other parameters are forwarded to input/output adapter. 
 * for adapters save first error that occured, and ignore all the others
-* serializer/deserializer no longer owns contexts, it only have reference to adapter reader/writer
-* adapter is now owned by adapter reader/writer
-* context can no longer be null, and instead reference to context is stored in adapter reader/writer.
-* context<T> will never return nullptr
-* if context is optional contextOrNull<T> return null in case context is not defined
+* setError for input adapters renamed to error
+* context can no longer be null, and instead reference to context is stored in serializer/deserializer.
+* context<T> returns reference instead of pointer
+* if context is optional contextOrNull<T> return nullptr in case context is not defined
 * context<T> and contextOrNull<T> also check if type is convertible, so it can work with base classes
     (e.g. you can require base class of context in extension, but provided child implementation instead)
+* renamed NetworkEndianness to Endianness in config
+* MeasureSize adapter moved to separate file `/adapter/measure_size.h`
 
 ## improvements
 
+* added quickSerialization/Deserialization overloads that can accept context as first parameter.
 * added support for custom allocator(s) for pointer like objects. More information on how to correctly use custom allocation and pointers in general see [this](doc/design/pointers.md).
 * inheritance context now accepts allocator
 * added tests for BasicMeasureSize
-* helper classes (FtorExtValue, FtorExtObject) for extensions, that reduce boilerplate when writing lambdas that accept serializer/deserializer and data.
+* helper classes (FtorExtValue, FtorExtObject) to reduce boilerplate and improve readability in places where you need to provide (des)serialize function/lambda that uses extension.
+e.g. instead of writing `s.container(obj, [](S& s, MyData& data) {s.ext(data, MyExtension{});});` you can write `s.container(obj, FtorExtObject<MyExtension>{});`
+* added config options to enable/disable checking input adapter and data errors (`CheckAdapterErrors` and `CheckDataErrors`) (default is enabled)
 
 ## bugfix
 * fixed enabledBitPacking where writer and internal context states was not restored properly after exiting from this function
 
 ## todo
-* write tests for inheritance context with allocator
 * add allocator support for polymorphic and pointer linking contexts
 * flexible syntax, enable option (using config) to use compactvalue for fundamental types by default (it should be off to preserve ABI breaking change).
-* simplify overall usage by making adapterwriter/reader base class for adapters using CRTP.
-
+* improve SmartPtr by allocating shared_ptr control block using provided allocator
+* rename "flexible" to "brief_syntax"
 
 # [4.6.1](https://github.com/fraillt/bitsery/compare/v4.6.0...v4.6.1) (2019-06-27)
 
