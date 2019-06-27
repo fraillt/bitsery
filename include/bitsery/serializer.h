@@ -335,10 +335,13 @@ namespace bitsery {
 
     private:
         friend AdapterAccess;
+        // this is required when creating bitpacking serializer, to access internal context
+        friend class BasicSerializer<typename details::GetNonWrappedAdapterWriter<TAdapterWriter>::Writer, TContext>;
 
         TAdapterWriter _writer;
         TContext* _context;
         typename TWriter::TConfig::InternalContext _internalContext;
+
 
         //process value types
         //false_type means that we must process all elements individually
@@ -404,7 +407,10 @@ namespace bitsery {
         void procEnableBitPacking(const Fnc& fnc, std::false_type) {
             //create serializer using bitpacking wrapper
             BPEnabledType tmp(_writer, _context);
+            // move internal context to and from of bitpacking enabled serializer
+            tmp._internalContext = std::move(_internalContext);
             fnc(tmp);
+            _internalContext = std::move(tmp._internalContext);
         }
 
         //these are dummy functions for extensions that have TValue = void
@@ -422,6 +428,7 @@ namespace bitsery {
         }
 
     };
+
 
     //helper type
     template <typename Adapter>

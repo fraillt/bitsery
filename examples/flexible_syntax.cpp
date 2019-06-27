@@ -19,10 +19,11 @@ struct MyStruct {
     void serialize(S& s) {
         //now we can use flexible syntax with
         s.archive(i, e, fs);
+        // flexible syntax also supports `cereal` like serialization interface by calling operator()
+        // s(i, e, fs);
     }
 
 };
-
 
 using namespace bitsery;
 

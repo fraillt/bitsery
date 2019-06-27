@@ -258,6 +258,20 @@ namespace bitsery {
         }
 
     };
+
+    namespace details {
+        // used in "making friends" with non-wrapped deserializer type
+        template <typename TReader>
+        struct GetNonWrappedAdapterReader {
+            using Reader = TReader;
+        };
+
+        template <typename TWrapped>
+        struct GetNonWrappedAdapterReader<AdapterReaderBitPackingWrapper<TWrapped>> {
+            using Reader = TWrapped;
+        };
+    }
+
 }
 
 #endif //BITSERY_ADAPTER_READER_H

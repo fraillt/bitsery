@@ -1,3 +1,11 @@
+# [4.6.1](https://github.com/fraillt/bitsery/compare/v4.6.0...v4.6.1) (2019-06-27)
+
+### Features
+* flexible syntax now also supports `cereal` like serialization interface (thanks to [Luli2020](https://github.com/Luli2020))
+
+### Bug fixes
+* when using `enableBitPacking`, internal context (i.e. context<T>()) in serializer/deserializer was not copied to/from new bitpacking enabled instance.
+
 # [4.6.0](https://github.com/fraillt/bitsery/compare/v4.5.1...v4.6.0) (2019-03-12)
 
 ### Features

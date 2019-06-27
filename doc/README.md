@@ -15,7 +15,9 @@ Library design:
 
 
 Core Serializer/Deserializer functions (alphabetical order):
+* `operator()` (4.6.1) (when flexible syntax is enabled)
 * `align` (1.0.0)
+* `archive` (4.0.0) (when flexible syntax is enabled)
 * `boolValue` (4.0.0)
 * `container` (1.0.0)
 * `ext` (2.0.0)

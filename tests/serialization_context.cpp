@@ -131,3 +131,31 @@ TEST(SerializationContext, ContextIfExistsReturnsNullWhenTypeDoesntExists) {
     EXPECT_THAT(des.contextOrNull<double>(), ::testing::NotNull());
     EXPECT_THAT(des.contextOrNull<float>(), ::testing::IsNull());
 }
+
+TEST(SerializationContext, WhenBitPackingIsEnabledThenInternalContextIsMovedToNewInstanceAndMovedBackAfterwards) {
+  Buffer buf{};
+  using Ser = SerializerConfigWithContext<void, int>;
+  using BPSer = typename Ser::BPEnabledType;
+
+  using Des = DeserializerConfigWithContext<void, int>;
+  using BPDes = typename Des::BPEnabledType;
+
+  Ser ser{buf, nullptr};
+  *ser.context<int>() = 1;
+  EXPECT_THAT(*ser.context<int>(), Eq(1));
+  ser.enableBitPacking([](BPSer& s) {
+    EXPECT_THAT(*s.context<int>(), Eq(1));
+    *s.context<int>() = 2;
+  });
+  EXPECT_THAT(*ser.context<int>(), Eq(2));
+
+  Des des{InputAdapter{buf.begin(), 1}, nullptr};
+  *des.context<int>() = 3;
+  EXPECT_THAT(*des.context<int>(), Eq(3));
+  des.enableBitPacking([](BPDes& d) {
+    EXPECT_THAT(*d.context<int>(), Eq(3));
+    *d.context<int>() = 4;
+  });
+  EXPECT_THAT(*des.context<int>(), Eq(4));
+
+}

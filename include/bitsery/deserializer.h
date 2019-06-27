@@ -104,9 +104,7 @@ namespace bitsery {
 
         template <typename T, typename... TArgs>
         BasicDeserializer &operator()(T &&head, TArgs &&... tail) {
-            //serialize object
             details::ArchiveFunction<BasicDeserializer, T>::invoke(*this, std::forward<T>(head));
-            //expand other elements
             archive(std::forward<TArgs>(tail)...);
             return *this;
         }
@@ -340,6 +338,8 @@ namespace bitsery {
 
     private:
         friend AdapterAccess;
+        // this is required when creating bitpacking serializer, to access internal context
+        friend class BasicDeserializer<typename details::GetNonWrappedAdapterReader<TAdapterReader>::Reader, TContext>;
 
         TAdapterReader _reader;
         TContext* _context;
@@ -415,7 +415,10 @@ namespace bitsery {
         void procEnableBitPacking(const Fnc& fnc, std::false_type) {
             //create serializer using bitpacking wrapper
             BPEnabledType tmp(_reader, _context);
+            // move internal context to and from of bitpacking enabled serializer
+            tmp._internalContext = std::move(_internalContext);
             fnc(tmp);
+            _internalContext = std::move(tmp._internalContext);
         }
 
         //these are dummy functions for extensions that have TValue = void

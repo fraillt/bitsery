@@ -330,6 +330,19 @@ namespace bitsery {
         TWriter& _writer;
 
     };
+
+    namespace details {
+        // used in "making friends" with non-wrapped serializer type
+        template <typename TWriter>
+        struct GetNonWrappedAdapterWriter {
+            using Writer = TWriter;
+        };
+
+        template <typename TWrapped>
+        struct GetNonWrappedAdapterWriter<AdapterWriterBitPackingWrapper<TWrapped>> {
+            using Writer = TWrapped;
+        };
+    }
 }
 
 #endif //BITSERY_ADAPTER_WRITER_H
