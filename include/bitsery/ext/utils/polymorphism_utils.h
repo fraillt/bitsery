@@ -140,11 +140,27 @@ namespace bitsery {
 
             template<typename TSerializer, typename TBase, typename TDerived>
             void addToMap(std::false_type) {
+                using THandler = PolymorphicHandler<RTTI, TSerializer, TBase, TDerived>;
                 BaseToDerivedKey key{RTTI::template get<TBase>(), RTTI::template get<TDerived>()};
+                pointer_utils::PolymorphicAllocatorWrapper<THandler> alloc{_memResource};
+                auto ptr = alloc.allocate(1);
+                std::shared_ptr<THandler> handler(new (ptr)THandler{}, [this](THandler* data) {
+                        data->~THandler();
+                        pointer_utils::PolymorphicAllocatorWrapper<THandler> alloc{_memResource};
+                        alloc.deallocate(data, 1);
+                    }, pointer_utils::PolymorphicAllocatorWrapper<THandler>(_memResource));
                 if (_baseToDerivedMap
-                    .emplace(key, std::make_shared<PolymorphicHandler<RTTI, TSerializer, TBase, TDerived>>())
-                    .second)
-                    _baseToDerivedArray[key.baseHash].push_back(key.derivedHash);
+                    .emplace(key, std::move(handler))
+                    .second) {
+                    auto it = _baseToDerivedArray.find(key.baseHash);
+                    if (it == _baseToDerivedArray.end()) {
+                        it = _baseToDerivedArray.emplace(
+                            std::piecewise_construct,
+                            std::forward_as_tuple(key.baseHash),
+                            std::forward_as_tuple(pointer_utils::PolymorphicAllocatorWrapper<size_t>{_memResource})).first;
+                    }
+                    it->second.push_back(key.derivedHash);
+                }
             }
 
             template<typename TSerializer, typename TBase, typename TDerived>
@@ -152,13 +168,35 @@ namespace bitsery {
                 //cannot add abstract class
             }
 
-            std::unordered_map<BaseToDerivedKey, std::shared_ptr<PolymorphicHandlerBase>, BaseToDerivedKeyHashier> _baseToDerivedMap{};
+            MemResourceBase* _memResource;
+            // store shared ptr to polymorphic handler, because it might be copied to "smart pointer" deleter
+            std::unordered_map<BaseToDerivedKey, std::shared_ptr<PolymorphicHandlerBase>,
+                BaseToDerivedKeyHashier, std::equal_to<BaseToDerivedKey>,
+                    pointer_utils::PolymorphicAllocatorWrapper<std::pair<const BaseToDerivedKey, std::shared_ptr<PolymorphicHandlerBase>>>
+            > _baseToDerivedMap;
             // this will allow convert from platform specific type information, to platform independent base->derived index
             // this only works if all polymorphic relationships (PolymorphicBaseClass<TBase> -> PolymorphicDerivedClasses<TDerived...>)
             // is equal between platforms.
-            std::unordered_map<size_t, std::vector<size_t>> _baseToDerivedArray{};
+            std::unordered_map<size_t, std::vector<size_t, pointer_utils::PolymorphicAllocatorWrapper<size_t>>,
+                std::hash<size_t>, std::equal_to<size_t>,
+                pointer_utils::PolymorphicAllocatorWrapper<std::pair<const size_t, std::vector<size_t, pointer_utils::PolymorphicAllocatorWrapper<size_t>>>>
+                > _baseToDerivedArray;
 
         public:
+
+            explicit PolymorphicContext(MemResourceBase* memResource = nullptr)
+                :_memResource{memResource},
+                _baseToDerivedMap{pointer_utils::PolymorphicAllocatorWrapper<std::pair<const BaseToDerivedKey,
+                std::shared_ptr<PolymorphicHandlerBase>>>{memResource}},
+                 _baseToDerivedArray{pointer_utils::PolymorphicAllocatorWrapper<std::pair<const size_t,
+                     std::vector<size_t, pointer_utils::PolymorphicAllocatorWrapper<size_t>>>>{memResource}}
+            {}
+
+            PolymorphicContext(const PolymorphicContext& ) = delete;
+            PolymorphicContext& operator = (const PolymorphicContext&) = delete;
+            PolymorphicContext(PolymorphicContext&& ) = default;
+            PolymorphicContext& operator = (PolymorphicContext&&) = default;
+
 
             void clear() {
                 _baseToDerivedMap.clear();

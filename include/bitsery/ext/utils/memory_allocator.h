@@ -64,7 +64,7 @@ namespace bitsery {
             class PolymorphicAllocatorWithTypeId final {
             public:
 
-                explicit constexpr PolymorphicAllocatorWithTypeId(MemResourceBase* memResource = nullptr)
+                constexpr PolymorphicAllocatorWithTypeId(MemResourceBase* memResource = nullptr)
                 :_resource{memResource} {}
 
                 template<typename T>
@@ -122,7 +122,7 @@ namespace bitsery {
             // it just wraps our PolymorphicAllocatorWithTypeId and pass 0 as typeId
             // and defines core functions for c++ Allocator concept,
             template<class T>
-            struct PolymorphicAllocatorWrapper final {
+            struct PolymorphicAllocatorWrapper {
                 using value_type = T;
 
                 explicit constexpr PolymorphicAllocatorWrapper(MemResourceBase* memResource)

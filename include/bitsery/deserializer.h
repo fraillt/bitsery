@@ -209,8 +209,9 @@ namespace bitsery {
          * value
          */
 
-        template<size_t VSIZE, typename T, typename std::enable_if<details::IsFundamentalType<T>::value>::type * = nullptr>
+        template<size_t VSIZE, typename T>
         void value(T &v) {
+            static_assert(details::IsFundamentalType<T>::value, "Value must be integral, float or enum type.");
             using TValue = typename details::IntegralFromFundamental<T>::TValue;
             this->_adapter.template readBytes<VSIZE>(reinterpret_cast<TValue &>(v));
         }

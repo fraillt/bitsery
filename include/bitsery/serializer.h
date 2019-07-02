@@ -204,8 +204,9 @@ namespace bitsery {
          * value overloads
          */
 
-        template<size_t VSIZE, typename T, typename std::enable_if<details::IsFundamentalType<T>::value>::type * = nullptr>
+        template<size_t VSIZE, typename T>
         void value(const T &v) {
+            static_assert(details::IsFundamentalType<T>::value, "Value must be integral, float or enum type.");
             using TValue = typename details::IntegralFromFundamental<T>::TValue;
             this->_adapter.template writeBytes<VSIZE>(reinterpret_cast<const TValue &>(v));
         }

@@ -37,14 +37,16 @@
 * helper classes (FtorExtValue, FtorExtObject) to reduce boilerplate and improve readability in places where you need to provide (des)serialize function/lambda that uses extension.
 e.g. instead of writing `s.container(obj, [](S& s, MyData& data) {s.ext(data, MyExtension{});});` you can write `s.container(obj, FtorExtObject<MyExtension>{});`
 * added config options to enable/disable checking input adapter and data errors (`CheckAdapterErrors` and `CheckDataErrors`) (default is enabled)
+* all allocation in the library can be customized using memory resource (similar to c++ 17 memory resource)
+  * shared state in PolymorphicLinkingContext is allocated using memory resource
+  * in `SharedPtr` extension, shared_ptr managed object and control block is allocated using memory resource
+  * classes that accept memory resource: PolymorphicLinkingContext, PolymorphicContext, InheritanceContext.
 
 ## bugfix
 * fixed enabledBitPacking where writer and internal context states was not restored properly after exiting from this function
 
 ## todo
-* add allocator support for polymorphic and pointer linking contexts
 * flexible syntax, enable option (using config) to use compactvalue for fundamental types by default (it should be off to preserve ABI breaking change).
-* improve SmartPtr by allocating shared_ptr control block using provided allocator
 * rename "flexible" to "brief_syntax"
 
 # [4.6.1](https://github.com/fraillt/bitsery/compare/v4.6.0...v4.6.1) (2019-06-27)

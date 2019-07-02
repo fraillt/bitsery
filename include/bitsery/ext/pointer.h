@@ -49,21 +49,21 @@ namespace bitsery {
                     return PointerOwnershipType::Owner;
                 }
 
-                static void create(T& obj, pointer_utils::PolymorphicAllocatorWithTypeId& alloc, size_t typeId) {
+                static void create(T& obj, pointer_utils::PolymorphicAllocatorWithTypeId alloc, size_t typeId) {
                     obj = alloc.newObject<TElement>(typeId);
                 }
 
-                static void createPolymorphic(T& obj, pointer_utils::PolymorphicAllocatorWithTypeId& alloc,
+                static void createPolymorphic(T& obj, pointer_utils::PolymorphicAllocatorWithTypeId alloc,
                                               const std::shared_ptr<PolymorphicHandlerBase>& handler) {
                     obj = static_cast<TElement*>(handler->create(alloc));
                 }
 
-                static void destroy(T& obj, pointer_utils::PolymorphicAllocatorWithTypeId& alloc, size_t typeId) {
+                static void destroy(T& obj, pointer_utils::PolymorphicAllocatorWithTypeId alloc, size_t typeId) {
                     alloc.deleteObject(obj, typeId);
                     obj = nullptr;
                 }
 
-                static void destroyPolymorphic(T& obj, pointer_utils::PolymorphicAllocatorWithTypeId& alloc,
+                static void destroyPolymorphic(T& obj, pointer_utils::PolymorphicAllocatorWithTypeId alloc,
                                                const std::shared_ptr<PolymorphicHandlerBase>& handler) {
                     handler->destroy(alloc, obj);
                     obj = nullptr;
@@ -91,11 +91,11 @@ namespace bitsery {
                     return obj;
                 }
 
-                static void destroy(T& obj, pointer_utils::PolymorphicAllocatorWithTypeId& , size_t ) {
+                static void destroy(T& obj, MemResourceBase* , size_t ) {
                     obj = nullptr;
                 }
 
-                static void destroyPolymorphic(T& obj, pointer_utils::PolymorphicAllocatorWithTypeId& , PolymorphicHandlerBase& ) {
+                static void destroyPolymorphic(T& obj, MemResourceBase* , PolymorphicHandlerBase& ) {
                     obj = nullptr;
                 }
 
@@ -119,19 +119,19 @@ namespace bitsery {
                 // this code is unreachable for reference type, but is necessary to compile
                 // LCOV_EXCL_START
 
-                static void create(T& , pointer_utils::PolymorphicAllocatorWithTypeId& , size_t ) {
+                static void create(T& , MemResourceBase* , size_t ) {
 
                 }
 
-                static void createPolymorphic(T& , pointer_utils::PolymorphicAllocatorWithTypeId& , PolymorphicHandlerBase& ) {
+                static void createPolymorphic(T& , MemResourceBase* , PolymorphicHandlerBase& ) {
 
                 }
 
-                static void destroy(T& , pointer_utils::PolymorphicAllocatorWithTypeId& , size_t ) {
+                static void destroy(T& , MemResourceBase* , size_t ) {
 
                 }
 
-                static void destroyPolymorphic(T& , pointer_utils::PolymorphicAllocatorWithTypeId& , PolymorphicHandlerBase& ) {
+                static void destroyPolymorphic(T& , MemResourceBase* , PolymorphicHandlerBase& ) {
 
                 }
                 // LCOV_EXCL_STOP
