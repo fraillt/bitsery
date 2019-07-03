@@ -166,6 +166,7 @@ namespace bitsery {
         using BPEnabledType = BasicSerializer<typename std::conditional<TOutputAdapter::BitPackingEnabled,
                 TOutputAdapter,
                 details::OutputAdapterBitPackingWrapper<TOutputAdapter>>::type, TContext>;
+        using TConfig = typename TOutputAdapter::TConfig;
 
         using details::AdapterAndContextRef<TOutputAdapter, TContext>::AdapterAndContextRef;
 
@@ -230,7 +231,7 @@ namespace bitsery {
             static_assert(details::IsExtensionTraitsDefined<Ext, T>::value, "Please define ExtensionTraits");
             static_assert(traits::ExtensionTraits<Ext,T>::SupportLambdaOverload,
                           "extension doesn't support overload with lambda");
-            extension.serialize(*this, this->_adapter, obj, std::forward<Fnc>(fnc));
+            extension.serialize(*this, obj, std::forward<Fnc>(fnc));
         }
 
         template<size_t VSIZE, typename T, typename Ext>
@@ -240,7 +241,7 @@ namespace bitsery {
                           "extension doesn't support overload with `value<N>`");
             using ExtVType = typename traits::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
-            extension.serialize(*this, this->_adapter, obj, [](BasicSerializer& s, VType &v) { s.value<VSIZE>(v); });
+            extension.serialize(*this, obj, [](BasicSerializer& s, VType &v) { s.value<VSIZE>(v); });
         }
 
         template<typename T, typename Ext>
@@ -250,7 +251,7 @@ namespace bitsery {
                           "extension doesn't support overload with `object`");
             using ExtVType = typename traits::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
-            extension.serialize(*this, this->_adapter, obj, [](BasicSerializer& s, VType &v) { s.object(v); });
+            extension.serialize(*this, obj, [](BasicSerializer& s, VType &v) { s.object(v); });
         }
 
         /*

@@ -5,7 +5,7 @@
 * align from serializer/deserializer
 * AdapterAccess class
 * helper class Serializer/Deserializer
-* deprecated registerBasesList from PolymorphicContext
+* removed deprecated function registerBasesList from PolymorphicContext
 * internal context from config, because it doesn't actually solve any problems, only allows to do same thing in multiple ways
 * AdapterWriter/Reader classes, and their functionality is moved to `adapters`.
 * UnsafeInputBufferAdapter, instead config option is provided to disable buffer read errors
@@ -27,6 +27,7 @@
     (e.g. you can require base class of context in extension, but provided child implementation instead)
 * renamed NetworkEndianness to Endianness in config
 * MeasureSize adapter moved to separate file `/adapter/measure_size.h`
+* removed Writer/Reader parameter from extensions serialize/deserialize methods
 
 ## improvements
 

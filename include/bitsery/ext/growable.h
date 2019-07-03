@@ -37,8 +37,9 @@ namespace bitsery {
         class Growable {
         public:
 
-            template<typename Ser, typename Writer, typename T, typename Fnc>
-            void serialize(Ser &ser, Writer &writer, const T &obj, Fnc &&fnc) const {
+            template<typename Ser, typename T, typename Fnc>
+            void serialize(Ser &ser, const T &obj, Fnc &&fnc) const {
+                auto& writer = ser.adapter();
                 const auto startPos = writer.currentWritePos();
                 writer.template writeBytes<4>(static_cast<uint32_t>(0));
 
@@ -50,8 +51,9 @@ namespace bitsery {
                 writer.currentWritePos(endPos);
             }
 
-            template<typename Des, typename Reader, typename T, typename Fnc>
-            void deserialize(Des &des, Reader &reader, T &obj, Fnc &&fnc) const {
+            template<typename Des, typename T, typename Fnc>
+            void deserialize(Des &des, T &obj, Fnc &&fnc) const {
+                auto& reader = des.adapter();
                 uint32_t size{};
                 const auto readEndPos = reader.currentReadEndPos();
                 const auto startPos = reader.currentReadPos();

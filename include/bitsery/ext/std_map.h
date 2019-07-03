@@ -37,25 +37,26 @@ namespace bitsery {
 
             constexpr explicit StdMap(size_t maxSize):_maxSize{maxSize} {}
 
-            template<typename Ser, typename Writer, typename T, typename Fnc>
-            void serialize(Ser &ser, Writer &writer, const T &obj, Fnc &&fnc) const {
+            template<typename Ser, typename T, typename Fnc>
+            void serialize(Ser &ser, const T &obj, Fnc &&fnc) const {
                 using TKey = typename T::key_type;
                 using TValue = typename T::mapped_type;
                 auto size = obj.size();
                 assert(size <= _maxSize);
-                details::writeSize(writer, size);
+                details::writeSize(ser.adapter(), size);
 
                 for (auto &v:obj)
                     fnc(ser, const_cast<TKey &>(v.first), const_cast<TValue &>(v.second));
             }
 
-            template<typename Des, typename Reader, typename T, typename Fnc>
-            void deserialize(Des &des, Reader &reader, T &obj, Fnc &&fnc) const {
+            template<typename Des, typename T, typename Fnc>
+            void deserialize(Des &des, T &obj, Fnc &&fnc) const {
                 using TKey = typename T::key_type;
                 using TValue = typename T::mapped_type;
 
                 size_t size{};
-                details::readSize(reader, size, _maxSize, std::integral_constant<bool, Reader::TConfig::CheckDataErrors>{});
+                details::readSize(des.adapter(), size, _maxSize,
+                    std::integral_constant<bool, Des::TConfig::CheckDataErrors>{});
                 obj.clear();
                 reserve(obj, size);
 

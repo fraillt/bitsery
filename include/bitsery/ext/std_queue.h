@@ -71,24 +71,24 @@ namespace bitsery {
             explicit StdQueue(size_t maxSize):_maxSize{maxSize} {};
 
             //for queue
-            template<typename Ser, typename Writer, typename T, typename C, typename Fnc>
-            void serialize(Ser &ser, Writer &, const std::queue<T,C> &obj, Fnc &&fnc) const {
+            template<typename Ser, typename T, typename C, typename Fnc>
+            void serialize(Ser &ser, const std::queue<T,C> &obj, Fnc &&fnc) const {
                 ser.container(QueueCnt<T,C>::getContainer(obj), _maxSize, std::forward<Fnc>(fnc));
             }
 
-            template<typename Des, typename Reader, typename T, typename C, typename Fnc>
-            void deserialize(Des &des, Reader &, std::queue<T,C> &obj, Fnc &&fnc) const {
+            template<typename Des, typename T, typename C, typename Fnc>
+            void deserialize(Des &des, std::queue<T,C> &obj, Fnc &&fnc) const {
                 des.container(QueueCnt<T,C>::getContainer(obj), _maxSize, std::forward<Fnc>(fnc));
             }
 
             //for priority_queue
-            template<typename Ser, typename Writer, typename T, typename C, typename Comp, typename Fnc>
-            void serialize(Ser &ser, Writer &, const std::priority_queue<T,C, Comp> &obj, Fnc &&fnc) const {
+            template<typename Ser, typename T, typename C, typename Comp, typename Fnc>
+            void serialize(Ser &ser, const std::priority_queue<T,C, Comp> &obj, Fnc &&fnc) const {
                 ser.container(PriorityQueueCnt<T,C, Comp>::getContainer(obj), _maxSize, std::forward<Fnc>(fnc));
             }
 
-            template<typename Des, typename Reader, typename T, typename C, typename Comp, typename Fnc>
-            void deserialize(Des &des, Reader &, std::priority_queue<T,C, Comp> &obj, Fnc &&fnc) const {
+            template<typename Des, typename T, typename C, typename Comp, typename Fnc>
+            void deserialize(Des &des, std::priority_queue<T,C, Comp> &obj, Fnc &&fnc) const {
                 des.container(PriorityQueueCnt<T,C, Comp>::getContainer(obj), _maxSize, std::forward<Fnc>(fnc));
             }
 

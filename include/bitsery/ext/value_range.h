@@ -167,18 +167,19 @@ namespace bitsery {
             constexpr ValueRange(const TValue& min, const TValue& max, Args &&... args)
                     :_range{min, max, std::forward<Args>(args)...} {}
 
-            template<typename Ser, typename Writer, typename T, typename Fnc>
-            void serialize(Ser &, Writer &writer, const T &v, Fnc &&) const {
+            template<typename Ser, typename T, typename Fnc>
+            void serialize(Ser &ser, const T &v, Fnc &&) const {
                 assert(details::isRangeValid(v, _range));
                 using BT = decltype(details::getRangeValue(v, _range));
-                writer.template writeBits<BT>(details::getRangeValue(v, _range), _range.bitsRequired);
+                ser.adapter().template writeBits<BT>(details::getRangeValue(v, _range), _range.bitsRequired);
             }
 
-            template<typename Des, typename Reader, typename T, typename Fnc>
-            void deserialize(Des &, Reader &reader, T &v, Fnc &&) const {
+            template<typename Des, typename T, typename Fnc>
+            void deserialize(Des &des, T &v, Fnc &&) const {
+                auto& reader = des.adapter();
                 reader.readBits(reinterpret_cast<details::SameSizeUnsigned<T> &>(v), _range.bitsRequired);
                 details::setRangeValue(v, _range);
-                handleInvalidRange(reader, v, std::integral_constant<bool, Reader::TConfig::CheckDataErrors>{});
+                handleInvalidRange(reader, v, std::integral_constant<bool, Des::TConfig::CheckDataErrors>{});
             }
 
             constexpr size_t getRequiredBits() const {

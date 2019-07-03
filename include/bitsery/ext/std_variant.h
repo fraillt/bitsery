@@ -36,21 +36,21 @@ namespace bitsery {
         class StdVariant : public details::CompositeTypeOverloadsUtils<std::variant, Overloads...> {
         public:
 
-            template<typename Ser, typename Writer, typename Fnc, typename ...Ts>
-            void serialize(Ser& ser, Writer& writer, const std::variant<Ts...>& obj, Fnc&&) const {
+            template<typename Ser, typename Fnc, typename ...Ts>
+            void serialize(Ser& ser, const std::variant<Ts...>& obj, Fnc&&) const {
                 auto index = obj.index();
                 assert(index != std::variant_npos);
-                details::writeSize(writer, index);
+                details::writeSize(ser.adapter(), index);
                 this->execIndex(index, const_cast<std::variant<Ts...>&>(obj), [this, &ser](auto& data, auto index) {
                     constexpr size_t Index = decltype(index)::value;
                     this->serializeType(ser, std::get<Index>(data));
                 });
             }
 
-            template<typename Des, typename Reader, typename Fnc, typename ...Ts>
-            void deserialize(Des& des, Reader& reader, std::variant<Ts...>& obj, Fnc&&) const {
+            template<typename Des, typename Fnc, typename ...Ts>
+            void deserialize(Des& des, std::variant<Ts...>& obj, Fnc&&) const {
                 size_t index{};
-                details::readSize(reader, index, sizeof...(Ts), std::integral_constant<bool, Reader::TConfig::CheckDataErrors>{});
+                details::readSize(des.adapter(), index, sizeof...(Ts), std::integral_constant<bool, Des::TConfig::CheckDataErrors>{});
                 this->execIndex(index, obj, [this, &des](auto& data, auto index) {
                     constexpr size_t Index = decltype(index)::value;
                     using TElem = typename std::variant_alternative<Index, std::variant<Ts...>>::type;

@@ -40,21 +40,21 @@ namespace bitsery {
              */
             explicit StdOptional(bool alignBeforeData=true):_alignBeforeData{alignBeforeData} {}
 
-            template<typename Ser, typename Writer, typename T, typename Fnc>
-            void serialize(Ser &ser, Writer &writer, const std::optional<T> &obj, Fnc &&fnc) const {
+            template<typename Ser, typename T, typename Fnc>
+            void serialize(Ser &ser, const std::optional<T> &obj, Fnc &&fnc) const {
                 ser.boolValue(static_cast<bool>(obj));
                 if (_alignBeforeData)
-                    writer.align();
+                    ser.adapter().align();
                 if (obj)
                     fnc(ser, const_cast<T&>(*obj));
             }
 
-            template<typename Des, typename Reader, typename T, typename Fnc>
-            void deserialize(Des &des, Reader &reader, std::optional<T> &obj, Fnc &&fnc) const {
+            template<typename Des, typename T, typename Fnc>
+            void deserialize(Des &des, std::optional<T> &obj, Fnc &&fnc) const {
                 bool exists{};
                 des.boolValue(exists);
                 if (_alignBeforeData)
-                    reader.align();
+                    des.adapter().align();
                 if (exists) {
                     obj = ::bitsery::Access::create<T>();
                     fnc(des, *obj);

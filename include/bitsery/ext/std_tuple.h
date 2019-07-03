@@ -36,13 +36,13 @@ namespace bitsery {
         class StdTuple : public details::CompositeTypeOverloadsUtils<std::tuple, Overloads...> {
         public:
 
-            template<typename Ser, typename Writer, typename Fnc, typename ...Ts>
-            void serialize(Ser& ser, Writer&, const std::tuple<Ts...>& obj, Fnc&&) const {
+            template<typename Ser, typename Fnc, typename ...Ts>
+            void serialize(Ser& ser, const std::tuple<Ts...>& obj, Fnc&&) const {
                 serializeAll(ser, const_cast<std::tuple<Ts...>&>(obj));
             }
 
-            template<typename Des, typename Reader, typename Fnc, typename ...Ts>
-            void deserialize(Des& des, Reader&, std::tuple<Ts...>& obj, Fnc&&) const {
+            template<typename Des, typename Fnc, typename ...Ts>
+            void deserialize(Des& des, std::tuple<Ts...>& obj, Fnc&&) const {
                 serializeAll(des, obj);
             }
 

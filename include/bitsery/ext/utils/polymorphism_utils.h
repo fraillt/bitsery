@@ -226,8 +226,8 @@ namespace bitsery {
             }
 
 
-            template<typename Serializer, typename Writer, typename TBase>
-            void serialize(Serializer& ser, Writer& writer, TBase& obj) const {
+            template<typename Serializer, typename TBase>
+            void serialize(Serializer& ser, TBase& obj) const {
                 //get derived key
                 BaseToDerivedKey key{RTTI::template get<TBase>(), RTTI::template get<TBase>(obj)};
                 auto it = _baseToDerivedMap.find(key);
@@ -237,17 +237,17 @@ namespace bitsery {
                 auto& vec = _baseToDerivedArray.find(key.baseHash)->second;
                 auto derivedIndex = static_cast<size_t>(std::distance(vec.begin(), std::find(vec.begin(), vec.end(),
                                                                                              key.derivedHash)));
-                details::writeSize(writer, derivedIndex);
+                details::writeSize(ser.adapter(), derivedIndex);
 
                 //serialize
                 it->second->process(&ser, &obj);
             }
 
-            template<typename Deserializer, typename Reader, typename TBase, typename TCreateFnc, typename TDestroyFnc>
-            void deserialize(Deserializer& des, Reader& reader, TBase* obj,
+            template<typename Deserializer, typename TBase, typename TCreateFnc, typename TDestroyFnc>
+            void deserialize(Deserializer& des, TBase* obj,
                              TCreateFnc createFnc, TDestroyFnc destroyFnc) const {
                 size_t derivedIndex{};
-                details::readSize(reader, derivedIndex, 0, std::false_type{});
+                details::readSize(des.adapter(), derivedIndex, 0, std::false_type{});
 
                 auto baseToDerivedVecIt = _baseToDerivedArray.find(RTTI::template get<TBase>());
                 //base class is known at compile time, so we can assert on this one
@@ -267,7 +267,7 @@ namespace bitsery {
                     }
                     handler->process(&des, obj);
                 } else
-                    reader.error(ReaderError::InvalidPointer);
+                    des.adapter().error(ReaderError::InvalidPointer);
             }
 
             template<typename TBase>

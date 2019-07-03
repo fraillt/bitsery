@@ -35,43 +35,43 @@ namespace bitsery {
         class CompactValueImpl {
         public:
 
-            template<typename Ser, typename Writer, typename T, typename Fnc>
-            void serialize(Ser &s, Writer &writer, const T &v, Fnc &&) const {
+            template<typename Ser, typename T, typename Fnc>
+            void serialize(Ser &s, const T &v, Fnc &&) const {
                 static_assert(std::is_integral<T>::value || std::is_enum<T>::value, "");
                 using TValue = typename IntegralFromFundamental<T>::TValue;
-                serializeImpl(s, writer, reinterpret_cast<const TValue&>(v), std::integral_constant<bool, sizeof(T) != 1>{});
+                serializeImpl(s.adapter(), reinterpret_cast<const TValue&>(v), std::integral_constant<bool, sizeof(T) != 1>{});
             }
 
-            template<typename Des, typename Reader, typename T, typename Fnc>
-            void deserialize(Des &d, Reader &reader, T &v, Fnc &&) const {
+            template<typename Des, typename T, typename Fnc>
+            void deserialize(Des &d, T &v, Fnc &&) const {
                 static_assert(std::is_integral<T>::value || std::is_enum<T>::value, "");
                 using TValue = typename IntegralFromFundamental<T>::TValue;
-                deserializeImpl(d, reader, reinterpret_cast<TValue &>(v), std::integral_constant<bool, sizeof(T) != 1>{});
+                deserializeImpl(d.adapter(), reinterpret_cast<TValue &>(v), std::integral_constant<bool, sizeof(T) != 1>{});
             }
 
         private:
 
             // if value is 1byte size, just serialize/ deserialize whole value
-            template<typename Ser, typename Writer, typename T>
-            void serializeImpl(Ser &s, Writer &, const T &v, std::false_type) const {
-                s.value1b(v);
+            template<typename Writer, typename T>
+            void serializeImpl(Writer &writer, const T &v, std::false_type) const {
+                writer.template writeBytes<1>(v);
             }
 
-            template<typename Des, typename Reader, typename T>
-            void deserializeImpl(Des &d, Reader &, T &v, std::false_type) const {
-                d.value1b(v);
+            template<typename Reader, typename T>
+            void deserializeImpl(Reader &reader, T &v, std::false_type) const {
+                reader.template readBytes<1>(v);
             }
 
             // when value is bigger than 1byte size,
-            template<typename Ser, typename Writer, typename T>
-            void serializeImpl(Ser &, Writer &writer, const T &v, std::true_type) const {
+            template<typename Writer, typename T>
+            void serializeImpl(Writer &writer, const T &v, std::true_type) const {
                 auto val = zigZagEncode(v, std::is_signed<typename IntegralFromFundamental<T>::TValue>{});
                 writeBytes(writer, val);
             }
 
 
-            template<typename Des, typename Reader, typename T>
-            void deserializeImpl(Des &, Reader &reader, T &v, std::true_type) const {
+            template<typename Reader, typename T>
+            void deserializeImpl(Reader &reader, T &v, std::true_type) const {
                 using TUnsigned = SameSizeUnsigned<T>;
                 TUnsigned res{};
                 readBytes<Reader::TConfig::CheckDataErrors>(reader, res);

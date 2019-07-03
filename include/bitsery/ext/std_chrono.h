@@ -32,14 +32,14 @@ namespace bitsery {
         class StdDuration {
         public:
 
-            template<typename Ser, typename Writer, typename T, typename Period, typename Fnc>
-            void serialize(Ser& ser, Writer&, const std::chrono::duration<T, Period>& obj, Fnc&& fnc) const {
+            template<typename Ser, typename T, typename Period, typename Fnc>
+            void serialize(Ser& ser, const std::chrono::duration<T, Period>& obj, Fnc&& fnc) const {
                 auto res = obj.count();
                 fnc(ser, res);
             }
 
-            template<typename Des, typename Reader, typename T, typename Period, typename Fnc>
-            void deserialize(Des& des, Reader&, std::chrono::duration<T, Period>& obj, Fnc&& fnc) const {
+            template<typename Des, typename T, typename Period, typename Fnc>
+            void deserialize(Des& des, std::chrono::duration<T, Period>& obj, Fnc&& fnc) const {
                 T res{};
                 fnc(des, res);
                 obj = std::chrono::duration<T, Period>{res};
@@ -49,15 +49,15 @@ namespace bitsery {
         class StdTimePoint {
         public:
 
-            template<typename Ser, typename Writer, typename Clock, typename T, typename Period, typename Fnc>
-            void serialize(Ser& ser, Writer&, const std::chrono::time_point<Clock, std::chrono::duration<T, Period>>& obj,
+            template<typename Ser, typename Clock, typename T, typename Period, typename Fnc>
+            void serialize(Ser& ser, const std::chrono::time_point<Clock, std::chrono::duration<T, Period>>& obj,
                            Fnc&& fnc) const {
                 auto res = obj.time_since_epoch().count();
                 fnc(ser, res);
             }
 
-            template<typename Des, typename Reader, typename Clock, typename T, typename Period, typename Fnc>
-            void deserialize(Des& des, Reader&, std::chrono::time_point<Clock, std::chrono::duration<T, Period>>& obj,
+            template<typename Des, typename Clock, typename T, typename Period, typename Fnc>
+            void deserialize(Des& des, std::chrono::time_point<Clock, std::chrono::duration<T, Period>>& obj,
                              Fnc&& fnc) const {
                 T res{};
                 fnc(des, res);

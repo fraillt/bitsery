@@ -53,13 +53,13 @@ namespace bitsery {
         public:
             explicit StdStack(size_t maxSize):_maxSize{maxSize} {};
 
-            template<typename Ser, typename Writer, typename T, typename C, typename Fnc>
-            void serialize(Ser &ser, Writer &, const std::stack<T,C> &obj, Fnc &&fnc) const {
+            template<typename Ser, typename T, typename C, typename Fnc>
+            void serialize(Ser &ser, const std::stack<T,C> &obj, Fnc &&fnc) const {
                 ser.container(StackCnt<T,C>::getContainer(obj), _maxSize, std::forward<Fnc>(fnc));
             }
 
-            template<typename Des, typename Reader, typename T, typename C, typename Fnc>
-            void deserialize(Des &des, Reader &, std::stack<T,C> &obj, Fnc &&fnc) const {
+            template<typename Des, typename T, typename C, typename Fnc>
+            void deserialize(Des &des, std::stack<T,C> &obj, Fnc &&fnc) const {
                 des.container(StackCnt<T,C>::getContainer(obj), _maxSize, std::forward<Fnc>(fnc));
             }
 

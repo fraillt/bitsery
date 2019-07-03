@@ -79,8 +79,8 @@ namespace bitsery {
         class BaseClass {
         public:
 
-            template<typename Ser, typename Writer, typename T, typename Fnc>
-            void serialize(Ser &ser, Writer &, const T &obj, Fnc &&fnc) const {
+            template<typename Ser, typename T, typename Fnc>
+            void serialize(Ser &ser, const T &obj, Fnc &&fnc) const {
                 auto& resObj = static_cast<const TBase&>(obj);
                 if (auto ctx = ser.template contextOrNull<InheritanceContext>()) {
                     ctx->beginBase(obj, resObj);
@@ -91,8 +91,8 @@ namespace bitsery {
                 }
             }
 
-            template<typename Des, typename Reader, typename T, typename Fnc>
-            void deserialize(Des &des, Reader &, T &obj, Fnc &&fnc) const {
+            template<typename Des, typename T, typename Fnc>
+            void deserialize(Des &des, T &obj, Fnc &&fnc) const {
                 auto& resObj = static_cast<TBase&>(obj);
                 if (auto ctx = des.template contextOrNull<InheritanceContext>()) {
                     ctx->beginBase(obj, resObj);
@@ -110,8 +110,8 @@ namespace bitsery {
         class VirtualBaseClass {
         public:
 
-            template<typename Ser, typename Writer, typename T, typename Fnc>
-            void serialize(Ser &ser, Writer &, const T &obj, Fnc &&fnc) const {
+            template<typename Ser, typename T, typename Fnc>
+            void serialize(Ser &ser, const T &obj, Fnc &&fnc) const {
                 auto& ctx = ser.template context<InheritanceContext>();
                 auto& resObj = static_cast<const TBase&>(obj);
                 if (ctx.beginVirtualBase(obj, resObj))
@@ -119,8 +119,8 @@ namespace bitsery {
                 ctx.end();
             }
 
-            template<typename Des, typename Reader, typename T, typename Fnc>
-            void deserialize(Des &des, Reader &, T &obj, Fnc &&fnc) const {
+            template<typename Des, typename T, typename Fnc>
+            void deserialize(Des &des, T &obj, Fnc &&fnc) const {
                 auto& ctx = des.template context<InheritanceContext>();
                 auto& resObj = static_cast<TBase&>(obj);
                 if (ctx.beginVirtualBase(obj, resObj))
