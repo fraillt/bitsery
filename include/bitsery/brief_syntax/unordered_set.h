@@ -21,17 +21,23 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_VECTOR_H
-#define BITSERY_FLEXIBLE_TYPE_STD_VECTOR_H
+#ifndef BITSERY_BRIEF_SYNTAX_TYPE_STD_UNORDERED_SET_H
+#define BITSERY_BRIEF_SYNTAX_TYPE_STD_UNORDERED_SET_H
 
-#include "../traits/vector.h"
-#include "../details/flexible_common.h"
+#include <unordered_set>
+#include "../ext/std_set.h"
 
 namespace bitsery {
-    template<typename S, typename T, typename Allocator>
-    void serialize(S &s, std::vector<T, Allocator> &obj) {
-        flexible::processContainer(s, obj);
+    template<typename S, typename Key, typename Hash, typename KeyEqual, typename Allocator>
+    void serialize(S &s, std::unordered_set<Key, Hash, KeyEqual, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
+        s.ext(obj, ext::StdSet{maxSize});
     }
+
+    template<typename S, typename Key, typename Hash, typename KeyEqual, typename Allocator>
+    void serialize(S &s, std::unordered_multiset<Key, Hash, KeyEqual, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
+        s.ext(obj, ext::StdSet{maxSize});
+    }
+
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_VECTOR_H
+#endif //BITSERY_BRIEF_SYNTAX_TYPE_STD_UNORDERED_SET_H

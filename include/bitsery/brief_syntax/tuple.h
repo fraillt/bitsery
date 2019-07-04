@@ -1,6 +1,6 @@
 //MIT License
 //
-//Copyright (c) 2017 Mindaugas Vinkelis
+//Copyright (c) 2019 Mindaugas Vinkelis
 //
 //Permission is hereby granted, free of charge, to any person obtaining a copy
 //of this software and associated documentation files (the "Software"), to deal
@@ -20,18 +20,16 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
+#ifndef BITSERY_BRIEF_SYNTAX_TYPE_STD_TUPLE_H
+#define BITSERY_BRIEF_SYNTAX_TYPE_STD_TUPLE_H
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_FORWARD_LIST_H
-#define BITSERY_FLEXIBLE_TYPE_STD_FORWARD_LIST_H
-
-#include "../traits/forward_list.h"
-#include "../details/flexible_common.h"
+#include "../ext/std_tuple.h"
 
 namespace bitsery {
-    template<typename S, typename T, typename Allocator>
-    void serialize(S &s, std::forward_list<T, Allocator> &obj) {
-        flexible::processContainer(s, obj);
+    template<typename S, typename ...Ts>
+    void serialize(S &s, std::tuple<Ts...> &obj) {
+        s.ext(obj, ext::StdTuple{});
     }
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_FORWARD_LIST_H
+#endif //BITSERY_BRIEF_SYNTAX_TYPE_STD_TUPLE_H

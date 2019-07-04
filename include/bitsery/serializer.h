@@ -186,18 +186,10 @@ namespace bitsery {
         /*
          * functionality, that enables simpler serialization syntax, by including additional header
          */
-        template<typename T, typename ... TArgs>
-        void archive(T &&head, TArgs &&... tail) {
-            //serialize object
-            details::ArchiveFunction<BasicSerializer, T>::invoke(*this, std::forward<T>(head));
-            //expand other elements
-            archive(std::forward<TArgs>(tail)...);
-        }
 
-        template <typename T, typename... TArgs>
-        BasicSerializer &operator()(T &&head, TArgs &&... tail) {
-            details::ArchiveFunction<BasicSerializer, T>::invoke(*this, std::forward<T>(head));
-            archive(std::forward<TArgs>(tail)...);
+        template <typename... TArgs>
+        BasicSerializer &operator()(TArgs &&... args) {
+            archive(std::forward<TArgs>(args)...);
             return *this;
         }
 
@@ -513,6 +505,13 @@ namespace bitsery {
 
         }
 
+        template<typename T, typename ... TArgs>
+        void archive(T &&head, TArgs &&... tail) {
+            //serialize object
+            details::BriefSyntaxFunction<BasicSerializer, T>::invoke(*this, std::forward<T>(head));
+            //expand other elements
+            archive(std::forward<TArgs>(tail)...);
+        }
         //dummy function, that stops archive variadic arguments expansion
         void archive() {
         }

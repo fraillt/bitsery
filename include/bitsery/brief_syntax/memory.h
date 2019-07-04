@@ -1,6 +1,6 @@
 //MIT License
 //
-//Copyright (c) 2017 Mindaugas Vinkelis
+//Copyright (c) 2018 Mindaugas Vinkelis
 //
 //Permission is hereby granted, free of charge, to any person obtaining a copy
 //of this software and associated documentation files (the "Software"), to deal
@@ -20,18 +20,26 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
+#ifndef BITSERY_BRIEF_SYNTAX_TYPE_STD_MEMORY_H
+#define BITSERY_BRIEF_SYNTAX_TYPE_STD_MEMORY_H
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_STRING_H
-#define BITSERY_FLEXIBLE_TYPE_STD_STRING_H
-
-#include "../traits/string.h"
-#include "../details/flexible_common.h"
+#include "../ext/std_smart_ptr.h"
 
 namespace bitsery {
-    template<typename S, typename CharT, typename Traits, typename Allocator>
-    void serialize(S &s, std::basic_string<CharT, Traits, Allocator> &str) {
-        flexible::processContainer(s, str);
+    template<typename S, typename T, typename D>
+    void serialize(S &s, std::unique_ptr<T, D> &obj) {
+        s.ext(obj, ext::StdSmartPtr{});
+    }
+
+    template<typename S, typename T>
+    void serialize(S &s, std::shared_ptr<T> &obj) {
+        s.ext(obj, ext::StdSmartPtr{});
+    }
+
+    template<typename S, typename T>
+    void serialize(S &s, std::weak_ptr<T> &obj) {
+        s.ext(obj, ext::StdSmartPtr{});
     }
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_STRING_H
+#endif //BITSERY_BRIEF_SYNTAX_TYPE_STD_MEMORY_H

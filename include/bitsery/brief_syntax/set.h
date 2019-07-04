@@ -21,30 +21,23 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_MAP_H
-#define BITSERY_FLEXIBLE_TYPE_STD_MAP_H
+#ifndef BITSERY_BRIEF_SYNTAX_TYPE_STD_SET_H
+#define BITSERY_BRIEF_SYNTAX_TYPE_STD_SET_H
 
-#include <map>
-#include "../ext/std_map.h"
+#include <set>
+#include "../ext/std_set.h"
 
 namespace bitsery {
-    template<typename S, typename Key, typename T, typename Compare, typename Allocator>
-    void serialize(S &s, std::map<Key, T, Compare, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
-        s.ext(obj, ext::StdMap{maxSize},
-              [](S& s, Key& key, T& value) {
-                  s.object(key);
-                  s.object(value);
-              });
+    template<typename S, typename Key, typename Compare, typename Allocator>
+    void serialize(S &s, std::set<Key, Compare, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
+        s.ext(obj, ext::StdSet{maxSize});
     }
 
-    template<typename S, typename Key, typename T, typename Compare, typename Allocator>
-    void serialize(S &s, std::multimap<Key, T, Compare, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
-        s.ext(obj, ext::StdMap{maxSize},
-              [](S& s, Key& key, T& value) {
-                  s.object(key);
-                  s.object(value);
-              });
+    template<typename S, typename Key, typename Compare, typename Allocator>
+    void serialize(S &s, std::multiset<Key, Compare, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
+        s.ext(obj, ext::StdSet{maxSize});
     }
+
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_MAP_H
+#endif //BITSERY_BRIEF_SYNTAX_TYPE_STD_SET_H

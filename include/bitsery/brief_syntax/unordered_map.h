@@ -21,17 +21,31 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_DEQUE_H
-#define BITSERY_FLEXIBLE_TYPE_STD_DEQUE_H
+#ifndef BITSERY_BRIEF_SYNTAX_TYPE_STD_UNORDERED_MAP_H
+#define BITSERY_BRIEF_SYNTAX_TYPE_STD_UNORDERED_MAP_H
 
-#include "../traits/deque.h"
-#include "../details/flexible_common.h"
+#include <unordered_map>
+#include "../ext/std_map.h"
 
 namespace bitsery {
-    template<typename S, typename T, typename Allocator>
-    void serialize(S &s, std::deque<T, Allocator> &obj) {
-        flexible::processContainer(s, obj);
+    template<typename S, typename Key, typename T, typename Hash, typename KeyEqual, typename Allocator>
+    void serialize(S &s, std::unordered_map<Key, T, Hash, KeyEqual, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
+        s.ext(obj, ext::StdMap{maxSize},
+              [](S& s, Key& key, T& value) {
+                  s.object(key);
+                  s.object(value);
+              });
     }
+
+    template<typename S, typename Key, typename T, typename Hash, typename KeyEqual, typename Allocator>
+    void serialize(S &s, std::unordered_multimap<Key, T, Hash, KeyEqual, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
+        s.ext(obj, ext::StdMap{maxSize},
+              [](S& s, Key& key, T& value) {
+                  s.object(key);
+                  s.object(value);
+              });
+    }
+
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_DEQUE_H
+#endif //BITSERY_BRIEF_SYNTAX_TYPE_STD_UNORDERED_MAP_H

@@ -58,7 +58,7 @@ void serialize(S& s, MyStruct& o) {
 
 **bitsery** also allows to define serialize function in side your class, and can also serialize private class members, just make *friend bitsery::Access;*
 
-**bitsery** supports two ways how to describe your serialization flow: *verbose syntax* (as in example) or *flexible syntax*, similar to *cereal* library, just include `<bitsery/flexible.h>` to use it.
+**bitsery** supports two ways how to describe your serialization flow: *verbose syntax* (as in example) or *brief syntax*, similar to *cereal* library, just include `<bitsery/brief_syntax.h>` to use it.
 
 This example we choosed probably unfamiliar verbose syntax, so lets explain core functionality that you'll use all the time:
 * **s.value4b(o.i);** serialize fundamental types (ints, floats, enums) value**4b** means, that data type is 4 bytes. If you use same code on different machines, if it compiles it means it is compatible.

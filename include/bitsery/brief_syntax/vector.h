@@ -1,6 +1,6 @@
 //MIT License
 //
-//Copyright (c) 2018 Mindaugas Vinkelis
+//Copyright (c) 2017 Mindaugas Vinkelis
 //
 //Permission is hereby granted, free of charge, to any person obtaining a copy
 //of this software and associated documentation files (the "Software"), to deal
@@ -20,26 +20,18 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_MEMORY_H
-#define BITSERY_FLEXIBLE_TYPE_STD_MEMORY_H
 
-#include "../ext/std_smart_ptr.h"
+#ifndef BITSERY_BRIEF_SYNTAX_TYPE_STD_VECTOR_H
+#define BITSERY_BRIEF_SYNTAX_TYPE_STD_VECTOR_H
+
+#include "../traits/vector.h"
+#include "bitsery/details/brief_syntax_common.h"
 
 namespace bitsery {
-    template<typename S, typename T, typename D>
-    void serialize(S &s, std::unique_ptr<T, D> &obj) {
-        s.ext(obj, ext::StdSmartPtr{});
-    }
-
-    template<typename S, typename T>
-    void serialize(S &s, std::shared_ptr<T> &obj) {
-        s.ext(obj, ext::StdSmartPtr{});
-    }
-
-    template<typename S, typename T>
-    void serialize(S &s, std::weak_ptr<T> &obj) {
-        s.ext(obj, ext::StdSmartPtr{});
+    template<typename S, typename T, typename Allocator>
+    void serialize(S &s, std::vector<T, Allocator> &obj) {
+        brief_syntax::processContainer(s, obj);
     }
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_MEMORY_H
+#endif //BITSERY_BRIEF_SYNTAX_TYPE_STD_VECTOR_H

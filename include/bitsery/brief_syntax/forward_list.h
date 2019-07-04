@@ -21,23 +21,17 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_SET_H
-#define BITSERY_FLEXIBLE_TYPE_STD_SET_H
+#ifndef BITSERY_BRIEF_SYNTAX_TYPE_STD_FORWARD_LIST_H
+#define BITSERY_BRIEF_SYNTAX_TYPE_STD_FORWARD_LIST_H
 
-#include <set>
-#include "../ext/std_set.h"
+#include "../traits/forward_list.h"
+#include "bitsery/details/brief_syntax_common.h"
 
 namespace bitsery {
-    template<typename S, typename Key, typename Compare, typename Allocator>
-    void serialize(S &s, std::set<Key, Compare, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
-        s.ext(obj, ext::StdSet{maxSize});
+    template<typename S, typename T, typename Allocator>
+    void serialize(S &s, std::forward_list<T, Allocator> &obj) {
+        brief_syntax::processContainer(s, obj);
     }
-
-    template<typename S, typename Key, typename Compare, typename Allocator>
-    void serialize(S &s, std::multiset<Key, Compare, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
-        s.ext(obj, ext::StdSet{maxSize});
-    }
-
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_SET_H
+#endif //BITSERY_BRIEF_SYNTAX_TYPE_STD_FORWARD_LIST_H

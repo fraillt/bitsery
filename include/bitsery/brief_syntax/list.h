@@ -21,17 +21,17 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_LIST_H
-#define BITSERY_FLEXIBLE_TYPE_STD_LIST_H
+#ifndef BITSERY_BRIEF_SYNTAX_TYPE_STD_LIST_H
+#define BITSERY_BRIEF_SYNTAX_TYPE_STD_LIST_H
 
 #include "../traits/list.h"
-#include "../details/flexible_common.h"
+#include "bitsery/details/brief_syntax_common.h"
 
 namespace bitsery {
     template<typename S, typename T, typename Allocator>
     void serialize(S &s, std::list<T, Allocator> &obj) {
-        flexible::processContainer(s, obj);
+        brief_syntax::processContainer(s, obj);
     }
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_LIST_H
+#endif //BITSERY_BRIEF_SYNTAX_TYPE_STD_LIST_H

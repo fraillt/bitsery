@@ -10,6 +10,7 @@
 * AdapterWriter/Reader classes, and their functionality is moved to `adapters`.
 * UnsafeInputBufferAdapter, instead config option is provided to disable buffer read errors
 * isValidState from stream output adapter, because it didn't provide any additional information that couldn't be queried directly on stream object.
+* archive from serializer/deserializer
 
 ## other breaking changes
 
@@ -28,6 +29,9 @@
 * renamed NetworkEndianness to Endianness in config
 * MeasureSize adapter moved to separate file `/adapter/measure_size.h`
 * removed Writer/Reader parameter from extensions serialize/deserialize methods
+* renamed flexible to brief_syntax,
+  * folder
+  * file
 
 ## improvements
 
@@ -45,10 +49,6 @@ e.g. instead of writing `s.container(obj, [](S& s, MyData& data) {s.ext(data, My
 
 ## bugfix
 * fixed enabledBitPacking where writer and internal context states was not restored properly after exiting from this function
-
-## todo
-* flexible syntax, enable option (using config) to use compactvalue for fundamental types by default (it should be off to preserve ABI breaking change).
-* rename "flexible" to "brief_syntax"
 
 # [4.6.1](https://github.com/fraillt/bitsery/compare/v4.6.0...v4.6.1) (2019-06-27)
 

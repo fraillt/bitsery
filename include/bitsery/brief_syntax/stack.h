@@ -21,17 +21,16 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_ARRAY_H
-#define BITSERY_FLEXIBLE_TYPE_STD_ARRAY_H
+#ifndef BITSERY_BRIEF_SYNTAX_TYPE_STD_STACK_H
+#define BITSERY_BRIEF_SYNTAX_TYPE_STD_STACK_H
 
-#include "../traits/array.h"
-#include "../details/flexible_common.h"
+#include "../ext/std_stack.h"
 
 namespace bitsery {
-    template<typename S, typename T, size_t N>
-    void serialize(S &s, std::array<T, N> &obj) {
-        flexible::processContainer(s, obj);
+    template<typename S, typename T, typename C>
+    void serialize(S &s, std::stack<T, C> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
+        s.ext(obj, ext::StdStack{maxSize});
     }
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_ARRAY_H
+#endif //BITSERY_BRIEF_SYNTAX_TYPE_STD_STACK_H

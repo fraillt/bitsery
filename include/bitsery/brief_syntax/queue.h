@@ -1,6 +1,6 @@
 //MIT License
 //
-//Copyright (c) 2019 Mindaugas Vinkelis
+//Copyright (c) 2017 Mindaugas Vinkelis
 //
 //Permission is hereby granted, free of charge, to any person obtaining a copy
 //of this software and associated documentation files (the "Software"), to deal
@@ -20,21 +20,23 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_CHRONO_H
-#define BITSERY_FLEXIBLE_TYPE_STD_CHRONO_H
 
-#include "../ext/std_chrono.h"
+#ifndef BITSERY_BRIEF_SYNTAX_TYPE_STD_QUEUE_H
+#define BITSERY_BRIEF_SYNTAX_TYPE_STD_QUEUE_H
+
+#include "../ext/std_queue.h"
 
 namespace bitsery {
-    template<typename S, typename T, typename P>
-    void serialize(S &s, std::chrono::duration<T, P> &obj) {
-        s.template ext<sizeof(T)>(obj, ext::StdDuration{});
+    template<typename S, typename T, typename C>
+    void serialize(S &s, std::queue<T, C> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
+        s.ext(obj, ext::StdQueue{maxSize});
     }
 
-    template<typename S, typename C, typename T, typename P>
-    void serialize(S &s, std::chrono::time_point<C, std::chrono::duration<T, P>> &obj) {
-        s.template ext<sizeof(T)>(obj, ext::StdTimePoint{});
+    template<typename S, typename T, typename C, typename Comp>
+    void serialize(S &s, std::priority_queue<T, C, Comp> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
+        s.ext(obj, ext::StdQueue{maxSize});
     }
+
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_CHRONO_H
+#endif //BITSERY_BRIEF_SYNTAX_TYPE_STD_QUEUE_H

@@ -20,14 +20,14 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-#ifndef BITSERY_DETAILS_FLEXIBLE_COMMON_H
-#define BITSERY_DETAILS_FLEXIBLE_COMMON_H
+#ifndef BITSERY_DETAILS_BRIEF_SYNTAX_COMMON_H
+#define BITSERY_DETAILS_BRIEF_SYNTAX_COMMON_H
 
 #include "../traits/core/traits.h"
 #include <limits>
 
 namespace bitsery {
-    namespace flexible {
+    namespace brief_syntax {
 
         //these function overloads is required to apply maxSize, and optimize for fundamental types
         //for contigous arrays of fundamenal types, memcpy will be applied
@@ -84,13 +84,13 @@ namespace bitsery {
 
 
         //all wrapper functions, that modify behaviour, should inherit from this
-        struct ArchiveWrapperFnc {
+        struct ModFnc {
 
         };
 
         //this type is used to differentiate between container and text behaviour
         template<typename T, size_t N, bool isText>
-        struct CArray : public ArchiveWrapperFnc {
+        struct CArray : public ModFnc {
             CArray(T (&data_)[N]) : data{data_} {};
             T (&data)[N];
         };
@@ -107,7 +107,7 @@ namespace bitsery {
 
         //used to set max container size
         template<typename T>
-        struct MaxSize : public ArchiveWrapperFnc {
+        struct MaxSize : public ModFnc {
             MaxSize(T &data_, size_t maxSize_) : data{data_}, maxSize{maxSize_} {};
             T &data;
             size_t maxSize;
@@ -146,4 +146,4 @@ namespace bitsery {
     }
 }
 
-#endif //BITSERY_DETAILS_FLEXIBLE_COMMON_H
+#endif //BITSERY_DETAILS_BRIEF_SYNTAX_COMMON_H

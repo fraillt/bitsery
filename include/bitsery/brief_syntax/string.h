@@ -1,6 +1,6 @@
 //MIT License
 //
-//Copyright (c) 2019 Mindaugas Vinkelis
+//Copyright (c) 2017 Mindaugas Vinkelis
 //
 //Permission is hereby granted, free of charge, to any person obtaining a copy
 //of this software and associated documentation files (the "Software"), to deal
@@ -20,16 +20,18 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_TUPLE_H
-#define BITSERY_FLEXIBLE_TYPE_STD_TUPLE_H
 
-#include "../ext/std_tuple.h"
+#ifndef BITSERY_BRIEF_SYNTAX_TYPE_STD_STRING_H
+#define BITSERY_BRIEF_SYNTAX_TYPE_STD_STRING_H
+
+#include "../traits/string.h"
+#include "bitsery/details/brief_syntax_common.h"
 
 namespace bitsery {
-    template<typename S, typename ...Ts>
-    void serialize(S &s, std::tuple<Ts...> &obj) {
-        s.ext(obj, ext::StdTuple{});
+    template<typename S, typename CharT, typename Traits, typename Allocator>
+    void serialize(S &s, std::basic_string<CharT, Traits, Allocator> &str) {
+        brief_syntax::processContainer(s, str);
     }
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_TUPLE_H
+#endif //BITSERY_BRIEF_SYNTAX_TYPE_STD_STRING_H

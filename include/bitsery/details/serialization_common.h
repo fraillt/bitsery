@@ -143,20 +143,20 @@ namespace bitsery {
         template <typename S, typename T>
         struct HasSerializeMethod :HasSerializeMethodHelper<S, T>::type {};
 
-        //helper types for IsFlexibleIncluded
+        //helper types for IsBriefSyntaxIncluded
         template <typename S, typename T>
-        using TryArchiveProcess = decltype(archiveProcess(std::declval<S &>(), std::declval<T &&>()));
+        using TryProcessBriefSyntax = decltype(processBriefSyntax(std::declval<S &>(), std::declval<T &&>()));
 
         template <typename S, typename T>
-        struct IsFlexibleIncludedHelper {
-            template <typename Q, typename R, typename = TryArchiveProcess<Q, R>>
+        struct IsBriefSyntaxIncludedHelper {
+            template <typename Q, typename R, typename = TryProcessBriefSyntax<Q, R>>
             static std::true_type tester(Q&&, R&&);
             static std::false_type tester(...);
             using type = decltype(tester(std::declval<S>(), std::declval<T>()));
         };
 
         template <typename S, typename T>
-        struct IsFlexibleIncluded :IsFlexibleIncludedHelper<S, T>::type {};
+        struct IsBriefSyntaxIncluded :IsBriefSyntaxIncludedHelper<S, T>::type {};
 #else
         //helper metafunction, that is added to c++17
         template<typename... Ts>
@@ -189,12 +189,12 @@ namespace bitsery {
 
         //this solution doesn't work with visual studio, but is more elegant
         template<typename, typename, typename = void>
-        struct IsFlexibleIncluded : std::false_type {
+        struct IsBriefSyntaxIncluded : std::false_type {
         };
 
         template<typename S, typename T>
-        struct IsFlexibleIncluded<S, T,
-                void_t<decltype(archiveProcess(std::declval<S &>(), std::declval<T &&>()))>
+        struct IsBriefSyntaxIncluded<S, T,
+                void_t<decltype(processBriefSyntax(std::declval<S &>(), std::declval<T &&>()))>
         > : std::true_type {
         };
 #endif
@@ -286,13 +286,13 @@ namespace bitsery {
  */
 
         template<typename S, typename T, typename Enabled = void>
-        struct ArchiveFunction {
+        struct BriefSyntaxFunction {
 
             static void invoke(S &s, T &&obj) {
-                static_assert(IsFlexibleIncluded<S, T>::value,
-                              "\nPlease include '<bitsery/flexible.h>' to use 'archive' function:\n");
+                static_assert(IsBriefSyntaxIncluded<S, T>::value,
+                              "\nPlease include '<bitsery/brief_syntax.h>' to use operator():\n");
 
-                archiveProcess(s, std::forward<T>(obj));
+                processBriefSyntax(s, std::forward<T>(obj));
             }
         };
 

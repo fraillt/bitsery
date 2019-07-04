@@ -4,7 +4,7 @@ Once you're familiar with the library consider the following reference material.
 Library design:
 * `fundamental types`
 * `valueNb instead of value`
-* `flexible syntax`
+* `brief syntax`
 * `serializer/deserializer functions overloads`
 * `extending library functionality`
 * `errors handling`
@@ -15,9 +15,8 @@ Library design:
 
 
 Core Serializer/Deserializer functions (alphabetical order):
-* `operator()` (4.6.1) (when flexible syntax is enabled)
+* `operator()` (4.6.1) (when brief syntax is enabled)
 * `adapter` (5.0.0)
-* `archive` (4.0.0) (when flexible syntax is enabled)
 * `boolValue` (4.0.0)
 * `context<T>` (4.1.0)
 * `contextOrNull<T>` (4.2.0)

@@ -21,16 +21,30 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_STACK_H
-#define BITSERY_FLEXIBLE_TYPE_STD_STACK_H
+#ifndef BITSERY_BRIEF_SYNTAX_TYPE_STD_MAP_H
+#define BITSERY_BRIEF_SYNTAX_TYPE_STD_MAP_H
 
-#include "../ext/std_stack.h"
+#include <map>
+#include "../ext/std_map.h"
 
 namespace bitsery {
-    template<typename S, typename T, typename C>
-    void serialize(S &s, std::stack<T, C> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
-        s.ext(obj, ext::StdStack{maxSize});
+    template<typename S, typename Key, typename T, typename Compare, typename Allocator>
+    void serialize(S &s, std::map<Key, T, Compare, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
+        s.ext(obj, ext::StdMap{maxSize},
+              [](S& s, Key& key, T& value) {
+                  s.object(key);
+                  s.object(value);
+              });
+    }
+
+    template<typename S, typename Key, typename T, typename Compare, typename Allocator>
+    void serialize(S &s, std::multimap<Key, T, Compare, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
+        s.ext(obj, ext::StdMap{maxSize},
+              [](S& s, Key& key, T& value) {
+                  s.object(key);
+                  s.object(value);
+              });
     }
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_STACK_H
+#endif //BITSERY_BRIEF_SYNTAX_TYPE_STD_MAP_H

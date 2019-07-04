@@ -21,31 +21,17 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_UNORDERED_MAP_H
-#define BITSERY_FLEXIBLE_TYPE_STD_UNORDERED_MAP_H
+#ifndef BITSERY_BRIEF_SYNTAX_TYPE_STD_ARRAY_H
+#define BITSERY_BRIEF_SYNTAX_TYPE_STD_ARRAY_H
 
-#include <unordered_map>
-#include "../ext/std_map.h"
+#include "../traits/array.h"
+#include "bitsery/details/brief_syntax_common.h"
 
 namespace bitsery {
-    template<typename S, typename Key, typename T, typename Hash, typename KeyEqual, typename Allocator>
-    void serialize(S &s, std::unordered_map<Key, T, Hash, KeyEqual, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
-        s.ext(obj, ext::StdMap{maxSize},
-              [](S& s, Key& key, T& value) {
-                  s.object(key);
-                  s.object(value);
-              });
+    template<typename S, typename T, size_t N>
+    void serialize(S &s, std::array<T, N> &obj) {
+        brief_syntax::processContainer(s, obj);
     }
-
-    template<typename S, typename Key, typename T, typename Hash, typename KeyEqual, typename Allocator>
-    void serialize(S &s, std::unordered_multimap<Key, T, Hash, KeyEqual, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
-        s.ext(obj, ext::StdMap{maxSize},
-              [](S& s, Key& key, T& value) {
-                  s.object(key);
-                  s.object(value);
-              });
-    }
-
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_UNORDERED_MAP_H
+#endif //BITSERY_BRIEF_SYNTAX_TYPE_STD_ARRAY_H

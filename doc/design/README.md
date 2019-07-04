@@ -34,8 +34,8 @@ Now let's review features in more detail.
 * **Cross-platform compatible.** if same code compiles on Android, PS3 console, and your PC either x64 or x86 architecture, you are 100% sure it works.
 To achieve this, bitsery specifically defines size of underlying data, hence syntax is *value\<2\>* (alias function *value2b*)  instead or *value*, or *container2b* for element type of 16bits, eg int16_t.
 Bitsery also applies endianness transformation if necessary.
-* **Flexible syntax.** If you don't like like writing code with explicitly specifying underlying type size, like *container2b* or *value8b*, you can use flexible syntax.
-Just include <bitsery/flexible.h> and can write like in [cereal](http://uscilab.github.io/cereal/).
+* **Brief syntax.** If you don't like like writing code with explicitly specifying underlying type size, like *container2b* or *value8b*, you can use brief syntax.
+Just include <bitsery/brief_syntax.h> and can write like in [cereal](http://uscilab.github.io/cereal/).
 But do it on your own risk, and static assert using *assertFundamentalTypeSizes* function if you're planing to use it across multiple platforms.
 * **Optimized for speed and space.** library itself doesn't do any allocations (except if you use backward/forward compatibility) so data writing/reading is fast as memcpy to/from your buffer.
 It also doesn't serialize any type information, all information needed is written in your code!

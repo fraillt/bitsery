@@ -21,23 +21,17 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_TYPE_STD_UNORDERED_SET_H
-#define BITSERY_FLEXIBLE_TYPE_STD_UNORDERED_SET_H
+#ifndef BITSERY_BRIEF_SYNTAX_TYPE_STD_DEQUE_H
+#define BITSERY_BRIEF_SYNTAX_TYPE_STD_DEQUE_H
 
-#include <unordered_set>
-#include "../ext/std_set.h"
+#include "../traits/deque.h"
+#include "bitsery/details/brief_syntax_common.h"
 
 namespace bitsery {
-    template<typename S, typename Key, typename Hash, typename KeyEqual, typename Allocator>
-    void serialize(S &s, std::unordered_set<Key, Hash, KeyEqual, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
-        s.ext(obj, ext::StdSet{maxSize});
+    template<typename S, typename T, typename Allocator>
+    void serialize(S &s, std::deque<T, Allocator> &obj) {
+        brief_syntax::processContainer(s, obj);
     }
-
-    template<typename S, typename Key, typename Hash, typename KeyEqual, typename Allocator>
-    void serialize(S &s, std::unordered_multiset<Key, Hash, KeyEqual, Allocator> &obj, size_t maxSize = std::numeric_limits<size_t>::max()) {
-        s.ext(obj, ext::StdSet{maxSize});
-    }
-
 }
 
-#endif //BITSERY_FLEXIBLE_TYPE_STD_UNORDERED_SET_H
+#endif //BITSERY_BRIEF_SYNTAX_TYPE_STD_DEQUE_H

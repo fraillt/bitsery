@@ -21,35 +21,35 @@
 //SOFTWARE.
 
 
-#ifndef BITSERY_FLEXIBLE_H
-#define BITSERY_FLEXIBLE_H
+#ifndef BITSERY_BRIEF_SYNTAX_H
+#define BITSERY_BRIEF_SYNTAX_H
 
 #include "details/serialization_common.h"
-#include "details/flexible_common.h"
+#include "bitsery/details/brief_syntax_common.h"
 
 namespace bitsery {
 
-    //define function that enables s.archive(....) usage
+    //define function that enables s(....) usage
     template<typename S, typename T>
-    void archiveProcess(S& s, T&& head) {
-        static_assert(std::is_lvalue_reference<T>::value || std::is_base_of<flexible::ArchiveWrapperFnc, T>::value,
-                      "Argument must be either lvalue or subclass of flexible::ArchiveWrapperFnc");
+    void processBriefSyntax(S& s, T&& head) {
+        static_assert(std::is_lvalue_reference<T>::value || std::is_base_of<brief_syntax::ModFnc, T>::value,
+                      "Argument must be either lvalue or subclass of brief_syntax::ModFnc");
         s.object(head);
     }
 
     //wrapper functions that enables to serialize as container or string
     template<typename T, size_t N>
-    flexible::CArray<T, N, true> asText(T (& str)[N]) {
+    brief_syntax::CArray<T, N, true> asText(T (& str)[N]) {
         return {str};
     }
 
     template<typename T, size_t N>
-    flexible::CArray<T, N, false> asContainer(T (& obj)[N]) {
+    brief_syntax::CArray<T, N, false> asContainer(T (& obj)[N]) {
         return {obj};
     }
 
     template<typename T>
-    flexible::MaxSize<T> maxSize(T& obj, size_t max) {
+    brief_syntax::MaxSize<T> maxSize(T& obj, size_t max) {
         return {obj, max};
     }
 
@@ -75,7 +75,7 @@ namespace bitsery {
 
     template<typename S, typename T, size_t N, typename std::enable_if<!std::is_integral<T>::value>::type * = nullptr>
     void serialize(S& s, T (& obj)[N]) {
-        flexible::processContainer(s, obj);
+        brief_syntax::processContainer(s, obj);
     }
 
     //this is a helper class that enforce fundamental type sizes, when used on multiple platforms
@@ -91,4 +91,4 @@ namespace bitsery {
 
 }
 
-#endif //BITSERY_FLEXIBLE_H
+#endif //BITSERY_BRIEF_SYNTAX_H

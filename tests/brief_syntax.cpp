@@ -20,25 +20,24 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-
-#include <bitsery/flexible.h>
-#include <bitsery/flexible/string.h>
-#include <bitsery/flexible/array.h>
-#include <bitsery/flexible/vector.h>
-#include <bitsery/flexible/list.h>
-#include <bitsery/flexible/forward_list.h>
-#include <bitsery/flexible/deque.h>
-#include <bitsery/flexible/queue.h>
-#include <bitsery/flexible/stack.h>
-#include <bitsery/flexible/map.h>
-#include <bitsery/flexible/unordered_map.h>
-#include <bitsery/flexible/set.h>
-#include <bitsery/flexible/unordered_set.h>
-#include <bitsery/flexible/memory.h>
-#include <bitsery/flexible/chrono.h>
+#include <bitsery/brief_syntax.h>
+#include <bitsery/brief_syntax/array.h>
+#include <bitsery/brief_syntax/chrono.h>
+#include <bitsery/brief_syntax/deque.h>
+#include <bitsery/brief_syntax/forward_list.h>
+#include <bitsery/brief_syntax/list.h>
+#include <bitsery/brief_syntax/map.h>
+#include <bitsery/brief_syntax/memory.h>
+#include <bitsery/brief_syntax/queue.h>
+#include <bitsery/brief_syntax/set.h>
+#include <bitsery/brief_syntax/stack.h>
+#include <bitsery/brief_syntax/string.h>
+#include <bitsery/brief_syntax/unordered_map.h>
+#include <bitsery/brief_syntax/unordered_set.h>
+#include <bitsery/brief_syntax/vector.h>
 #if __cplusplus > 201402L
-#include <bitsery/flexible/tuple.h>
-#include <bitsery/flexible/variant.h>
+#include <bitsery/brief_syntax/tuple.h>
+#include <bitsery/brief_syntax/variant.h>
 #else
 #if defined(_MSC_VER)
 #pragma message("tuple and variant only works with c++17")
@@ -52,14 +51,14 @@
 
 using testing::Eq;
 
-TEST(FlexibleSyntax, FundamentalTypesAndBool) {
+TEST(BriefSyntax, FundamentalTypesAndBool) {
     int ti = 8745;
     MyEnumClass te = MyEnumClass::E4;
     float tf = 485.042f;
     double td = -454184.48445;
     bool tb = true;
     SerializationContext ctx{};
-    ctx.createSerializer().archive(ti, te, tf, td, tb);
+    ctx.createSerializer()(ti, te, tf, td, tb);
 
     //result
     int ri{};
@@ -67,7 +66,7 @@ TEST(FlexibleSyntax, FundamentalTypesAndBool) {
     float rf{};
     double rd{};
     bool rb{};
-    ctx.createDeserializer().archive(ri, re, rf, rd, rb);
+    ctx.createDeserializer()(ri, re, rf, rd, rb);
 
     //test
     EXPECT_THAT(ri, Eq(ti));
@@ -77,7 +76,7 @@ TEST(FlexibleSyntax, FundamentalTypesAndBool) {
     EXPECT_THAT(rb, Eq(tb));
 }
 
-TEST(FlexibleSyntax, UseObjectFncInsteadOfValueN) {
+TEST(BriefSyntax, UseObjectFncInsteadOfValueN) {
     int ti = 8745;
     MyEnumClass te = MyEnumClass::E4;
     float tf = 485.042f;
@@ -112,7 +111,7 @@ TEST(FlexibleSyntax, UseObjectFncInsteadOfValueN) {
     EXPECT_THAT(rb, Eq(tb));
 }
 
-TEST(FlexibleSyntax, MixDifferentSyntax) {
+TEST(BriefSyntax, MixDifferentSyntax) {
     int ti = 8745;
     MyEnumClass te = MyEnumClass::E4;
     float tf = 485.042f;
@@ -121,7 +120,7 @@ TEST(FlexibleSyntax, MixDifferentSyntax) {
     SerializationContext ctx;
     auto& ser = ctx.createSerializer();
     ser.value<sizeof(ti)>(ti);
-    ser.archive(te, tf, td);
+    ser(te, tf, td);
     ser.object(tb);
 
     //result
@@ -131,7 +130,7 @@ TEST(FlexibleSyntax, MixDifferentSyntax) {
     double rd{};
     bool rb{};
     auto& des = ctx.createDeserializer();
-    des.archive(ri, re, rf);
+    des(ri, re, rf);
     des.value8b(rd);
     des.object(rb);
 
@@ -144,130 +143,130 @@ TEST(FlexibleSyntax, MixDifferentSyntax) {
 }
 
 template<typename T>
-T procArchive(const T& testData) {
+T procBriefSyntax(const T& testData) {
     SerializationContext ctx;
-    ctx.createSerializer().archive(testData);
+    ctx.createSerializer()(testData);
     T res{};
-    ctx.createDeserializer().archive(res);
+    ctx.createDeserializer()(res);
     return res;
 }
 
 template<typename T>
-T procArchiveWithMaxSize(const T& testData) {
+T procBriefSyntaxWithMaxSize(const T& testData) {
     SerializationContext ctx;
-    ctx.createSerializer().archive(bitsery::maxSize(testData, 100));
+    ctx.createSerializer()(bitsery::maxSize(testData, 100));
     T res{};
-    ctx.createDeserializer().archive(bitsery::maxSize(res, 100));
+    ctx.createDeserializer()(bitsery::maxSize(res, 100));
     return res;
 }
 
-TEST(FlexibleSyntax, CStyleArrayForValueTypesAsContainer) {
+TEST(BriefSyntax, CStyleArrayForValueTypesAsContainer) {
     const int t1[3]{8748, -484, 45};
     int r1[3]{0, 0, 0};
 
     SerializationContext ctx;
-    ctx.createSerializer().archive(bitsery::asContainer(t1));
-    ctx.createDeserializer().archive(bitsery::asContainer(r1));
+    ctx.createSerializer()(bitsery::asContainer(t1));
+    ctx.createDeserializer()(bitsery::asContainer(r1));
 
     EXPECT_THAT(r1, ::testing::ContainerEq(t1));
 }
 
-TEST(FlexibleSyntax, CStyleArrayForIntegralTypesAsText) {
+TEST(BriefSyntax, CStyleArrayForIntegralTypesAsText) {
     const char t1[3]{"hi"};
     char r1[3]{0, 0, 0};
 
     SerializationContext ctx;
-    ctx.createSerializer().archive(bitsery::asText(t1));
-    ctx.createDeserializer().archive(bitsery::asText(r1));
+    ctx.createSerializer()(bitsery::asText(t1));
+    ctx.createDeserializer()(bitsery::asText(r1));
 
     EXPECT_THAT(r1, ::testing::ContainerEq(t1));
 }
 
-TEST(FlexibleSyntax, CStyleArray) {
+TEST(BriefSyntax, CStyleArray) {
     const MyEnumClass t1[3]{MyEnumClass::E1, MyEnumClass::E4, MyEnumClass::E2};
     MyEnumClass r1[3]{};
 
     SerializationContext ctx;
-    ctx.createSerializer().archive(t1);
-    ctx.createDeserializer().archive(r1);
+    ctx.createSerializer()(t1);
+    ctx.createDeserializer()(r1);
 
     EXPECT_THAT(r1, ::testing::ContainerEq(t1));
 }
 
-TEST(FlexibleSyntax, StdString) {
+TEST(BriefSyntax, StdString) {
     std::string t1{"my nice string"};
     std::string t2{};
 
-    EXPECT_THAT(procArchive(t1), Eq(t1));
-    EXPECT_THAT(procArchive(t2), Eq(t2));
-    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
-    EXPECT_THAT(procArchiveWithMaxSize(t2), Eq(t2));
+    EXPECT_THAT(procBriefSyntax(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntax(t2), Eq(t2));
+    EXPECT_THAT(procBriefSyntaxWithMaxSize(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntaxWithMaxSize(t2), Eq(t2));
 }
 
-TEST(FlexibleSyntax, StdArray) {
+TEST(BriefSyntax, StdArray) {
     std::array<int, 3> t1{8748, -484, 45};
     std::array<int, 0> t2{};
 
-    EXPECT_THAT(procArchive(t1), Eq(t1));
-    EXPECT_THAT(procArchive(t2), Eq(t2));
+    EXPECT_THAT(procBriefSyntax(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntax(t2), Eq(t2));
 }
 
-TEST(FlexibleSyntax, StdVector) {
+TEST(BriefSyntax, StdVector) {
     std::vector<int> t1{8748, -484, 45};
     std::vector<float> t2{5.f, 0.198f};
 
-    EXPECT_THAT(procArchive(t1), Eq(t1));
-    EXPECT_THAT(procArchive(t2), Eq(t2));
-    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
-    EXPECT_THAT(procArchiveWithMaxSize(t2), Eq(t2));
+    EXPECT_THAT(procBriefSyntax(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntax(t2), Eq(t2));
+    EXPECT_THAT(procBriefSyntaxWithMaxSize(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntaxWithMaxSize(t2), Eq(t2));
 }
 
-TEST(FlexibleSyntax, StdList) {
+TEST(BriefSyntax, StdList) {
     std::list<int> t1{8748, -484, 45};
     std::list<float> t2{5.f, 0.198f};
 
-    EXPECT_THAT(procArchive(t1), Eq(t1));
-    EXPECT_THAT(procArchive(t2), Eq(t2));
-    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
-    EXPECT_THAT(procArchiveWithMaxSize(t2), Eq(t2));
+    EXPECT_THAT(procBriefSyntax(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntax(t2), Eq(t2));
+    EXPECT_THAT(procBriefSyntaxWithMaxSize(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntaxWithMaxSize(t2), Eq(t2));
 }
 
-TEST(FlexibleSyntax, StdForwardList) {
+TEST(BriefSyntax, StdForwardList) {
     std::forward_list<int> t1{8748, -484, 45};
     std::forward_list<float> t2{5.f, 0.198f};
 
-    EXPECT_THAT(procArchive(t1), Eq(t1));
-    EXPECT_THAT(procArchive(t2), Eq(t2));
-    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
-    EXPECT_THAT(procArchiveWithMaxSize(t2), Eq(t2));
+    EXPECT_THAT(procBriefSyntax(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntax(t2), Eq(t2));
+    EXPECT_THAT(procBriefSyntaxWithMaxSize(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntaxWithMaxSize(t2), Eq(t2));
 }
 
-TEST(FlexibleSyntax, StdDeque) {
+TEST(BriefSyntax, StdDeque) {
     std::deque<int> t1{8748, -484, 45};
     std::deque<float> t2{5.f, 0.198f};
 
-    EXPECT_THAT(procArchive(t1), Eq(t1));
-    EXPECT_THAT(procArchive(t2), Eq(t2));
-    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
-    EXPECT_THAT(procArchiveWithMaxSize(t2), Eq(t2));
+    EXPECT_THAT(procBriefSyntax(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntax(t2), Eq(t2));
+    EXPECT_THAT(procBriefSyntaxWithMaxSize(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntaxWithMaxSize(t2), Eq(t2));
 }
 
-TEST(FlexibleSyntax, StdQueue) {
+TEST(BriefSyntax, StdQueue) {
     std::queue<std::string> t1;
     t1.push("first");
     t1.push("second string");
 
-    EXPECT_THAT(procArchive(t1), Eq(t1));
-    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntax(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntaxWithMaxSize(t1), Eq(t1));
 }
 
-TEST(FlexibleSyntax, StdPriorityQueue) {
+TEST(BriefSyntax, StdPriorityQueue) {
     std::priority_queue<std::string> t1;
     t1.push("first");
     t1.push("second string");
     t1.push("third");
     t1.push("fourth");
-    auto r1 = procArchive(t1);
+    auto r1 = procBriefSyntax(t1);
     //we cannot compare priority queue directly
 
     EXPECT_THAT(r1.size(), Eq(t1.size()));
@@ -278,50 +277,50 @@ TEST(FlexibleSyntax, StdPriorityQueue) {
     }
 }
 
-TEST(FlexibleSyntax, StdStack) {
+TEST(BriefSyntax, StdStack) {
     std::stack<std::string> t1;
     t1.push("first");
     t1.push("second string");
 
-    EXPECT_THAT(procArchive(t1), Eq(t1));
-    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntax(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntaxWithMaxSize(t1), Eq(t1));
 }
 
-TEST(FlexibleSyntax, StdUnorderedMap) {
+TEST(BriefSyntax, StdUnorderedMap) {
     std::unordered_map<int, int> t1;
     t1.emplace(3423, 624);
     t1.emplace(-5484, -845);
 
-    EXPECT_THAT(procArchive(t1), Eq(t1));
-    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntax(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntaxWithMaxSize(t1), Eq(t1));
 }
 
-TEST(FlexibleSyntax, StdUnorderedMultiMap) {
+TEST(BriefSyntax, StdUnorderedMultiMap) {
     std::unordered_multimap<std::string, int> t1;
     t1.emplace("one", 624);
     t1.emplace("two", -845);
     t1.emplace("one", 897);
 
-    EXPECT_TRUE(procArchive(t1) == t1);
-    EXPECT_TRUE(procArchiveWithMaxSize(t1) == t1);
+    EXPECT_TRUE(procBriefSyntax(t1) == t1);
+    EXPECT_TRUE(procBriefSyntaxWithMaxSize(t1) == t1);
 }
 
-TEST(FlexibleSyntax, StdMap) {
+TEST(BriefSyntax, StdMap) {
     std::map<int, int> t1;
     t1.emplace(3423, 624);
     t1.emplace(-5484, -845);
 
-    EXPECT_THAT(procArchive(t1), Eq(t1));
-    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntax(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntaxWithMaxSize(t1), Eq(t1));
 }
 
-TEST(FlexibleSyntax, StdMultiMap) {
+TEST(BriefSyntax, StdMultiMap) {
     std::multimap<std::string, int> t1;
     t1.emplace("one", 624);
     t1.emplace("two", -845);
     t1.emplace("one", 897);
 
-    auto res = procArchive(t1);
+    auto res = procBriefSyntax(t1);
     //same key values is not ordered, and operator == compares each element at same position
     //so we need to compare our selves
     EXPECT_THAT(res.size(), Eq(3));
@@ -334,38 +333,38 @@ TEST(FlexibleSyntax, StdMultiMap) {
     }
 }
 
-TEST(FlexibleSyntax, StdUnorderedSet) {
+TEST(BriefSyntax, StdUnorderedSet) {
     std::unordered_set<std::string> t1;
     t1.emplace("one");
     t1.emplace("two");
     t1.emplace("three");
 
-    EXPECT_TRUE(procArchive(t1) == t1);
-    EXPECT_TRUE(procArchiveWithMaxSize(t1) == t1);
+    EXPECT_TRUE(procBriefSyntax(t1) == t1);
+    EXPECT_TRUE(procBriefSyntaxWithMaxSize(t1) == t1);
 }
 
-TEST(FlexibleSyntax, StdUnorderedMultiSet) {
+TEST(BriefSyntax, StdUnorderedMultiSet) {
     std::unordered_multiset<std::string> t1;
     t1.emplace("one");
     t1.emplace("two");
     t1.emplace("three");
     t1.emplace("one");
 
-    EXPECT_TRUE(procArchive(t1) == t1);
-    EXPECT_TRUE(procArchiveWithMaxSize(t1) == t1);
+    EXPECT_TRUE(procBriefSyntax(t1) == t1);
+    EXPECT_TRUE(procBriefSyntaxWithMaxSize(t1) == t1);
 }
 
-TEST(FlexibleSyntax, StdSet) {
+TEST(BriefSyntax, StdSet) {
     std::set<std::string> t1;
     t1.emplace("one");
     t1.emplace("two");
     t1.emplace("three");
 
-    EXPECT_TRUE(procArchive(t1) == t1);
-    EXPECT_TRUE(procArchiveWithMaxSize(t1) == t1);
+    EXPECT_TRUE(procBriefSyntax(t1) == t1);
+    EXPECT_TRUE(procBriefSyntaxWithMaxSize(t1) == t1);
 }
 
-TEST(FlexibleSyntax, StdMultiSet) {
+TEST(BriefSyntax, StdMultiSet) {
     std::multiset<std::string> t1;
     t1.emplace("one");
     t1.emplace("two");
@@ -373,23 +372,23 @@ TEST(FlexibleSyntax, StdMultiSet) {
     t1.emplace("one");
     t1.emplace("two");
 
-    EXPECT_TRUE(procArchive(t1) == t1);
-    EXPECT_TRUE(procArchiveWithMaxSize(t1) == t1);
+    EXPECT_TRUE(procBriefSyntax(t1) == t1);
+    EXPECT_TRUE(procBriefSyntaxWithMaxSize(t1) == t1);
 }
 
-TEST(FlexibleSyntax, StdSmartPtr) {
+TEST(BriefSyntax, StdSmartPtr) {
     std::shared_ptr<int> dataShared1(new int{4});
     std::weak_ptr<int> dataWeak1(dataShared1);
     std::unique_ptr<std::string> dataUnique1{new std::string{"hello world"}};
 
     bitsery::ext::PointerLinkingContext plctx1{};
     BasicSerializationContext<bitsery::ext::PointerLinkingContext> ctx;
-    ctx.createSerializer(plctx1).archive(dataShared1, dataWeak1, dataUnique1);
+    ctx.createSerializer(plctx1)(dataShared1, dataWeak1, dataUnique1);
 
     std::shared_ptr<int> resShared1{};
     std::weak_ptr<int> resWeak1{};
     std::unique_ptr<std::string> resUnique1{};
-    ctx.createDeserializer(plctx1).archive(resShared1, resWeak1, resUnique1);
+    ctx.createDeserializer(plctx1)(resShared1, resWeak1, resUnique1);
     //clear shared state from pointer linking context
     plctx1.clearSharedState();
 
@@ -399,38 +398,38 @@ TEST(FlexibleSyntax, StdSmartPtr) {
     EXPECT_THAT(*resUnique1, Eq(*dataUnique1));
 }
 
-TEST(FlexibleSyntax, StdDuration) {
+TEST(BriefSyntax, StdDuration) {
     std::chrono::duration<int64_t, std::milli> t1{54654};
-    EXPECT_TRUE(procArchive(t1) == t1);
+    EXPECT_TRUE(procBriefSyntax(t1) == t1);
 }
 
-TEST(FlexibleSyntax, StdTimePoint) {
+TEST(BriefSyntax, StdTimePoint) {
     using Duration = std::chrono::duration<double, std::milli>;
     using TP = std::chrono::time_point<std::chrono::system_clock, Duration>;
 
     TP data{Duration{874656.4798}};
-    EXPECT_TRUE(procArchive(data) == data);
+    EXPECT_TRUE(procBriefSyntax(data) == data);
 }
 
 #if __cplusplus > 201402L
 
-TEST(FlexibleSyntax, StdTuple) {
+TEST(BriefSyntax, StdTuple) {
     std::tuple<int, std::string, std::vector<char>> t1{5,"hello hello", {'A','B','C'}};
-    EXPECT_TRUE(procArchive(t1) == t1);
+    EXPECT_TRUE(procBriefSyntax(t1) == t1);
 }
 
-TEST(FlexibleSyntax, StdVariant) {
+TEST(BriefSyntax, StdVariant) {
     std::variant<float, std::string, std::chrono::milliseconds> t1{std::string("hello hello")};
-    EXPECT_TRUE(procArchive(t1) == t1);
+    EXPECT_TRUE(procBriefSyntax(t1) == t1);
 }
 
 #endif
 
-TEST(FlexibleSyntax, NestedTypes) {
+TEST(BriefSyntax, NestedTypes) {
     std::unordered_map<std::string, std::vector<std::string>> t1;
     t1.emplace("my key", std::vector<std::string>{"very", "nice", "string"});
     t1.emplace("other key", std::vector<std::string>{"just a string"});
 
-    EXPECT_THAT(procArchive(t1), Eq(t1));
-    EXPECT_THAT(procArchiveWithMaxSize(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntax(t1), Eq(t1));
+    EXPECT_THAT(procBriefSyntaxWithMaxSize(t1), Eq(t1));
 }

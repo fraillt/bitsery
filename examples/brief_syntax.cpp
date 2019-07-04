@@ -1,12 +1,12 @@
 #include <bitsery/bitsery.h>
 #include <bitsery/adapter/buffer.h>
-//include flexible header, to use flexible syntax
-#include <bitsery/flexible.h>
+//to use brief syntax always include this header
+#include <bitsery/brief_syntax.h>
 //we also need additional traits to work with container types,
-//instead of including <bitsery/traits/vector.h> for vector traits, now we also need traits to work with flexible types.
-//so include everything from <bitsery/flexible/...> instead of <bitsery/traits/...>
+//instead of including <bitsery/traits/vector.h> for vector traits, now we also need traits to work with brief_syntax types.
+//so include everything from <bitsery/brief_syntax/...> instead of <bitsery/traits/...>
 //otherwise we'll get static assert error, saying to define serialize function.
-#include <bitsery/flexible/vector.h>
+#include <bitsery/brief_syntax/vector.h>
 
 enum class MyEnum:uint16_t { V1,V2,V3 };
 struct MyStruct {
@@ -17,10 +17,8 @@ struct MyStruct {
     //define serialize function as usual
     template <typename S>
     void serialize(S& s) {
-        //now we can use flexible syntax with
-        s.archive(i, e, fs);
-        // flexible syntax also supports `cereal` like serialization interface by calling operator()
-        // s(i, e, fs);
+        //now we can use brief syntax with
+        s(i, e, fs);
     }
 
 };
