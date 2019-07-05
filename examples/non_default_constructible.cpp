@@ -49,12 +49,12 @@ int main() {
 
     //we cant use quick (de)serialization helper methods, because we ant to serialize container directly
     //create writer and serialize container
-    BasicSerializer<Writer> ser{buffer};
+    Serializer<Writer> ser{buffer};
     ser.container(data, 10);
     ser.adapter().flush();
 
     //create reader and deserialize container
-    BasicDeserializer<Reader> des{buffer.begin(), ser.adapter().writtenBytesCount()};
+    Deserializer<Reader> des{buffer.begin(), ser.adapter().writtenBytesCount()};
     des.container(res, 10);
 
     //check if everything went ok

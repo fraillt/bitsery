@@ -68,7 +68,7 @@ namespace bitsery {
                     :_memResource{memResource} {}
                 void operator()(PointerSharedStateBase* data) const {
                     data->~PointerSharedStateBase();
-                    PolymorphicAllocatorWrapper<PointerSharedStateBase> alloc{_memResource};
+                    StdPolyAlloc<PointerSharedStateBase> alloc{_memResource};
                     alloc.deallocate(data, 1);
                 }
                 MemResourceBase* _memResource;
@@ -114,7 +114,7 @@ namespace bitsery {
                     : PLCInfo(ownershipType_),
                       ownerPtr{ptr},
                       memResource{memResource_},
-                      observersList{PolymorphicAllocatorWrapper<std::reference_wrapper<void*>>{memResource_}} {};
+                      observersList{StdPolyAlloc<std::reference_wrapper<void*>>{memResource_}} {};
 
                 //need to override these explicitly because we have pointer member
                 PLCInfoDeserializer(const PLCInfoDeserializer&) = delete;
@@ -145,7 +145,7 @@ namespace bitsery {
                 void* ownerPtr;
                 MemResourceBase* memResource;
                 std::vector<std::reference_wrapper<void*>,
-                    PolymorphicAllocatorWrapper<std::reference_wrapper<void*>>> observersList;
+                    StdPolyAlloc<std::reference_wrapper<void*>>> observersList;
                 std::unique_ptr<PointerSharedStateBase, PointerSharedStateDeleter> sharedState{};
             };
 
@@ -153,7 +153,7 @@ namespace bitsery {
             public:
                 explicit PointerLinkingContextSerialization(MemResourceBase* memResource = nullptr)
                     : _currId{0},
-                      _ptrMap{PolymorphicAllocatorWrapper<std::pair<const void*, PLCInfoSerializer>>{memResource}} {}
+                      _ptrMap{StdPolyAlloc<std::pair<const void*, PLCInfoSerializer>>{memResource}} {}
 
                 PointerLinkingContextSerialization(const PointerLinkingContextSerialization&) = delete;
 
@@ -190,7 +190,7 @@ namespace bitsery {
                 size_t _currId;
                 std::unordered_map<const void*, PLCInfoSerializer,
                     std::hash<const void*>, std::equal_to<const void*>,
-                    PolymorphicAllocatorWrapper<std::pair<const void*, PLCInfoSerializer>>
+                    StdPolyAlloc<std::pair<const void*, PLCInfoSerializer>>
                 > _ptrMap;
             };
 
@@ -198,7 +198,7 @@ namespace bitsery {
             public:
                 explicit PointerLinkingContextDeserialization(MemResourceBase* memResource = nullptr)
                     : _memResource{memResource},
-                    _idMap{PolymorphicAllocatorWrapper<std::pair<size_t, PLCInfoDeserializer>>{memResource}} {}
+                    _idMap{StdPolyAlloc<std::pair<size_t, PLCInfoDeserializer>>{memResource}} {}
 
                 PointerLinkingContextDeserialization(const PointerLinkingContextDeserialization&) = delete;
 
@@ -244,7 +244,7 @@ namespace bitsery {
                 MemResourceBase* _memResource;
                 std::unordered_map<size_t, PLCInfoDeserializer,
                     std::hash<size_t>, std::equal_to<size_t>,
-                    PolymorphicAllocatorWrapper<std::pair<size_t, PLCInfoDeserializer>>> _idMap;
+                    StdPolyAlloc<std::pair<size_t, PLCInfoDeserializer>>> _idMap;
             };
         }
 
@@ -460,7 +460,7 @@ namespace bitsery {
                 template <typename T>
                 typename TPtrManager<T>::TSharedState& createAndGetSharedStateObj(PLCInfoDeserializer& info) const {
                     using TSharedState = typename TPtrManager<T>::TSharedState;
-                    PolymorphicAllocatorWrapper<TSharedState> alloc {info.memResource};
+                    StdPolyAlloc<TSharedState> alloc {info.memResource};
                     auto* ptr = alloc.allocate(1);
                     auto* obj = new (ptr)TSharedState{};
                     info.sharedState = std::unique_ptr<PointerSharedStateBase, PointerSharedStateDeleter>(

@@ -37,14 +37,14 @@ Bitsery also applies endianness transformation if necessary.
 * **Brief syntax.** If you don't like like writing code with explicitly specifying underlying type size, like *container2b* or *value8b*, you can use brief syntax.
 Just include <bitsery/brief_syntax.h> and can write like in [cereal](http://uscilab.github.io/cereal/).
 But do it on your own risk, and static assert using *assertFundamentalTypeSizes* function if you're planing to use it across multiple platforms.
-* **Optimized for speed and space.** library itself doesn't do any allocations (except if you use backward/forward compatibility) so data writing/reading is fast as memcpy to/from your buffer.
+* **Optimized for speed and space.** library itself doesn't do any allocations so data writing/reading is fast as memcpy to/from your buffer.
 It also doesn't serialize any type information, all information needed is written in your code!
 * **No code generation required: no IDL or metadata** since it doesn't support any other formats except binary, it doesn't need any metadata.
-* **Runtime error checking on deserialization** library designed to be save with untrusted network data, that's why all overloads that work on containers has *maxSize* value, unless container is static size like *std::array*, this way bitsery ensures that no malicious data crash you.
-* **Supports forward/backward compatibility for your types** library has optional forward/backward compatibility for types implemented in *AdapterReader/Writer* by allowing to have inner data sessions inside buffer.
-This is the only functionality that requires dynamic memory allocation.
-*Growable* extension use these sessions to add compatibility support for your types, in most basic form.
-You can implement your own extensions if you want to be able to add default values.
+* **Configurable runtime error checking on deserialization** library designed to be save with untrusted network data, that's why all overloads that work on containers has *maxSize* value, unless container is static size like *std::array*.
+This way bitsery ensures that no malicious data crash you. BUT, if you trust your data then you can simply disable error checks for better performance.
+* **Supports forward/backward compatibility for your types** library provides access for buffer input/output adapters to directly change read/write position on the buffer.
+*Growable* extension use this capability to allow forward/backward compatibility.
+You can implement your own extensions to do all sorts of other things, like in-place deserialization..
 * **2-in-1 declarative control flow, same code for serialization and deserialization.** only one function to define, for serialization and deserialization in same manner as *cereal* does.
 It might be handy to have separate *load* and *save* functions, but Bitsery explicitly doesn't support it, to avoid any serialization deserialization divergence, because it is very hard to catch an errors if you make a bug in one of these functions.
 The only way around this through extensions, write your custom flow once, and reuse where you need them.
@@ -67,3 +67,5 @@ To use same container for buffer writing/reading add specialization to *BufferAd
 You want to customize serialization flow - use extensions, only two methods to define, and *ExtensionTraits* to further customize usage.
 * **Configurable endianness support.** default is *Little Endian*, but if your primary target is PowerPC architecture, eg. PlayStation3, just change your configuration to be *Big Endian*.
 * **No macros.** Not so much to say, if you are like me, then it's a feature :)
+
+It should also be noted, that extensions that allocate memory (e.g. pointer serialization/deserialization) allow to provide memory resource (similar to C++17 `std::pmr::memory_resource`).

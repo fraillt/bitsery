@@ -54,10 +54,10 @@ TValue getValue(bool isPositive, size_t significantBits) {
 template <typename TConfig, typename TValue>
 std::pair<TValue, size_t> serializeAndGetDeserialized(TValue data) {
     Buffer buf{};
-    bitsery::BasicSerializer<bitsery::OutputBufferAdapter<Buffer, TConfig>> ser{buf};
+    bitsery::Serializer<bitsery::OutputBufferAdapter<Buffer, TConfig>> ser{buf};
     ser.template ext<sizeof(TValue)>(data, CompactValue{});
 
-    bitsery::BasicDeserializer<bitsery::InputBufferAdapter<Buffer, TConfig>> des{buf.begin(), ser.adapter().writtenBytesCount()};
+    bitsery::Deserializer<bitsery::InputBufferAdapter<Buffer, TConfig>> des{buf.begin(), ser.adapter().writtenBytesCount()};
     TValue res;
     des.template ext<sizeof(TValue)>(res, CompactValue{});
     return {res, ser.adapter().writtenBytesCount()};

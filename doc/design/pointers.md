@@ -20,21 +20,20 @@ This base class accepts three template parameters that customise its behaviour.
   \<RTTI\> template parameter provides runtime information about a type that is used to construct class hierarchies and save them to read/write them to buffer.   
   * `RTTI` - this template parameter provides information if a type is polymorphic, and if it is, then it is used in `TPolymorphicContext\<RTTI\>`. 
   Some pointer managers, like `PointerObserver` and `ReferencedByPointer` never requires polymorphic context. In these cases, you need to provide RTTI that will return `isPolymorphic`=false for all types.
-  By default all pointers extensions use `StandardRTTI` from "/ext/utils/rtti_utils.h" that internally uses `typeid` and `dynamic_cast`. 
+  By default all pointers extensions use `StandardRTTI` from `/ext/utils/rtti_utils.h` that internally uses `typeid` and `dynamic_cast`.
   If your environment doesn't allow RTTI, you can provide your own RTTI for your types.
 
-## Allocators
+## Allocation and memory resources
  
-Allocation is implemented using dynamic type for allocator (similar to `std::pmr::memory_resource` from c++17), 
-and it is called `MemResourceBase` from "ext/utils/memory_allocator.h". The core difference between standard one and this allocator 
-is that it has additional `size_t typeId` field for `allocate` and `deallocate` methods, this value is returned from `RTTI`. 
-There are few options to customise pointer allocation for your pointers:
-  * provide default allocator in `PointerLinkingContext` by calling `setMemResource`.
-  * provide an instance of `MemResourceBase*` to pointer manager constructor, along with boolean parameter that specifies if this memory resource should propagate when deserializing child objects.
-If no memory resource is provided, then `MemResourceNewDelete` is used, which calls `::operator new(bytes)` and `::operator delete(ptr)`.  
-  
+Allocation is implemented using memory resources (similar to `std::pmr::memory_resource` from c++17),
+and it is called `MemResourceBase` from "ext/utils/memory_allocator.h". The core difference between standard one
+is that it has additional `size_t typeId` field for `allocate` and `deallocate` methods, and this typeId is returned from `RTTI`.
+There are few options to customise pointer allocation for your pointers by using `MemResourceBase`:
+  * invoke `setMemResource` in `PointerLinkingContext`.
+  * pass memory resource to pointer manager constructor, along with boolean parameter that specifies if this memory resource should propagate when deserializing child objects.
+If no memory resource is provided, then `MemResourceNewDelete` is used, which calls `::operator new(bytes)` and `::operator delete(ptr)`.
+
 **IMPORTANT**: there are few things that you should know to correctly use custom allocations with `StdSmartPtr`:
   * Memory resource must live as long as the last object, that was allocated with it (this is required by std::shared_ptr, custom deleter is provided, that will be able to deallocate correctly when a shared pointer is destroyed).
-  * std::unique_ptr acts differently with resources that it owns, depending on what deleter is used.
-    * if default deleter is used, then a pointer is *released* and deallocated using provided memory resource.
-    * if custom deleter is used, then a pointer is deallocated using this custom deleter.
+  * std::unique_ptr is allocated and deallocated using provided memory resource.
+  If you create unique pointers your self, make sure that it uses the same memory resource, because bitsery will not call `.reset` method on pointer, and instead `.release()` it and deallocate manually.

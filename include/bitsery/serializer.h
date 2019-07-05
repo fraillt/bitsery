@@ -160,10 +160,10 @@ namespace bitsery {
     }
 
     template<typename TOutputAdapter, typename TContext = void>
-    class BasicSerializer: public details::AdapterAndContextRef<TOutputAdapter, TContext> {
+    class Serializer: public details::AdapterAndContextRef<TOutputAdapter, TContext> {
     public:
         //helper type, that always returns bit-packing enabled type, useful inside serialize function when enabling bitpacking
-        using BPEnabledType = BasicSerializer<typename std::conditional<TOutputAdapter::BitPackingEnabled,
+        using BPEnabledType = Serializer<typename std::conditional<TOutputAdapter::BitPackingEnabled,
                 TOutputAdapter,
                 details::OutputAdapterBitPackingWrapper<TOutputAdapter>>::type, TContext>;
         using TConfig = typename TOutputAdapter::TConfig;
@@ -175,7 +175,7 @@ namespace bitsery {
          */
         template<typename T>
         void object(const T &obj) {
-            details::SerializeFunction<BasicSerializer, T>::invoke(*this, const_cast<T& >(obj));
+            details::SerializeFunction<Serializer, T>::invoke(*this, const_cast<T& >(obj));
         }
 
         template<typename T, typename Fnc>
@@ -188,7 +188,7 @@ namespace bitsery {
          */
 
         template <typename... TArgs>
-        BasicSerializer &operator()(TArgs &&... args) {
+        Serializer &operator()(TArgs &&... args) {
             archive(std::forward<TArgs>(args)...);
             return *this;
         }
@@ -211,7 +211,7 @@ namespace bitsery {
         void enableBitPacking(Fnc&& fnc) {
             procEnableBitPacking(std::forward<Fnc>(fnc),
                 std::integral_constant<bool, TOutputAdapter::BitPackingEnabled>{},
-                std::integral_constant<bool, BasicSerializer::HasContext>{});
+                std::integral_constant<bool, Serializer::HasContext>{});
         }
 
         /*
@@ -233,7 +233,7 @@ namespace bitsery {
                           "extension doesn't support overload with `value<N>`");
             using ExtVType = typename traits::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
-            extension.serialize(*this, obj, [](BasicSerializer& s, VType &v) { s.value<VSIZE>(v); });
+            extension.serialize(*this, obj, [](Serializer& s, VType &v) { s.value<VSIZE>(v); });
         }
 
         template<typename T, typename Ext>
@@ -243,7 +243,7 @@ namespace bitsery {
                           "extension doesn't support overload with `object`");
             using ExtVType = typename traits::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
-            extension.serialize(*this, obj, [](BasicSerializer& s, VType &v) { s.object(v); });
+            extension.serialize(*this, obj, [](Serializer& s, VType &v) { s.object(v); });
         }
 
         /*
@@ -508,7 +508,7 @@ namespace bitsery {
         template<typename T, typename ... TArgs>
         void archive(T &&head, TArgs &&... tail) {
             //serialize object
-            details::BriefSyntaxFunction<BasicSerializer, T>::invoke(*this, std::forward<T>(head));
+            details::BriefSyntaxFunction<Serializer, T>::invoke(*this, std::forward<T>(head));
             //expand other elements
             archive(std::forward<TArgs>(tail)...);
         }
@@ -521,7 +521,7 @@ namespace bitsery {
     //helper function that set ups all the basic steps and after serialziation returns serialized bytes count
     template <typename OutputAdapter, typename T>
     size_t quickSerialization(OutputAdapter adapter, const T& value) {
-        BasicSerializer<OutputAdapter> ser{std::move(adapter)};
+        Serializer<OutputAdapter> ser{std::move(adapter)};
         ser.object(value);
         ser.adapter().flush();
         return ser.adapter().writtenBytesCount();
@@ -529,7 +529,7 @@ namespace bitsery {
 
     template <typename Context, typename OutputAdapter, typename T>
     size_t quickSerialization(Context& ctx, OutputAdapter adapter, const T& value) {
-        BasicSerializer<OutputAdapter, Context> ser{ctx, std::move(adapter)};
+        Serializer<OutputAdapter, Context> ser{ctx, std::move(adapter)};
         ser.object(value);
         ser.adapter().flush();
         return ser.adapter().writtenBytesCount();

@@ -196,8 +196,8 @@ using Reader = InputBufferAdapter<Buffer>;
 using TContext = std::tuple<ext::PointerLinkingContext, ext::PolymorphicContext<ext::StandardRTTI>>;
 //NOTE:
 // RTTI can be customizable, if you can't use dynamic_cast and typeid, and have 'custom' solution
-using Serializer = BasicSerializer<Writer, TContext>;
-using Deserializer = BasicDeserializer<Reader, TContext>;
+using MySerializer = Serializer<Writer, TContext>;
+using MyDeserializer = Deserializer<Reader, TContext>;
 
 //checks if deserialized data is equal
 void assertSameShapes(const SomeShapes &data, const SomeShapes &res) {
@@ -238,9 +238,9 @@ int main() {
         // bind it with base polymorphic types, it will go through all reachable classes that is defined in first step.
         // NOTE: you dont need to add Rectangle to reach for RoundedRectangle
         TContext ctx{};
-        std::get<1>(ctx).registerBasesList<Serializer>(MyPolymorphicClassesForRegistering{});
+        std::get<1>(ctx).registerBasesList<MySerializer>(MyPolymorphicClassesForRegistering{});
         //create writer and serialize
-        Serializer ser{ctx, buffer};
+        MySerializer ser{ctx, buffer};
         ser.object(data);
         ser.adapter().flush();
         writtenSize = ser.adapter().writtenBytesCount();
@@ -253,9 +253,9 @@ int main() {
     SomeShapes res{};
     {
         TContext ctx{};
-        std::get<1>(ctx).registerBasesList<Deserializer>(MyPolymorphicClassesForRegistering{});
+        std::get<1>(ctx).registerBasesList<MyDeserializer>(MyPolymorphicClassesForRegistering{});
         //deserialize our data
-        Deserializer des{ctx, buffer.begin(), writtenSize};
+        MyDeserializer des{ctx, buffer.begin(), writtenSize};
         des.object(res);
         assert(des.adapter().error() == ReaderError::NoError && des.adapter().isCompletedSuccessfully());
         //also check for dangling pointers, after deserialization

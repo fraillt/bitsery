@@ -49,21 +49,21 @@ namespace bitsery {
                     return PointerOwnershipType::Owner;
                 }
 
-                static void create(T& obj, pointer_utils::PolymorphicAllocatorWithTypeId alloc, size_t typeId) {
+                static void create(T& obj, pointer_utils::PolyAllocWithTypeId alloc, size_t typeId) {
                     obj = alloc.newObject<TElement>(typeId);
                 }
 
-                static void createPolymorphic(T& obj, pointer_utils::PolymorphicAllocatorWithTypeId alloc,
+                static void createPolymorphic(T& obj, pointer_utils::PolyAllocWithTypeId alloc,
                                               const std::shared_ptr<PolymorphicHandlerBase>& handler) {
                     obj = static_cast<TElement*>(handler->create(alloc));
                 }
 
-                static void destroy(T& obj, pointer_utils::PolymorphicAllocatorWithTypeId alloc, size_t typeId) {
+                static void destroy(T& obj, pointer_utils::PolyAllocWithTypeId alloc, size_t typeId) {
                     alloc.deleteObject(obj, typeId);
                     obj = nullptr;
                 }
 
-                static void destroyPolymorphic(T& obj, pointer_utils::PolymorphicAllocatorWithTypeId alloc,
+                static void destroyPolymorphic(T& obj, pointer_utils::PolyAllocWithTypeId alloc,
                                                const std::shared_ptr<PolymorphicHandlerBase>& handler) {
                     handler->destroy(alloc, obj);
                     obj = nullptr;

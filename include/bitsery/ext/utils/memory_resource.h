@@ -20,8 +20,8 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-#ifndef BITSERY_EXT_MEMORY_ALLOCATOR_H
-#define BITSERY_EXT_MEMORY_ALLOCATOR_H
+#ifndef BITSERY_EXT_MEMORY_RESOURCE_H
+#define BITSERY_EXT_MEMORY_RESOURCE_H
 
 #include "../../details/serialization_common.h"
 #include <new>
@@ -31,7 +31,9 @@ namespace bitsery {
         // these are very similar to c++17 polymorphic allocator and memory resource classes
         // but i don't want to enforce users to use c++17 if they want to use pointers
         // plus this has additional information from RTTI about runtime type information,
-        // might be useful working with polymorphic types
+        // might be useful working with polymorphic types.
+        // The same memory resource is used to allocate internal data in various contexts,
+        // (typeId is always 0 for internal data allocation in contexts).
 
         class MemResourceBase {
         public:
@@ -61,10 +63,10 @@ namespace bitsery {
         namespace pointer_utils {
             // this is helper class that stores memory resource and knows how to construct/destroy objects
             // capture this by value for custom deleters, because during deserialization mem resource can be changed
-            class PolymorphicAllocatorWithTypeId final {
+            class PolyAllocWithTypeId final {
             public:
 
-                constexpr PolymorphicAllocatorWithTypeId(MemResourceBase* memResource = nullptr)
+                constexpr PolyAllocWithTypeId(MemResourceBase* memResource = nullptr)
                 :_resource{memResource} {}
 
                 template<typename T>
@@ -106,11 +108,11 @@ namespace bitsery {
                     return _resource;
                 }
 
-                bool operator==(const PolymorphicAllocatorWithTypeId& rhs) const noexcept {
+                bool operator==(const PolyAllocWithTypeId& rhs) const noexcept {
                     return _resource == rhs._resource;
                 }
 
-                bool operator!=(const PolymorphicAllocatorWithTypeId& rhs) const noexcept {
+                bool operator!=(const PolyAllocWithTypeId& rhs) const noexcept {
                     return !(*this == rhs);
                 }
 
@@ -118,22 +120,22 @@ namespace bitsery {
                 ext::MemResourceBase* _resource;
             };
 
-            // this is very similar to c++17 PolymorphicAllocator, it is in extensions, that need to allocate memory
-            // it just wraps our PolymorphicAllocatorWithTypeId and pass 0 as typeId
+            // this is very similar to c++17 PolymorphicAllocator
+            // it just wraps our PolyAllocWithTypeId and pass 0 as typeId
             // and defines core functions for c++ Allocator concept,
             template<class T>
-            struct PolymorphicAllocatorWrapper {
+            struct StdPolyAlloc {
                 using value_type = T;
 
-                explicit constexpr PolymorphicAllocatorWrapper(MemResourceBase* memResource)
+                explicit constexpr StdPolyAlloc(MemResourceBase* memResource)
                     :_alloc{memResource} {}
-                explicit constexpr PolymorphicAllocatorWrapper(PolymorphicAllocatorWithTypeId alloc) : _alloc{alloc} {}
+                explicit constexpr StdPolyAlloc(PolyAllocWithTypeId alloc) : _alloc{alloc} {}
 
                 template <typename U>
-                friend class PolymorphicAllocatorWrapper;
+                friend class StdPolyAlloc;
 
                 template<class U>
-                constexpr explicit PolymorphicAllocatorWrapper(const PolymorphicAllocatorWrapper<U>& other) noexcept
+                constexpr explicit StdPolyAlloc(const StdPolyAlloc<U>& other) noexcept
                     :_alloc{other._alloc} {
                 }
 
@@ -146,23 +148,23 @@ namespace bitsery {
                 }
 
                 template<class U>
-                friend bool operator==(const PolymorphicAllocatorWrapper<T>& lhs,
-                                       const PolymorphicAllocatorWrapper<U>& rhs) noexcept {
+                friend bool operator==(const StdPolyAlloc<T>& lhs,
+                                       const StdPolyAlloc<U>& rhs) noexcept {
                     return lhs._alloc == rhs._alloc;
                 }
 
                 template<class U>
-                friend bool operator!=(const PolymorphicAllocatorWrapper<T>& lhs,
-                                       const PolymorphicAllocatorWrapper<U>& rhs) noexcept {
+                friend bool operator!=(const StdPolyAlloc<T>& lhs,
+                                       const StdPolyAlloc<U>& rhs) noexcept {
                     return !(lhs == rhs);
                 }
 
             private:
-                PolymorphicAllocatorWithTypeId _alloc;
+                PolyAllocWithTypeId _alloc;
             };
 
         }
     }
 
 }
-#endif //BITSERY_EXT_MEMORY_ALLOCATOR_H
+#endif //BITSERY_EXT_MEMORY_RESOURCE_H

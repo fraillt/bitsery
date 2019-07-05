@@ -28,20 +28,20 @@ using testing::Eq;
 
 TEST(Serialization, AdapterCanBeMovedInAndOut) {
     Buffer buf{};
-    bitsery::BasicSerializer<Writer> ser1{buf};
+    bitsery::Serializer<Writer> ser1{buf};
     ser1.object(MyStruct1{1, 2});
     auto writeAdapter = std::move(ser1).adapter();
-    bitsery::BasicSerializer<Writer> ser2(std::move(writeAdapter));
+    bitsery::Serializer<Writer> ser2(std::move(writeAdapter));
     ser2.object(MyStruct1{3, 4});
     auto writtenBytesCount = ser2.adapter().writtenBytesCount();
     EXPECT_THAT(writtenBytesCount, Eq(MyStruct1::SIZE + MyStruct1::SIZE));
 
     MyStruct1 res{};
-    bitsery::BasicDeserializer<Reader> des1{buf.begin(), writtenBytesCount};
+    bitsery::Deserializer<Reader> des1{buf.begin(), writtenBytesCount};
     des1.object(res);
     EXPECT_THAT(res, Eq(MyStruct1{1, 2}));
     auto readerAdapter = std::move(des1).adapter();
-    bitsery::BasicDeserializer<Reader> des2(std::move(readerAdapter));
+    bitsery::Deserializer<Reader> des2(std::move(readerAdapter));
     des2.object(res);
     EXPECT_THAT(res, Eq(MyStruct1{3, 4}));
     EXPECT_TRUE(des2.adapter().isCompletedSuccessfully());

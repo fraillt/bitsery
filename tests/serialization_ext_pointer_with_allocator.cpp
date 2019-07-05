@@ -272,7 +272,7 @@ struct CustomBaseDeleter {
     }
 };
 
-TEST_F(SerializeExtensionPointerWithAllocator, CustomDeleterIsUsedForStdUniquePtr) {
+TEST_F(SerializeExtensionPointerWithAllocator, CustomDeleterIsNotUsedForStdUniquePtr) {
     MemResourceForTest memRes{};
     std::get<0>(plctx).setMemResource(&memRes);
 
@@ -282,7 +282,10 @@ TEST_F(SerializeExtensionPointerWithAllocator, CustomDeleterIsUsedForStdUniquePt
     createDeserializer().ext(baseRes, StdSmartPtr{});
 
     EXPECT_THAT(memRes.allocs.size(), Eq(0u));
-    EXPECT_THAT(memRes.deallocs.size(), Eq(0u));
+    EXPECT_THAT(memRes.deallocs.size(), Eq(1u));
+    EXPECT_THAT(memRes.deallocs[0].bytes, Eq(sizeof(Derived1)));
+    EXPECT_THAT(memRes.deallocs[0].alignment, Eq(alignof(Derived1)));
+    EXPECT_THAT(memRes.deallocs[0].typeId, Eq(bitsery::ext::StandardRTTI::get<Derived1>()));
 }
 
 

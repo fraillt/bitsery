@@ -35,7 +35,7 @@ int main() {
     }
 
     //we cannot use quick serialization function, because streams cannot use writtenBytesCount method
-    BasicSerializer<OutputBufferedStreamAdapter> ser{s};
+    Serializer<OutputBufferedStreamAdapter> ser{s};
     ser.object(data);
     //flush to writer
     ser.adapter().flush();

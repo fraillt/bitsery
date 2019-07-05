@@ -162,10 +162,10 @@ namespace bitsery {
     }
 
     template<typename TInputAdapter, typename TContext = void>
-    class BasicDeserializer: public details::AdapterAndContextRef<TInputAdapter, TContext> {
+    class Deserializer: public details::AdapterAndContextRef<TInputAdapter, TContext> {
     public:
         //helper type, that always returns bit-packing enabled type, useful inside deserialize function when enabling bitpacking
-        using BPEnabledType = BasicDeserializer<typename std::conditional<TInputAdapter::BitPackingEnabled,
+        using BPEnabledType = Deserializer<typename std::conditional<TInputAdapter::BitPackingEnabled,
             TInputAdapter,
             details::InputAdapterBitPackingWrapper<TInputAdapter>>::type, TContext>;
         using TConfig = typename TInputAdapter::TConfig;
@@ -178,7 +178,7 @@ namespace bitsery {
 
         template<typename T>
         void object(T &&obj) {
-            details::SerializeFunction<BasicDeserializer, T>::invoke(*this, std::forward<T>(obj));
+            details::SerializeFunction<Deserializer, T>::invoke(*this, std::forward<T>(obj));
         }
 
         template<typename T, typename Fnc>
@@ -191,7 +191,7 @@ namespace bitsery {
          */
 
         template <typename... TArgs>
-        BasicDeserializer &operator()(TArgs &&... args) {
+        Deserializer &operator()(TArgs &&... args) {
             archive(std::forward<TArgs>(args)...);
             return *this;
         }
@@ -234,7 +234,7 @@ namespace bitsery {
                           "extension doesn't support overload with `value<N>`");
             using ExtVType = typename traits::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
-            extension.deserialize(*this, obj, [](BasicDeserializer& s, VType &v) { s.value<VSIZE>(v);});
+            extension.deserialize(*this, obj, [](Deserializer& s, VType &v) { s.value<VSIZE>(v);});
         }
 
         template<typename T, typename Ext>
@@ -244,7 +244,7 @@ namespace bitsery {
                           "extension doesn't support overload with `object`");
             using ExtVType = typename traits::ExtensionTraits<Ext, T>::TValue;
             using VType = typename std::conditional<std::is_void<ExtVType>::value, details::DummyType, ExtVType>::type;
-            extension.deserialize(*this, obj, [](BasicDeserializer& s, VType &v) { s.object(v); });
+            extension.deserialize(*this, obj, [](Deserializer& s, VType &v) { s.object(v); });
         }
 
         /*
@@ -503,7 +503,7 @@ namespace bitsery {
         template <typename Fnc>
         void procEnableBitPacking(const Fnc& fnc, std::false_type) {
             //create deserializer using bitpacking wrapper
-            auto des = createWithContext(std::integral_constant<bool, BasicDeserializer::HasContext>{});
+            auto des = createWithContext(std::integral_constant<bool, Deserializer::HasContext>{});
             fnc(des);
         }
 
@@ -529,7 +529,7 @@ namespace bitsery {
         template<typename T, typename ... TArgs>
         void archive(T &&head, TArgs &&... tail) {
             //serialize object
-            details::BriefSyntaxFunction<BasicDeserializer, T>::invoke(*this, std::forward<T>(head));
+            details::BriefSyntaxFunction<Deserializer, T>::invoke(*this, std::forward<T>(head));
             //expand other elements
             archive(std::forward<TArgs>(tail)...);
         }
@@ -545,14 +545,14 @@ namespace bitsery {
     //helper function that set ups all the basic steps and after deserialziation returns status
     template <typename InputAdapter, typename T>
     std::pair<ReaderError, bool> quickDeserialization(InputAdapter adapter, T& value) {
-        BasicDeserializer<InputAdapter> des{std::move(adapter)};
+        Deserializer<InputAdapter> des{std::move(adapter)};
         des.object(value);
         return {des.adapter().error(), des.adapter().isCompletedSuccessfully()};
     }
 
     template <typename Context , typename InputAdapter, typename T>
     std::pair<ReaderError, bool> quickDeserialization(Context& ctx, InputAdapter adapter, T& value) {
-        BasicDeserializer<InputAdapter, Context> des{ctx, std::move(adapter)};
+        Deserializer<InputAdapter, Context> des{ctx, std::move(adapter)};
         des.object(value);
         return {des.adapter().error(), des.adapter().isCompletedSuccessfully()};
     }

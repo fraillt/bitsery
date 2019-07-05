@@ -93,8 +93,8 @@ using Writer = bitsery::OutputBufferAdapter<Buffer>;
 template <typename Context>
 class BasicSerializationContext {
 public:
-    using TSerializer = bitsery::BasicSerializer<Writer, Context>;
-    using TDeserializer = bitsery::BasicDeserializer<Reader, Context>;
+    using TSerializer = bitsery::Serializer<Writer, Context>;
+    using TDeserializer = bitsery::Deserializer<Reader, Context>;
     using TSerializerBPEnabled = typename TSerializer::BPEnabledType;
     using TDeserializerBPEnabled = typename TDeserializer::BPEnabledType;
 

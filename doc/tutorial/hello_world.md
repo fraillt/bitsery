@@ -76,9 +76,8 @@ Create buffer and use helper functions for serialization and deserialization.
 ```cpp
 Buffer buffer;
 
-auto writtenSize = quickSerialization<OutputAdapter>(data, buffer);
-
-auto state = quickDeserialization<InputAdapter>(res, buffer.begin(), writtenSize);
+  auto writtenSize = quickSerialization(OutputAdapter{buffer}, data);
+  auto state = quickDeserialization(InputAdapter{buffer.begin(), writtenSize}, res);
 ```
 
 These helper functions use default configuration *bitsery::DefaultConfig*
@@ -101,29 +100,28 @@ using OutputAdapter = OutputBufferAdapter<Buffer>;
 using InputAdapter = InputBufferAdapter<Buffer>;
 
 struct MyStruct {
-    uint32_t i;
-    char str[6];
-    std::vector<float> fs;
+  uint32_t i;
+  char str[6];
+  std::vector<float> fs;
 };
 
 template <typename S>
 void serialize(S& s, MyStruct& o) {
-    s.value4b(o.i);
-    s.text1b(o.str);
-    s.container4b(o.fs, 100);
+  s.value4b(o.i);
+  s.text1b(o.str);
+  s.container4b(o.fs, 100);
 };
 
 int main() {
-    MyStruct data{8941, "hello", {15.0f, -8.5f, 0.045f}};
-    MyStruct res{};
+  MyStruct data{8941, "hello", {15.0f, -8.5f, 0.045f}};
+  MyStruct res{};
 
-    Buffer buffer;
-    auto writtenSize = quickSerialization<OutputAdapter>(data, buffer);
+  Buffer buffer;
+  auto writtenSize = quickSerialization(OutputAdapter{buffer}, data);
+  auto state = quickDeserialization(InputAdapter{buffer.begin(), writtenSize}, res);
 
-    auto state = quickDeserialization<InputAdapter>(res, buffer.begin(), writtenSize);
-
-    assert(state.first == ReaderError::NoError && state.second);
-    assert(data.fs == res.fs && data.i == res.i && std::strcmp(data.str, res.str) == 0);
+  assert(state.first == ReaderError::NoError && state.second);
+  assert(data.fs == res.fs && data.i == res.i && std::strcmp(data.str, res.str) == 0);
 }
 ```
 

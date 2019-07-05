@@ -25,7 +25,7 @@
 
 #include <unordered_set>
 #include "../traits/core/traits.h"
-#include "utils/memory_allocator.h"
+#include "bitsery/ext/utils/memory_resource.h"
 
 namespace bitsery {
 
@@ -36,7 +36,7 @@ namespace bitsery {
         class InheritanceContext {
         public:
             explicit InheritanceContext(MemResourceBase* memResource = nullptr)
-                :_virtualBases{pointer_utils::PolymorphicAllocatorWrapper<const void*>{memResource}}
+                :_virtualBases{pointer_utils::StdPolyAlloc<const void*>{memResource}}
                 {}
             InheritanceContext(const InheritanceContext&) = delete;
             InheritanceContext&operator = (const InheritanceContext&) = delete;
@@ -71,7 +71,7 @@ namespace bitsery {
             //add virtual bases to the list, as long as we're on the same parent
             std::unordered_set<const void*,
                 std::hash<const void*>, std::equal_to<const void*>,
-                pointer_utils::PolymorphicAllocatorWrapper<const void*>
+                pointer_utils::StdPolyAlloc<const void*>
             > _virtualBases;
         };
 

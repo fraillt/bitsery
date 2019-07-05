@@ -1,54 +1,60 @@
-# current draft
+# [5.0.0](https://github.com/fraillt/bitsery/compare/v4.6.1...v5.0.0) (2019-07-09)
 
-## removed stuff
-* TContext\* context() from serializer/deserializer
-* align from serializer/deserializer
-* AdapterAccess class
-* helper class Serializer/Deserializer
-* removed deprecated function registerBasesList from PolymorphicContext
-* internal context from config, because it doesn't actually solve any problems, only allows to do same thing in multiple ways
-* AdapterWriter/Reader classes, and their functionality is moved to `adapters`.
-* UnsafeInputBufferAdapter, instead config option is provided to disable buffer read errors
-* isValidState from stream output adapter, because it didn't provide any additional information that couldn't be queried directly on stream object.
-* archive from serializer/deserializer
+This version reduces library complexity by removing redundant features and changing existing ones.
+Additionally, it provides more customization options for serialization/deserialization flow.
 
-## other breaking changes
+### Features
 
-* changed signature to all lambda methods, instead of accepting (T&) as only parameter, now accept (S& ,T& )
-    since it is no longer needed to store serializer/deserializer reference, this allows
-    to pass functors, function pointers or stateless lambdas
-* BufferedSessions reworked, it was removed from core bitsery functionality, and instead was added ability to change read/write position directly for buffered adapters
-* if context is defined, in serializer/deserializer, it is passed as first argument by reference (instead of pointer). Other parameters are forwarded to input/output adapter. 
-* for adapters save first error that occured, and ignore all the others
-* setError for input adapters renamed to error
-* context can no longer be null, and instead reference to context is stored in serializer/deserializer.
-* context<T> returns reference instead of pointer
-* if context is optional contextOrNull<T> return nullptr in case context is not defined
-* context<T> and contextOrNull<T> also check if type is convertible, so it can work with base classes
-    (e.g. you can require base class of context in extension, but provided child implementation instead)
-* renamed NetworkEndianness to Endianness in config
-* MeasureSize adapter moved to separate file `/adapter/measure_size.h`
-* removed Writer/Reader parameter from extensions serialize/deserialize methods
-* renamed flexible to brief_syntax,
-  * folder
-  * file
+* added config options to enable/disable checking input adapter and data errors: **CheckAdapterErrors** and **CheckDataErrors**.
+If you can trust your data this will improve deserialization performance. Error checks are enabled by default.
+* all memory allocation in the library can be customized using memory resource (similar to c++ 17 memory resource)
+  * contexts that internally requires to allocate memory are: *PointerLinkingContext, PolymorphicContext, and InheritanceContext*.
+  * extensions, for pointers like types, that allocate memory are: *PointerOwner* and *StdSharedPtr*.
+  More information about pointer extension can be found [here](doc/design/pointers.md).
 
-## improvements
+### Breaking changes
 
-* added quickSerialization/Deserialization overloads that can accept context as first parameter.
-* added support for custom allocator(s) for pointer like objects. More information on how to correctly use custom allocation and pointers in general see [this](doc/design/pointers.md).
-* inheritance context now accepts allocator
-* added tests for BasicMeasureSize
-* helper classes (FtorExtValue, FtorExtObject) to reduce boilerplate and improve readability in places where you need to provide (des)serialize function/lambda that uses extension.
+* improved design for serializer/deserializer *context*. It was hard to understand and easy to misuse, so several changes were made.
+  * removed *internal* context from config, because it doesn't actually solve any problems, only allows doing the same thing in multiple ways.
+  * removed `T* context()`. This allowed to get a context that is `std::tuple<...>`, but you can do the same with other methods, by wrapping in an outer tuple, e.g. `std::tuple<std::tuple<...>>`.
+  * if a context is defined, in serializer/deserializer, it is passed (and stored) by reference as a first argument (instead of pointer). Other parameters are forwarded to a input/output adapter.
+  * changed signature `T* context<T>` to `T& context<T>`, this will either return context or doesn't compile, previously it could also return nullptr.
+  * `context<T>` and `contextOrNull<T>` now also check if a type is convertible, so it can work with base classes
+    (e.g. you can require a base class of context in extension, but provided child implementation instead). This allows to further customise extension by providing different context implementations.
+* reworked *BufferedSessions*. It was the only feature that was in a bitsery core and required allocations.
+It was removed and instead was added ability to change read/write position directly for buffered adapters.
+This is also a more flexible solution, and can be used to implement solutions that allow deserialization [in-place](https://github.com/fraillt/bitsery/issues/19) like *flatbuffers* does.
+* changed the signature to all serialization functions that accept lambdas, instead of accepting `(T& )`, now accept `(S& ,T& )`.
+This allows much easier serialization customization, because no additional state is required in a functor, and these methods can now accept function pointers or stateless lambdas.
+* removed various functions/classes that became redundant:
+  * *AdapterWriter/Reader* classes - their functionality is moved to *adapters*.
+  * *AdapterAccess* class - now serializer/deserializer expose adapter directly via `adapter()` method.
+  Additionally adapter can be moved out if serializer/deserializer is rvalue .e.g `auto adapter = std::move(ser).adapter();`.
+  * removed *Writer/Reader* parameters from extensions *serialize/deserialize* methods - because serializer/deserializer now expose *adapter* directly.
+  * *archive* from serializer/deserializer - because `operator()` do the same thing, but it is more terse, and is compatible with `cereal` library.
+  * *align* function from serializer/deserializer - it can now be called directly on input/output adapter.
+  * *UnsafeInputBufferAdapter* - instead config option is provided to disable adapter read errors (*CheckAdapterErrors*).
+  * *isValidState* from stream output adapter - it didn't provide any additional information that couldn't be queried directly on stream object.
+  * *registerBasesList* from *PolymorphicContext* - it was previously deprecated.
+* renamed various classes/functions and files:
+  * *flexible* to **brief_syntax** - this is a big change and might affect a lot of code, but it was necessary, because this name was contradicting to what it actually was trying to achieve.
+  Migration should not be very hard, just global replace `flexible` to `brief_syntax` and it should work:).
+  * *BasicSerializer/BasicDeserializer* to **Serializer/Deserializer** - previously they were aliases, but after removing adapter writer/reader,
+  serializer/deserializer signature has changed to `Serializer/Deserializer<Adapter, Context=void>` and no longer need any alias.
+  * *setError* to **error** for input adapters.
+  * *NetworkEndianness* to **Endianness** in config.
+  * *MeasureSize* adapter moved to separate file `/adapter/measure_size.h`
+
+### Improvements
+
+* added `quickSerialization/Deserialization` overloads that can accept context as first parameter.
+* added convenience classes (functors) **FtorExtValue, FtorExtObject**, in places where you need to provide (des)serialize function/lambda that uses extension.
 e.g. instead of writing `s.container(obj, [](S& s, MyData& data) {s.ext(data, MyExtension{});});` you can write `s.container(obj, FtorExtObject<MyExtension>{});`
-* added config options to enable/disable checking input adapter and data errors (`CheckAdapterErrors` and `CheckDataErrors`) (default is enabled)
-* all allocation in the library can be customized using memory resource (similar to c++ 17 memory resource)
-  * shared state in PolymorphicLinkingContext is allocated using memory resource
-  * in `SharedPtr` extension, shared_ptr managed object and control block is allocated using memory resource
-  * classes that accept memory resource: PolymorphicLinkingContext, PolymorphicContext, InheritanceContext.
+* added more tests for adapters.
+* input adapters now save first error that occured, this allows better diagnostic for what actually happened.
 
-## bugfix
-* fixed enabledBitPacking where writer and internal context states was not restored properly after exiting from this function
+### Bug fixes
+* fixed `enabledBitPacking` in serializer/deserializer where writer/reader and internal context states were not restored properly after bit packing is complete.
 
 # [4.6.1](https://github.com/fraillt/bitsery/compare/v4.6.0...v4.6.1) (2019-06-27)
 
@@ -319,9 +325,6 @@ Be careful when using deserializing untrusted data and make sure to enforce fund
 * added user extensible function **ext**, to work with objects that require different serialization/deserialization path (e.g. pointers)
 * **optional** extension (for *ext* function), to work with *std::optional* types
 
-### Bug Fixes
-* *align* method fixed in *BufferReader*
-
 ### Breaking changes
 
 * file structure changed, added *details* folder.
@@ -329,8 +332,9 @@ Be careful when using deserializing untrusted data and make sure to enforce fund
 * changed parameters order for all functions that use custom function (lambda)
 * *BufferReader* and *BufferWriter* is now alias types for real types *BasicBufferReader/Writer&lt;DefaultConfig&gt;* (*DefaultConfig* is defined in *common.h*)
 
+### Bug fixes
+* *align* method fixed in *BufferReader*
 
-<a name="1.1.1"></a>
 # [1.1.1](https://github.com/fraillt/bitsery/compare/v1.0.0...v1.1.1) (2017-02-23)
 
 ### Notes

@@ -25,7 +25,7 @@
 
 #include <unordered_map>
 #include <memory>
-#include "memory_allocator.h"
+#include "memory_resource.h"
 #include "../../details/adapter_common.h"
 #include "../../details/serialization_common.h"
 
@@ -61,9 +61,9 @@ namespace bitsery {
 
         class PolymorphicHandlerBase {
         public:
-            virtual void* create(const pointer_utils::PolymorphicAllocatorWithTypeId& alloc) const = 0;
+            virtual void* create(const pointer_utils::PolyAllocWithTypeId& alloc) const = 0;
 
-            virtual void destroy(const pointer_utils::PolymorphicAllocatorWithTypeId& alloc, void* ptr) const = 0;
+            virtual void destroy(const pointer_utils::PolyAllocWithTypeId& alloc, void* ptr) const = 0;
 
             virtual void process(void* ser, void* obj) const = 0;
 
@@ -74,11 +74,11 @@ namespace bitsery {
         class PolymorphicHandler : public PolymorphicHandlerBase {
         public:
 
-            void* create(const pointer_utils::PolymorphicAllocatorWithTypeId& alloc) const final {
+            void* create(const pointer_utils::PolyAllocWithTypeId& alloc) const final {
                 return toBase(alloc.newObject<TDerived>(RTTI::template get<TDerived>()));
             }
 
-            void destroy(const pointer_utils::PolymorphicAllocatorWithTypeId& alloc, void* ptr) const final {
+            void destroy(const pointer_utils::PolyAllocWithTypeId& alloc, void* ptr) const final {
                 alloc.deleteObject<TDerived>(fromBase(ptr), RTTI::template get<TDerived>());
             }
 
@@ -142,13 +142,13 @@ namespace bitsery {
             void addToMap(std::false_type) {
                 using THandler = PolymorphicHandler<RTTI, TSerializer, TBase, TDerived>;
                 BaseToDerivedKey key{RTTI::template get<TBase>(), RTTI::template get<TDerived>()};
-                pointer_utils::PolymorphicAllocatorWrapper<THandler> alloc{_memResource};
+                pointer_utils::StdPolyAlloc<THandler> alloc{_memResource};
                 auto ptr = alloc.allocate(1);
                 std::shared_ptr<THandler> handler(new (ptr)THandler{}, [this](THandler* data) {
                         data->~THandler();
-                        pointer_utils::PolymorphicAllocatorWrapper<THandler> alloc{_memResource};
+                        pointer_utils::StdPolyAlloc<THandler> alloc{_memResource};
                         alloc.deallocate(data, 1);
-                    }, pointer_utils::PolymorphicAllocatorWrapper<THandler>(_memResource));
+                    }, pointer_utils::StdPolyAlloc<THandler>(_memResource));
                 if (_baseToDerivedMap
                     .emplace(key, std::move(handler))
                     .second) {
@@ -157,7 +157,7 @@ namespace bitsery {
                         it = _baseToDerivedArray.emplace(
                             std::piecewise_construct,
                             std::forward_as_tuple(key.baseHash),
-                            std::forward_as_tuple(pointer_utils::PolymorphicAllocatorWrapper<size_t>{_memResource})).first;
+                            std::forward_as_tuple(pointer_utils::StdPolyAlloc<size_t>{_memResource})).first;
                     }
                     it->second.push_back(key.derivedHash);
                 }
@@ -172,24 +172,24 @@ namespace bitsery {
             // store shared ptr to polymorphic handler, because it might be copied to "smart pointer" deleter
             std::unordered_map<BaseToDerivedKey, std::shared_ptr<PolymorphicHandlerBase>,
                 BaseToDerivedKeyHashier, std::equal_to<BaseToDerivedKey>,
-                    pointer_utils::PolymorphicAllocatorWrapper<std::pair<const BaseToDerivedKey, std::shared_ptr<PolymorphicHandlerBase>>>
+                    pointer_utils::StdPolyAlloc<std::pair<const BaseToDerivedKey, std::shared_ptr<PolymorphicHandlerBase>>>
             > _baseToDerivedMap;
             // this will allow convert from platform specific type information, to platform independent base->derived index
             // this only works if all polymorphic relationships (PolymorphicBaseClass<TBase> -> PolymorphicDerivedClasses<TDerived...>)
             // is equal between platforms.
-            std::unordered_map<size_t, std::vector<size_t, pointer_utils::PolymorphicAllocatorWrapper<size_t>>,
+            std::unordered_map<size_t, std::vector<size_t, pointer_utils::StdPolyAlloc<size_t>>,
                 std::hash<size_t>, std::equal_to<size_t>,
-                pointer_utils::PolymorphicAllocatorWrapper<std::pair<const size_t, std::vector<size_t, pointer_utils::PolymorphicAllocatorWrapper<size_t>>>>
+                pointer_utils::StdPolyAlloc<std::pair<const size_t, std::vector<size_t, pointer_utils::StdPolyAlloc<size_t>>>>
                 > _baseToDerivedArray;
 
         public:
 
             explicit PolymorphicContext(MemResourceBase* memResource = nullptr)
                 :_memResource{memResource},
-                _baseToDerivedMap{pointer_utils::PolymorphicAllocatorWrapper<std::pair<const BaseToDerivedKey,
+                _baseToDerivedMap{pointer_utils::StdPolyAlloc<std::pair<const BaseToDerivedKey,
                 std::shared_ptr<PolymorphicHandlerBase>>>{memResource}},
-                 _baseToDerivedArray{pointer_utils::PolymorphicAllocatorWrapper<std::pair<const size_t,
-                     std::vector<size_t, pointer_utils::PolymorphicAllocatorWrapper<size_t>>>>{memResource}}
+                 _baseToDerivedArray{pointer_utils::StdPolyAlloc<std::pair<const size_t,
+                     std::vector<size_t, pointer_utils::StdPolyAlloc<size_t>>>>{memResource}}
             {}
 
             PolymorphicContext(const PolymorphicContext& ) = delete;
