@@ -124,7 +124,7 @@ namespace bitsery {
             // it just wraps our PolyAllocWithTypeId and pass 0 as typeId
             // and defines core functions for c++ Allocator concept,
             template<class T>
-            struct StdPolyAlloc {
+            class StdPolyAlloc {
                 using value_type = T;
 
                 explicit constexpr StdPolyAlloc(MemResourceBase* memResource)
