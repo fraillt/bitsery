@@ -125,6 +125,7 @@ namespace bitsery {
             // and defines core functions for c++ Allocator concept,
             template<class T>
             class StdPolyAlloc {
+            public:
                 using value_type = T;
 
                 explicit constexpr StdPolyAlloc(MemResourceBase* memResource)
