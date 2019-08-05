@@ -144,11 +144,10 @@ namespace bitsery {
                 BaseToDerivedKey key{RTTI::template get<TBase>(), RTTI::template get<TDerived>()};
                 pointer_utils::StdPolyAlloc<THandler> alloc{_memResource};
                 auto ptr = alloc.allocate(1);
-                std::shared_ptr<THandler> handler(new (ptr)THandler{}, [this](THandler* data) {
+                std::shared_ptr<THandler> handler(new (ptr)THandler{}, [alloc](THandler* data) mutable {
                         data->~THandler();
-                        pointer_utils::StdPolyAlloc<THandler> alloc{_memResource};
                         alloc.deallocate(data, 1);
-                    }, pointer_utils::StdPolyAlloc<THandler>(_memResource));
+                    }, alloc);
                 if (_baseToDerivedMap
                     .emplace(key, std::move(handler))
                     .second) {
