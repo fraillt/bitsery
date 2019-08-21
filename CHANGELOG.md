@@ -1,8 +1,9 @@
-## future release...
+# [5.0.1](https://github.com/fraillt/bitsery/compare/v5.0.0...v5.0.1) (2019-08-21)
 
 ### Bug fixes
 * fixed polymorphic handler deleter in `PolymorphicContext`, now it is captured by value and doesn't depend on lifetime of `PolymorphicContext` instance.
 * fixed compilation errors in `ext/utils/pointer_utils.h` on macOS.
+* reduced warnings on Visual Studio (thanks to [BotellaA](https://github.com/BotellaA))
 
 # [5.0.0](https://github.com/fraillt/bitsery/compare/v4.6.1...v5.0.0) (2019-07-09)
 
