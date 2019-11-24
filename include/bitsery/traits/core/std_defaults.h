@@ -65,7 +65,7 @@ namespace bitsery {
                     container.push_back(::bitsery::Access::create<TValue>());
                 }
                 if (oldSize > newSize) {
-                    container.erase(std::next(std::begin(container), newSize));
+                    container.erase(std::next(std::begin(container), newSize), std::end(container));
                 }
             }
 
