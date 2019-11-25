@@ -96,6 +96,7 @@ TEST(DeserializeNonDefaultConstructible, ResultContainerShouldShrink) {
     std::vector<NonDefaultConstructible> res{};
     res.emplace_back(2);
     res.emplace_back(3);
+    res.emplace_back(4);
 
     ctx.createSerializer().container(data, 10);
     ctx.createDeserializer().container(res, 10);
