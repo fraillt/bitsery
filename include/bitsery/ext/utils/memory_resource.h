@@ -127,6 +127,17 @@ namespace bitsery {
             class StdPolyAlloc {
             public:
                 using value_type = T;
+                using pointer = T*;
+                using const_pointer = const T*;
+                using reference = T&;
+                using const_reference = const T&;
+                using size_type = size_t;
+                using difference_type = ptrdiff_t;
+                
+                template<typename U>
+                struct rebind {
+                    using other = StdPolyAlloc<U>;
+                };
 
                 explicit constexpr StdPolyAlloc(MemResourceBase* memResource)
                     :_alloc{memResource} {}
