@@ -198,7 +198,7 @@ namespace bitsery {
             public:
                 explicit PointerLinkingContextDeserialization(MemResourceBase* memResource = nullptr)
                     : _memResource{memResource},
-                    _idMap{StdPolyAlloc<std::pair<const size_t, PLCInfoDeserializer>>{memResource}} {}
+                    _idMap{0, std::hash<const size_t>{}, std::equal_to<const size_t>{}, StdPolyAlloc<std::pair<const size_t, PLCInfoDeserializer>>{memResource}} {}
 
                 PointerLinkingContextDeserialization(const PointerLinkingContextDeserialization&) = delete;
 
