@@ -153,7 +153,7 @@ namespace bitsery {
             public:
                 explicit PointerLinkingContextSerialization(MemResourceBase* memResource = nullptr)
                     : _currId{0},
-                      _ptrMap{{}, StdPolyAlloc<std::pair<const void* const, PLCInfoSerializer>>{memResource}} {}
+                      _ptrMap{0, std::hash<const void*>{}, std::equal_to<const void*>{}, StdPolyAlloc<std::pair<const void* const, PLCInfoSerializer>>{memResource}} {}
 
                 PointerLinkingContextSerialization(const PointerLinkingContextSerialization&) = delete;
 
