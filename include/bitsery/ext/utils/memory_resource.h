@@ -133,7 +133,28 @@ namespace bitsery {
                 using const_reference = const T&;
                 using size_type = size_t;
                 using difference_type = ptrdiff_t;
-                
+                size_t max_size() const noexcept {
+    return std::numeric_limits<size_t>::max() / sizeof(value_type);
+}
+
+void construct(T *p, const T &val) {
+    new((void *) p) T(val);
+}
+
+template<class U, class... Args>
+void construct(U *p, Args &&... args) {
+    new((void *) p) U(std::forward<Args>(args)...);
+}
+
+void destroy(T *p) {
+    p->~T();
+}
+
+template<class U>
+void destroy(U *p) {
+    p->~U();
+}
+
                 template<typename U>
                 struct rebind {
                     using other = StdPolyAlloc<U>;
