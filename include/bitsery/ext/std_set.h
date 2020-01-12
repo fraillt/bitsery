@@ -58,7 +58,7 @@ namespace bitsery {
                 reserve(obj, size);
                 auto hint = obj.begin();
                 for (auto i = 0u; i < size; ++i) {
-                    auto key{bitsery::Access::create<TKey>()};
+                    auto key = bitsery::Access::create<TKey>();
                     fnc(des, key);
                     hint = obj.emplace_hint(hint, std::move(key));
                 }
