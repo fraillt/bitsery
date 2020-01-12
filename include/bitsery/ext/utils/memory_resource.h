@@ -24,6 +24,7 @@
 #define BITSERY_EXT_MEMORY_RESOURCE_H
 
 #include "../../details/serialization_common.h"
+#include <cstddef>
 #include <new>
 
 namespace bitsery {
