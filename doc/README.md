@@ -6,7 +6,7 @@ Library design:
 * `valueNb instead of value`
 * `brief syntax`
 * `serializer/deserializer functions overloads`
-* `extending library functionality`
+* [extending library functionality](design/extensions.md)
 * `errors handling`
 * `forward/backward compatibility via Growable extension`
 * [pointers](design/pointers.md)
@@ -64,8 +64,10 @@ Output adapters (buffer and stream) functions:
 * `writeBytes`
 * `writeBuffer`
 * `flush`
-* `currentyWritePos (get/set)` (buffer adapter only)
-* `writtenBytesCount` (buffer adapter only)
+* `currentyWritePos (get/set)` (buffer adapter only) gets/sets write position in buffer, it can jump past the buffer end, in this case buffer will be resized.
+This function doesn't write any bytes.
+* `writtenBytesCount` (buffer adapter only) this doesn't necessary mean how many bytes are written, but rather how many bytes in the buffer was "affected" during serialization.
+E.g. if `currentyWritePos` (set) jumps from 0 to 100, and then 4 bytes are written, `writtenBytesCount` return 104, it also returns 104 if you jump in somewhere in the middle.
 
 
 Tips and tricks:

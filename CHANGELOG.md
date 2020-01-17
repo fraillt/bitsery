@@ -1,3 +1,15 @@
+# [5.0.2](https://github.com/fraillt/bitsery/compare/v5.0.1...v5.0.2) (2020-01-17)
+
+### Bug fixes
+* fixed a bug when deserializing non-default constructible containers (thanks to [nicktrandafil](https://github.com/nicktrandafil)).
+* fixed issue with a brace initialization in extension StdMap and StdSet. It was working on major compilers, but it wasn't C++11 compatible. 
+More info about it in [stackoverflow](https://stackoverflow.com/questions/25612262/why-does-auto-x3-deduce-an-initializer-list) (thanks to [BotellaA](https://github.com/BotellaA)).   
+
+### Other notes
+* added [patches/centos7_gcc4.8.2.diff](patches/centos7_gcc4.8.2.diff) that allows to use bitsery with gcc4.8.2 on Centos7 (thanks to [BotellaA](https://github.com/BotellaA)).
+More information on patches is [here](patches/README.md).
+* added documentation on how [extensions](doc/design/extensions.md) work.
+
 # [5.0.1](https://github.com/fraillt/bitsery/compare/v5.0.0...v5.0.1) (2019-08-21)
 
 ### Bug fixes
