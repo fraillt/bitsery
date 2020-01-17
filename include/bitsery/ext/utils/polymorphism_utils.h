@@ -185,8 +185,11 @@ namespace bitsery {
 
             explicit PolymorphicContext(MemResourceBase* memResource = nullptr)
                 :_memResource{memResource},
-                _baseToDerivedMap{0, BaseToDerivedKeyHashier{}, std::equal_to<BaseToDerivedKey>{}, pointer_utils::StdPolyAlloc<std::pair<const BaseToDerivedKey, std::shared_ptr<PolymorphicHandlerBase>>>{memResource}},
-                _baseToDerivedArray{0, std::hash<size_t>{}, std::equal_to<size_t>{}, pointer_utils::StdPolyAlloc<std::pair<const size_t, std::vector<size_t, pointer_utils::StdPolyAlloc<size_t>>>>{memResource}} {}
+                _baseToDerivedMap{pointer_utils::StdPolyAlloc<std::pair<const BaseToDerivedKey,
+                std::shared_ptr<PolymorphicHandlerBase>>>{memResource}},
+                 _baseToDerivedArray{pointer_utils::StdPolyAlloc<std::pair<const size_t,
+                     std::vector<size_t, pointer_utils::StdPolyAlloc<size_t>>>>{memResource}}
+            {}
 
             PolymorphicContext(const PolymorphicContext& ) = delete;
             PolymorphicContext& operator = (const PolymorphicContext&) = delete;

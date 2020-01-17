@@ -36,7 +36,7 @@ namespace bitsery {
         class InheritanceContext {
         public:
             explicit InheritanceContext(MemResourceBase* memResource = nullptr)
-                :_virtualBases{0, std::hash<const void*>{}, std::equal_to<const void*>{}, pointer_utils::StdPolyAlloc<const void*>{memResource}}
+                :_virtualBases{pointer_utils::StdPolyAlloc<const void*>{memResource}}
                 {}
             InheritanceContext(const InheritanceContext&) = delete;
             InheritanceContext&operator = (const InheritanceContext&) = delete;

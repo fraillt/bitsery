@@ -380,7 +380,7 @@ namespace bitsery {
             template <typename ... TArgs>
             explicit AdapterAndContextRef(Context& ctx, TArgs&& ... args)
                 : _adapter{std::forward<TArgs>(args)...},
-                  _context(ctx)
+                  _context{ctx}
             {
             }
 

@@ -153,7 +153,7 @@ namespace bitsery {
             public:
                 explicit PointerLinkingContextSerialization(MemResourceBase* memResource = nullptr)
                     : _currId{0},
-                      _ptrMap{0, std::hash<const void*>{}, std::equal_to<const void*>{}, StdPolyAlloc<std::pair<const void* const, PLCInfoSerializer>>{memResource}} {}
+                      _ptrMap{StdPolyAlloc<std::pair<const void* const, PLCInfoSerializer>>{memResource}} {}
 
                 PointerLinkingContextSerialization(const PointerLinkingContextSerialization&) = delete;
 
@@ -198,7 +198,7 @@ namespace bitsery {
             public:
                 explicit PointerLinkingContextDeserialization(MemResourceBase* memResource = nullptr)
                     : _memResource{memResource},
-                    _idMap{0, std::hash<size_t>{}, std::equal_to<size_t>{}, StdPolyAlloc<std::pair<const size_t, PLCInfoDeserializer>>{memResource}} {}
+                    _idMap{StdPolyAlloc<std::pair<const size_t, PLCInfoDeserializer>>{memResource}} {}
 
                 PointerLinkingContextDeserialization(const PointerLinkingContextDeserialization&) = delete;
 
