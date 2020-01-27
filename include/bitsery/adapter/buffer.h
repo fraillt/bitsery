@@ -28,57 +28,27 @@
 
 namespace bitsery {
 
-
-    template<typename Buffer>
-    class BufferIterators {
-        static constexpr bool isConstBuffer = std::is_const<Buffer>::value;
-        using BuffNonConst = typename std::remove_const<Buffer>::type;
-    public:
-        BufferIterators(const BufferIterators&) = delete;
-        BufferIterators& operator=(const BufferIterators&) = delete;
-        BufferIterators(BufferIterators&&) = default;
-        BufferIterators& operator=(BufferIterators&&) = default;
-        virtual ~BufferIterators() = default;
-    protected:
-
-        using TIterator = typename std::conditional<isConstBuffer,
-                typename traits::BufferAdapterTraits<BuffNonConst>::TConstIterator,
-                typename traits::BufferAdapterTraits<BuffNonConst>::TIterator>::type;
-        static_assert(details::IsDefined<TIterator>::value,
-                      "Please define BufferAdapterTraits or include from <bitsery/traits/...>");
-        BufferIterators(TIterator begin, TIterator end)
-                : beginIt{begin},
-                  posIt{begin},
-                  endIt{end} {
-        }
-
-        TIterator beginIt;
-        TIterator posIt;
-        TIterator endIt;
-    };
-
     template<typename Buffer, typename Config = DefaultConfig>
-    class InputBufferAdapter: public BufferIterators<Buffer>,
-        public details::InputAdapterBaseCRTP<InputBufferAdapter<Buffer,Config>> {
+    class InputBufferAdapter: public details::InputAdapterBaseCRTP<InputBufferAdapter<Buffer,Config>> {
     public:
         friend details::InputAdapterBaseCRTP<InputBufferAdapter<Buffer,Config>>;
         using TConfig = Config;
-        using TIterator = typename BufferIterators<Buffer>::TIterator;
+        using TIterator = typename traits::BufferAdapterTraits<typename std::remove_const<Buffer>::type>::TConstIterator;
         using TValue = typename traits::BufferAdapterTraits<typename std::remove_const<Buffer>::type>::TValue;
         static_assert(details::IsDefined<TValue>::value,
                       "Please define BufferAdapterTraits or include from <bitsery/traits/...>");
         static_assert(traits::ContainerTraits<typename std::remove_const<Buffer>::type>::isContiguous,
                       "BufferAdapter only works with contiguous containers");
 
-        InputBufferAdapter(TIterator begin, TIterator endIt)
-                : BufferIterators<Buffer>(begin, endIt),
-                    _endReadPos{endIt} {
+        InputBufferAdapter(TIterator beginIt, size_t size)
+                : _beginIt{beginIt},
+                _currOffset{0},
+                _endReadOffset{size},
+                _bufferSize{size} {
+        };
 
-        }
-
-        InputBufferAdapter(TIterator begin, size_t size)
-                : BufferIterators<Buffer>(begin, std::next(begin, size)),
-                  _endReadPos{std::next(begin, size)} {
+        InputBufferAdapter(TIterator beginIt, TIterator endIt)
+                :InputBufferAdapter(beginIt, std::distance(beginIt, endIt)) {
         }
 
         InputBufferAdapter(const InputBufferAdapter&) = delete;
@@ -92,18 +62,17 @@ namespace bitsery {
         }
 
         size_t currentReadPos() const {
-            return static_cast<size_t>(std::distance(this->beginIt, this->posIt));
+            return currentReadPosChecked(std::integral_constant<bool, Config::CheckAdapterErrors>{});
         }
 
         void currentReadEndPos(size_t pos) {
             // assert that CheckAdapterErrors is enabled, otherwise it will simply will not work even if data and buffer is not corrupted
             static_assert(Config::CheckAdapterErrors, "Please enable CheckAdapterErrors to use this functionality.");
-            const auto buffSize = static_cast<size_t>(std::distance(this->beginIt, this->endIt));
-            if (buffSize >= pos) {
+            if (_bufferSize >= pos && error() == ReaderError::NoError) {
                 _overflowOnReadEndPos = pos == 0;
                 if (pos == 0)
-                    pos = buffSize;
-                _endReadPos = std::next(this->beginIt, pos);
+                    pos = _bufferSize;
+                _endReadOffset = pos;
             } else {
                 error(ReaderError::DataOverflow);
             }
@@ -112,44 +81,42 @@ namespace bitsery {
         size_t currentReadEndPos() const {
             if (_overflowOnReadEndPos)
                 return 0;
-            return static_cast<size_t>(std::distance(this->beginIt, _endReadPos));
+            return _endReadOffset;
         }
 
         ReaderError error() const {
-            return _err;
+            return _currOffset <= _endReadOffset
+                ? ReaderError::NoError
+                : static_cast<ReaderError>(_currOffset - _endReadOffset);
         }
 
         void error(ReaderError error) {
-            if (_err == ReaderError::NoError) {
-                _err = error;
-                _endReadPos = this->endIt;
-                this->beginIt = this->endIt;
-                this->posIt = this->endIt;
+            if (_currOffset <= _endReadOffset) {
+                _endReadOffset = 0;
+                _bufferSize = 0;
+                _currOffset = static_cast<size_t>(error);
             }
         }
 
         bool isCompletedSuccessfully() const {
-            return this->posIt == this->endIt && _err == ReaderError::NoError;
+            return _currOffset == _bufferSize;
         }
 
     private:
 
         void readChecked(TValue *data, size_t size, std::false_type) {
-            //for optimization
-            auto tmp = this->posIt;
-            this->posIt += size;
-            assert(std::distance(this->posIt, this->endIt) >= 0);
-            std::memcpy(data, std::addressof(*tmp), size);
+            const auto newOffset = _currOffset + size;
+            assert(newOffset <= _endReadOffset);
+            std::copy_n(_beginIt + _currOffset, size, data);
+            _currOffset = newOffset;
         }
 
         void readChecked(TValue *data, size_t size, std::true_type) {
-            //for optimization
-            auto tmp = this->posIt;
-            this->posIt += size;
-            if (std::distance(this->posIt, _endReadPos) >= 0) {
-                std::memcpy(data, std::addressof(*tmp), size);
+            const auto newOffset = _currOffset + size;
+            if (newOffset <= _endReadOffset) {
+                std::copy_n(_beginIt + _currOffset, size, data);
+                _currOffset = newOffset;
             } else {
-                this->posIt -= size;
                 //set everything to zeros
                 std::memset(data, 0, size);
                 if (_overflowOnReadEndPos)
@@ -162,19 +129,30 @@ namespace bitsery {
         }
 
         void currentReadPosChecked(size_t pos, std::true_type) {
-            if (static_cast<size_t>(std::distance(this->beginIt, this->endIt)) >= pos) {
-                this->posIt = std::next(this->beginIt, pos);
+            if (_bufferSize >= pos && error() == ReaderError::NoError) {
+                _currOffset = pos;
             } else {
                 error(ReaderError::DataOverflow);
             }
         }
 
         void currentReadPosChecked(size_t pos, std::false_type) {
-            this->posIt = std::next(this->beginIt, pos);
+            _currOffset = pos;
         }
 
-        TIterator _endReadPos;
-        ReaderError _err = ReaderError::NoError;
+        size_t currentReadPosChecked(std::true_type) const {
+            return error() == ReaderError::NoError ? _currOffset : 0;
+        }
+
+        size_t currentReadPosChecked(std::false_type) const {
+            return _currOffset;
+        }
+
+
+        TIterator _beginIt;
+        size_t _currOffset;
+        size_t _endReadOffset;
+        size_t _bufferSize;
         bool _overflowOnReadEndPos = true;
     };
 
@@ -192,8 +170,8 @@ namespace bitsery {
                       "BufferAdapter only works with contiguous containers");
 
         OutputBufferAdapter(Buffer &buffer)
-                : _buffer{std::addressof(buffer)} {
-
+                : _buffer{std::addressof(buffer)},
+                _beginIt{std::begin(buffer)} {
             init(TResizable{});
         }
 
@@ -203,8 +181,7 @@ namespace bitsery {
         OutputBufferAdapter& operator = (OutputBufferAdapter&&) = default;
 
         void currentWritePos(size_t pos) {
-            const auto currPos =static_cast<size_t>(std::distance(std::begin(*_buffer), _outIt));
-            const auto maxPos = currPos > pos ? currPos : pos;
+            const auto maxPos = _currOffset > pos ? _currOffset : pos;
             if (maxPos > _biggestCurrentPos) {
                 _biggestCurrentPos = maxPos;
             }
@@ -212,7 +189,7 @@ namespace bitsery {
         }
 
         size_t currentWritePos() const {
-            return static_cast<size_t> (std::distance(std::begin(*_buffer), _outIt));
+            return _currOffset;
         }
 
         void flush() {
@@ -220,8 +197,7 @@ namespace bitsery {
         }
 
         size_t writtenBytesCount() const {
-            const auto pos =static_cast<size_t>(std::distance(std::begin(*_buffer), _outIt));
-            return pos > _biggestCurrentPos ? pos : _biggestCurrentPos;
+            return _currOffset > _biggestCurrentPos ? _currOffset : _biggestCurrentPos;
         }
 
     private:
@@ -232,9 +208,10 @@ namespace bitsery {
         }
 
         Buffer* _buffer;
-        TIterator _outIt{};
-        TIterator _end{};
-        size_t _biggestCurrentPos{};
+        TIterator _beginIt;
+        size_t _currOffset{0};
+        size_t _bufferSize{0};
+        size_t _biggestCurrentPos{0};
 
         /*
          * resizable buffer
@@ -245,47 +222,27 @@ namespace bitsery {
             if (traits::ContainerTraits<Buffer>::size(*_buffer) == 0u) {
                 traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
             }
-            _end = std::end(*_buffer);
-            _outIt = std::begin(*_buffer);
+            updateIteratorAndSize();
         }
 
         void writeInternalImpl(const TValue *data, const size_t size, std::true_type) {
-            //optimization
-#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0)
-            using TDistance = typename std::iterator_traits<TIterator>::difference_type;
-            if (std::distance(_outIt , _end) >= static_cast<TDistance>(size)) {
-                std::memcpy(std::addressof(*_outIt), data, size);
-                _outIt += size;
-#else
-            auto tmp = _outIt;
-            _outIt += size;
-            if (std::distance(_outIt, _end) >= 0) {
-                std::memcpy(std::addressof(*tmp), data, size);
-#endif
+            const auto newOffset = _currOffset + size;
+            if (newOffset <= _bufferSize) {
+                std::copy_n(data, size, _beginIt + _currOffset);
+                _currOffset = newOffset;
             } else {
-#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0)
-
-#else
-                _outIt -= size;
-#endif
-                //get current position before invalidating iterators
-                const auto pos = std::distance(std::begin(*_buffer), _outIt);
-                //increase container size
                 traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
-                //restore iterators
-                _end = std::end(*_buffer);
-                _outIt = std::next(std::begin(*_buffer), pos);
-
+                updateIteratorAndSize();
                 writeInternalImpl(data, size, std::true_type{});
             }
         }
 
         void setCurrentWritePos(size_t pos, std::true_type) {
-            const auto begin = std::begin(*_buffer);
-            if (static_cast<size_t>(std::distance(begin, std::end(*_buffer))) >= pos) {
-                _outIt = std::next(begin, pos);
+            if (pos <= _bufferSize) {
+                _currOffset = pos;
             } else {
                 traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
+                updateIteratorAndSize();
                 setCurrentWritePos(pos, std::true_type{});
             }
         }
@@ -294,22 +251,24 @@ namespace bitsery {
          * non resizable buffer
          */
         void init(std::false_type) {
-            _outIt = std::begin(*_buffer);
-            _end = std::end(*_buffer);
+            updateIteratorAndSize();
         }
 
         void writeInternalImpl(const TValue *data, size_t size, std::false_type) {
-            //optimization
-            auto tmp = _outIt;
-            _outIt += size;
-            assert(std::distance(_outIt, _end) >= 0);
-            memcpy(std::addressof(*tmp), data, size);
+            const auto newOffset = _currOffset + size;
+            assert(newOffset <= _bufferSize);
+            std::copy_n(data, size, _beginIt + _currOffset);
+            _currOffset = newOffset;
         }
 
         void setCurrentWritePos(size_t pos, std::false_type) {
-            const auto begin = std::begin(*_buffer);
-            assert(static_cast<size_t>(std::distance(begin, std::end(*_buffer))) >= pos);
-            _outIt = std::next(begin, pos);
+            assert(pos <= _bufferSize);
+            _currOffset = pos;
+        }
+
+        void updateIteratorAndSize() {
+            _beginIt = std::begin(*_buffer);
+            _bufferSize = traits::ContainerTraits<Buffer>::size(*_buffer);
         }
     };
 
