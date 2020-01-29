@@ -502,13 +502,13 @@ using BufferedAdapterInternalBufferTypes = ::testing::Types<
 
 TYPED_TEST_CASE(OutputStreamBuffered, BufferedAdapterInternalBufferTypes);
 
-TYPED_TEST(OutputStreamBuffered, WhenInternalBufferIsFullThenWriteBufferAndRemainingDataToStream) {
+TYPED_TEST(OutputStreamBuffered, WhenInternalBufferIsFullThenWriteBufferToStream) {
     uint8_t x{};
     for (auto i = 0u; i < TestFixture::InternalBufferSize; ++i)
         this->writer.template writeBytes<1>(x);
     EXPECT_TRUE(this->stream.str().empty());
     this->writer.template writeBytes<1>(x);
-    EXPECT_THAT(this->stream.str().size(), Eq(TestFixture::InternalBufferSize + 1));
+    EXPECT_THAT(this->stream.str().size(), Eq(TestFixture::InternalBufferSize));
 }
 
 TYPED_TEST(OutputStreamBuffered, WhenFlushThenWriteImmediately) {

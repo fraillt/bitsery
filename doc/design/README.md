@@ -1,16 +1,16 @@
 ## Motivation
 
-Inspiration to create **bitsery** came mainly because there aren't any good alternatives for C++.
+Inspiration to create **bitsery** came mainly because there aren't any good alternatives for C++ that meets my requirements.
 
-I wanted serializer that is easy to use like [cereal](http://uscilab.github.io/cereal/), is cross-platform compatible, and has support for forward/backward compatibility like [flatbuffers](https://google.github.io/flatbuffers/), is save to use with untrusted (malicious) data, and most importantly is fast and has small binary footprint.
+I wanted serializer that is easy to use as [cereal](http://uscilab.github.io/cereal/), is cross-platform compatible, and has support for forward/backward compatibility like [flatbuffers](https://google.github.io/flatbuffers/), is safe to use with untrusted (malicious) data, and most importantly is fast and has a small binary footprint.
 
-Furthermore I wanted full serialization control and ability to work on bit level, so I can further reduce data size. For example, serializing container of [quaternions](https://en.wikipedia.org/wiki/Quaternion) I can reduce size by large amount. *Size of orientation quaternion can be reduced from 128bits (4floats) down to 29bits using "smallest three" technique and still retaining decent precision*.
+Furthermore, I wanted full serialization control and the ability to work on a bit level, so I can further reduce data size. For example, serializing container of [quaternions](https://en.wikipedia.org/wiki/Quaternion) I can reduce the size by a large amount. *Size of orientation quaternion can be reduced from 128bits (4floats) down to 29bits using "smallest three" technique and still retaining decent precision*.
 
-Most well-known serialization libraries sacrifice memory and speed efficiency by supporting multiple data formats (binary, json, xml) and multiple languages (C++, C#, Javascript, etc..), these features also adds additional library complexity.
+Most well-known serialization libraries sacrifice memory and speed efficiency by supporting multiple data formats (binary, json, xml) and multiple languages (C++, C#, Javascript, etc..), these features also add additional library complexity.
 
 ## A word about JSON
 
-Often times people use C++ because they want speed and memory efficiency, and JSON is not on the list of efficient serialization format.
+Often people use C++ because they want speed and memory efficiency, and JSON is not on the list of efficient serialization format.
 Although JSON is very readable and very convenient when used together with dynamically typed languages such as JavaScript.
 When serializing data from statically typed languages, however, JSON not only has the obvious drawback of runtime inefficiency, but also forces you to write more code to access data (counterintuitively) due to its dynamic-typing serialization system.
 

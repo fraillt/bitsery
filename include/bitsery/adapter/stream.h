@@ -83,7 +83,12 @@ namespace bitsery {
 
     private:
 
-        void readInternal(TValue* data, size_t size) {
+        template <size_t SIZE>
+        void readInternalValue(TValue* data) {
+            readChecked(data, SIZE, std::integral_constant<bool, Config::CheckAdapterErrors>{});
+        }
+
+        void readInternalBuffer(TValue* data, size_t size) {
             readChecked(data, size, std::integral_constant<bool, Config::CheckAdapterErrors>{});
         }
 
@@ -139,8 +144,12 @@ namespace bitsery {
 
     private:
 
-        void writeInternal(const TValue* data, size_t size) {
-            //for optimization
+        template <size_t SIZE>
+        void writeInternalValue(const TValue* data) {
+            _ios->rdbuf()->sputn( data , SIZE );
+        }
+
+        void writeInternalBuffer(const TValue* data, size_t size) {
             _ios->rdbuf()->sputn( data , size );
         }
 
@@ -163,9 +172,12 @@ namespace bitsery {
         BasicBufferedOutputStreamAdapter(std::basic_ios<TChar, CharTraits>& ostream, size_t bufferSize = 256)
                 :_ios(std::addressof(ostream)),
                  _buf{},
-                 _outIt{}
+                 _beginIt{std::begin(_buf)},
+                 _currOffset{0}
         {
             init(bufferSize, TResizable{});
+            // buffer size must be atleast 16, because writeIntervalValue expect that atleast one value fits to buffer.
+            assert(_bufferSize >= 16);
         }
 
         //we need to explicitly declare move logic, because after move buffer might be invalidated
@@ -174,20 +186,19 @@ namespace bitsery {
 
         BasicBufferedOutputStreamAdapter(BasicBufferedOutputStreamAdapter&& rhs)
                 : _ios{rhs._ios},
-                  _buf{},
-                  _outIt{}
+                  _buf{std::move(rhs._buf)},
+                  _beginIt{std::begin(_buf)},
+                  _currOffset{rhs._currOffset},
+                  _bufferSize{rhs._bufferSize}
         {
-            auto size = std::distance(std::begin(rhs._buf), rhs._outIt);
-            _buf = std::move(rhs._buf);
-            _outIt = std::next(std::begin(_buf), size);
         };
 
         BasicBufferedOutputStreamAdapter& operator = (BasicBufferedOutputStreamAdapter&& rhs) {
             _ios = rhs._ios;
-            //get current written size, before move
-            auto size = std::distance(std::begin(rhs._buf), rhs._outIt);
             _buf = std::move(rhs._buf);
-            _outIt = std::next(std::begin(_buf), size);
+            _beginIt = std::begin(_buf);
+            _currOffset = rhs._currOffset;
+            _bufferSize = rhs._bufferSize;
             return *this;
         };
 
@@ -201,9 +212,7 @@ namespace bitsery {
         }
 
         void flush() {
-            auto begin = std::begin(_buf);
-            writeToStream(std::addressof(*begin), static_cast<size_t>(std::distance(begin, _outIt)));
-            _outIt = begin;
+            writeBufferToStream();
             if (auto ostream = dynamic_cast<std::basic_ostream<TChar, CharTraits>*>(_ios))
                 ostream->flush();
         }
@@ -217,44 +226,50 @@ namespace bitsery {
     private:
         using TResizable = std::integral_constant<bool, traits::ContainerTraits<TBuffer>::isResizable>;
 
-        void writeInternal(const TValue* data, size_t size) {
-            auto tmp = _outIt;
+        template <size_t SIZE>
+        void writeInternalValue(const TValue* data) {
+            auto newOffset = _currOffset + SIZE;
+            if (newOffset > _bufferSize) {
+                writeBufferToStream();
+                newOffset = SIZE;
+            }
+            std::copy_n(data, SIZE, _beginIt + _currOffset);
+            _currOffset = newOffset;
+        }
 
-#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0)
-            using TDistance = typename std::iterator_traits<BufferIt>::difference_type;
-            if (std::distance(_outIt , std::end(_buf)) >= static_cast<TDistance>(size)) {
-                std::memcpy(std::addressof(*_outIt), data, size);
-                _outIt += size;
-            }
-#else
-            _outIt += size;
-            if (std::distance(_outIt , std::end(_buf)) >= 0) {
-                std::memcpy(std::addressof(*tmp), data, size);
-            }
-#endif
-            else {
-                //when buffer is full write out to stream
-                _outIt = std::begin(_buf);
-                writeToStream(std::addressof(*_outIt), static_cast<size_t>(std::distance(_outIt, tmp)));
-                writeToStream(data, size);
+        void writeInternalBuffer(const TValue* data, size_t size) {
+            const auto newOffset = _currOffset + size;
+            if (newOffset <= _bufferSize) {
+                std::copy_n(data, size, _beginIt + _currOffset);
+                _currOffset = newOffset;
+            } else {
+                writeBufferToStream();
+                // write buffer directly to stream
+                _ios->rdbuf()->sputn(data, size);
             }
         }
 
-        void writeToStream(const TValue* data, size_t size) {
-            _ios->rdbuf()->sputn( data , size );
+        void writeBufferToStream() {
+            _ios->rdbuf()->sputn(std::addressof(*_beginIt), _currOffset);
+            _currOffset = 0;
         }
 
-        void init (size_t bufferSize, std::true_type) {
-            _buf.resize(bufferSize);
-            _outIt = std::begin(_buf);
+        void init (size_t buffSize, std::true_type) {
+            // resize buffer
+            _bufferSize = buffSize;
+            _buf.resize(_bufferSize);
+            _beginIt = std::begin(_buf);
         }
-        void init (size_t, std::false_type) {
-            _outIt = std::begin(_buf);
+        void init (size_t , std::false_type) {
+            // ignore buffer size parameter, and instead take actual buffer size
+            _bufferSize = traits::ContainerTraits<Buffer>::size(_buf);
         }
 
         std::basic_ios<TChar, CharTraits>* _ios;
         TBuffer _buf;
-        BufferIt _outIt;
+        BufferIt _beginIt;
+        size_t _currOffset;
+        size_t _bufferSize{0};
     };
 
     template <typename TChar, typename Config, typename CharTraits>

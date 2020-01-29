@@ -1,3 +1,9 @@
+# [5.0.3](https://github.com/fraillt/bitsery/compare/v5.0.2...v5.0.3) (2020-01-29)
+
+### Improvements
+* rewritten buffer adapters (and `BasicBufferedOutputStreamAdapter`) to fix UB when incrementing past the end iterator, and added an additional read/write method that accepts a number of bytes to be read/written at compile time.
+This provides additional optimization opportunities.
+
 # [5.0.2](https://github.com/fraillt/bitsery/compare/v5.0.1...v5.0.2) (2020-01-17)
 
 ### Bug fixes

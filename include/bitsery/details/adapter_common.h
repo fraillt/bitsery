@@ -192,15 +192,14 @@ namespace bitsery {
             void writeBytes(const T &v) {
                 static_assert(std::is_integral<T>(), "");
                 static_assert(sizeof(T) == SIZE, "");
-                writeSwapped(&v, 1, ShouldSwap<typename Adapter::TConfig>{});
-
+                writeSwappedValue(&v, ShouldSwap<typename Adapter::TConfig>{});
             }
 
             template<size_t SIZE, typename T>
             void writeBuffer(const T *buf, size_t count) {
                 static_assert(std::is_integral<T>(), "");
                 static_assert(sizeof(T) == SIZE, "");
-                writeSwapped(buf, count, ShouldSwap<typename Adapter::TConfig>{});
+                writeSwappedBuffer(buf, count, ShouldSwap<typename Adapter::TConfig>{});
             }
 
             template<typename T>
@@ -222,16 +221,27 @@ namespace bitsery {
         private:
 
             template<typename T>
-            void writeSwapped(const T *v, size_t count, std::true_type) {
+            void writeSwappedValue(const T *v, std::true_type) {
+                const auto res = details::swap(*v);
+                static_cast<Adapter*>(this)->template writeInternalValue<sizeof(T)>(reinterpret_cast<const typename Adapter::TValue *>(&res));
+            }
+
+            template<typename T>
+            void writeSwappedValue(const T *v, std::false_type) {
+                static_cast<Adapter*>(this)->template writeInternalValue<sizeof(T)>(reinterpret_cast<const typename Adapter::TValue *>(v));
+            }
+
+            template<typename T>
+            void writeSwappedBuffer(const T *v, size_t count, std::true_type) {
                 std::for_each(v, std::next(v, count), [this](const T &v) {
                     const auto res = details::swap(v);
-                    static_cast<Adapter*>(this)->writeInternal(reinterpret_cast<const typename Adapter::TValue *>(&res), sizeof(T));
+                    static_cast<Adapter*>(this)->template writeInternalValue<sizeof(T)>(reinterpret_cast<const typename Adapter::TValue *>(&res));
                 });
             }
 
             template<typename T>
-            void writeSwapped(const T *v, size_t count, std::false_type) {
-                static_cast<Adapter*>(this)->writeInternal(reinterpret_cast<const typename Adapter::TValue *>(v), count * sizeof(T));
+            void writeSwappedBuffer(const T *v, size_t count, std::false_type) {
+                static_cast<Adapter*>(this)->writeInternalBuffer(reinterpret_cast<const typename Adapter::TValue *>(v), count * sizeof(T));
             }
 
         };
@@ -245,14 +255,16 @@ namespace bitsery {
             void readBytes(T& v) {
                 static_assert(std::is_integral<T>(), "");
                 static_assert(sizeof(T) == SIZE, "");
-                directRead(&v, 1);
+                static_cast<Base*>(this)->template readInternalValue<sizeof(T)>(reinterpret_cast<typename Base::TValue *>(&v));
+                swapDataBits(v, ShouldSwap<typename Base::TConfig>{});
             }
 
             template<size_t SIZE, typename T>
             void readBuffer(T* buf, size_t count) {
                 static_assert(std::is_integral<T>(), "");
                 static_assert(sizeof(T) == SIZE, "");
-                directRead(buf, count);
+                static_cast<Base*>(this)->readInternalBuffer(reinterpret_cast<typename Base::TValue *>(buf), sizeof(T) * count);
+                swapDataBits(buf, count, ShouldSwap<typename Base::TConfig>{});
             }
 
             template<typename T>
@@ -277,22 +289,25 @@ namespace bitsery {
         private:
 
             template<typename T>
-            void directRead(T *v, size_t count) {
-                static_assert(!std::is_const<T>::value, "");
-                static_cast<Base*>(this)->readInternal(reinterpret_cast<typename Base::TValue *>(v), sizeof(T) * count);
-                //swap each byte if necessary
-                _swapDataBits(v, count, ShouldSwap<typename Base::TConfig>{});
-            }
-
-            template<typename T>
-            void _swapDataBits(T *v, size_t count, std::true_type) {
+            void swapDataBits(T *v, size_t count, std::true_type) {
                 std::for_each(v, std::next(v, count), [](T &x) { x = details::swap(x); });
             }
 
             template<typename T>
-            void _swapDataBits(T *, size_t , std::false_type) {
+            void swapDataBits(T *, size_t , std::false_type) {
                 //empty function because no swap is required
             }
+
+            template<typename T>
+            void swapDataBits(T &v, std::true_type) {
+                v = details::swap(v);
+            }
+
+            template<typename T>
+            void swapDataBits(T &, std::false_type) {
+                //empty function because no swap is required
+            }
+
 
         };
 

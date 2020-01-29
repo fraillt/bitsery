@@ -18,28 +18,27 @@ All cross-platform requirements are enforced at compile time, so serialized data
 * Configurable runtime error checking on deserialization.
 * Can read/write from any source: stream (file, network stream. etc... ), or buffer (vector, c-array, etc...).
 * Don't pay for what you don't use! - customize your serialization via **extensions**. Some notable *extensions* allow:
-  * forward/backward compatibility for your types.
-  * smart and raw pointers with customizable runtime polymorphism support.
   * fine-grained bit-level serialization control.
+  * forward/backward compatibility for your types.
+  * smart and raw pointers with allocators support and customizable runtime polymorphism.
 * Easily extendable for any type.
-* Allows brief or/and verbose syntax for better serialization control.
+* Allows brief (similar to [cereal](https://uscilab.github.io/cereal/)) or/and verbose syntax for better serialization control.
 * Configurable endianness support.
 * No macros.
 
-## Why to use bitsery
+## Why use bitsery
 
 Look at the numbers and features list, and decide yourself.
 
-|                  | data size | serialize | deserialize |
-|------------------|-----------|-----------|-------------|
-| bitsery          | 6913B     | 1252ms    | 1170ms      |
-| bitsery_compress | 4213B     | 1445ms    | 1325ms      |
-| boost            | 11037B    | 9952ms    | 8767ms      |
-| cereal           | 10413B    | 6497ms    | 5470ms      |
-| flatbuffers      | 14924B    | 6762ms    | 2173ms      |
-| yas              | 10463B    | 1352ms    | 1109ms      |
-| yas_compress     | 7315B     | 1673ms    | 1598ms      |
-
+| library          | data size | serialize | deserialize |
+| ---------------- | --------- | --------- | ----------- |
+| bitsery          | 6913B     | 959ms     | 927ms       |
+| bitsery_compress | 4213B     | 1282ms    | 1115ms      |
+| boost            | 11037B    | 9826ms    | 8313ms      |
+| cereal           | 10413B    | 6324ms    | 5698ms      |
+| flatbuffers      | 14924B    | 5129ms    | 2142ms      |
+| protobuf         | 10018B    | 11966ms   | 13919ms     |
+| yas              | 10463B    | 1908ms    | 1217ms      |
 
 *benchmarked on Ubuntu with GCC 8.3.0, more details can be found [here](https://github.com/fraillt/cpp_serializers_benchmark.git)*
 
@@ -103,8 +102,11 @@ Works with C++11 compiler, no additional dependencies, include `<bitsery/bitsery
 
 This library was tested on
 * Windows: Visual Studio 2015, MinGW (GCC 5.2)
-* Linux: GCC 5.4, GCC 6.2, Clang 3.9
+* Linux: GCC 5.4, Clang 3.9
 * OS X Mavericks: AppleClang 8
+
+There is a patch that allows using bitsery with non-fully compatible C++11 compilers.
+* CentOS 7 with gcc 4.8.2.
 
 ## License
 

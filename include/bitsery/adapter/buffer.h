@@ -104,14 +104,45 @@ namespace bitsery {
 
     private:
 
-        void readChecked(TValue *data, size_t size, std::false_type) {
+        template <size_t SIZE>
+        void readInternalValue(TValue *data) {
+            readInternalValueChecked<SIZE>(data, std::integral_constant<bool, Config::CheckAdapterErrors>{});
+        }
+
+        void readInternalBuffer(TValue *data, size_t size) {
+            readInternalBufferChecked(data, size, std::integral_constant<bool, Config::CheckAdapterErrors>{});
+        }
+
+        template <size_t SIZE>
+        void readInternalValueChecked(TValue *data, std::false_type) {
+            const auto newOffset = _currOffset + SIZE;
+            assert(newOffset <= _endReadOffset);
+            std::copy_n(_beginIt + _currOffset, SIZE, data);
+            _currOffset = newOffset;
+        }
+
+        template <size_t SIZE>
+        void readInternalValueChecked(TValue *data, std::true_type) {
+            const auto newOffset = _currOffset + SIZE;
+            if (newOffset <= _endReadOffset) {
+                std::copy_n(_beginIt + _currOffset, SIZE, data);
+                _currOffset = newOffset;
+            } else {
+                //set everything to zeros
+                std::memset(data, 0, SIZE);
+                if (_overflowOnReadEndPos)
+                    error(ReaderError::DataOverflow);
+            }
+        }
+
+        void readInternalBufferChecked(TValue *data, size_t size, std::false_type) {
             const auto newOffset = _currOffset + size;
             assert(newOffset <= _endReadOffset);
             std::copy_n(_beginIt + _currOffset, size, data);
             _currOffset = newOffset;
         }
 
-        void readChecked(TValue *data, size_t size, std::true_type) {
+        void readInternalBufferChecked(TValue *data, size_t size, std::true_type) {
             const auto newOffset = _currOffset + size;
             if (newOffset <= _endReadOffset) {
                 std::copy_n(_beginIt + _currOffset, size, data);
@@ -122,10 +153,6 @@ namespace bitsery {
                 if (_overflowOnReadEndPos)
                     error(ReaderError::DataOverflow);
             }
-        }
-
-        void readInternal(TValue *data, size_t size) {
-            readChecked(data, size, std::integral_constant<bool, Config::CheckAdapterErrors>{});
         }
 
         void currentReadPosChecked(size_t pos, std::true_type) {
@@ -203,8 +230,13 @@ namespace bitsery {
     private:
         using TResizable = std::integral_constant<bool, traits::ContainerTraits<Buffer>::isResizable>;
 
-        void writeInternal(const TValue *data, size_t size) {
-            writeInternalImpl(data, size, TResizable{});
+        template <size_t SIZE>
+        void writeInternalValue(const TValue *data) {
+            writeInternalValueImpl<SIZE>(data, TResizable{});
+        }
+
+        void writeInternalBuffer(const TValue *data, size_t size) {
+            writeInternalBufferImpl(data, size, TResizable{});
         }
 
         Buffer* _buffer;
@@ -225,7 +257,20 @@ namespace bitsery {
             updateIteratorAndSize();
         }
 
-        void writeInternalImpl(const TValue *data, const size_t size, std::true_type) {
+        template <size_t SIZE>
+        void writeInternalValueImpl(const TValue *data, std::true_type) {
+            const auto newOffset = _currOffset + SIZE;
+            if (newOffset <= _bufferSize) {
+                std::copy_n(data, SIZE, _beginIt + _currOffset);
+                _currOffset = newOffset;
+            } else {
+                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
+                updateIteratorAndSize();
+                writeInternalValueImpl<SIZE>(data, std::true_type{});
+            }
+        }
+
+        void writeInternalBufferImpl(const TValue *data, const size_t size, std::true_type) {
             const auto newOffset = _currOffset + size;
             if (newOffset <= _bufferSize) {
                 std::copy_n(data, size, _beginIt + _currOffset);
@@ -233,7 +278,7 @@ namespace bitsery {
             } else {
                 traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
                 updateIteratorAndSize();
-                writeInternalImpl(data, size, std::true_type{});
+                writeInternalBufferImpl(data, size, std::true_type{});
             }
         }
 
@@ -254,7 +299,15 @@ namespace bitsery {
             updateIteratorAndSize();
         }
 
-        void writeInternalImpl(const TValue *data, size_t size, std::false_type) {
+        template <size_t SIZE>
+        void writeInternalValueImpl(const TValue *data, std::false_type) {
+            const auto newOffset = _currOffset + SIZE;
+            assert(newOffset <= _bufferSize);
+            std::copy_n(data, SIZE, _beginIt + _currOffset);
+            _currOffset = newOffset;
+        }
+
+        void writeInternalBufferImpl(const TValue *data, size_t size, std::false_type) {
             const auto newOffset = _currOffset + size;
             assert(newOffset <= _bufferSize);
             std::copy_n(data, size, _beginIt + _currOffset);
