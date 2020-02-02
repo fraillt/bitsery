@@ -18,11 +18,9 @@ There's nothing to build or make - **bitsery** is header only.
 #include <bitsery/traits/vector.h>
 #include <bitsery/traits/string.h>
 
-using namespace bitsery;
-
 using Buffer = std::vector<uint8_t>;
-using OutputAdapter = OutputBufferAdapter<Buffer>;
-using InputAdapter = InputBufferAdapter<Buffer>;
+using OutputAdapter = bitsery::OutputBufferAdapter<Buffer>;
+using InputAdapter = bitsery::InputBufferAdapter<Buffer>;
 
 ```
 
@@ -62,7 +60,7 @@ void serialize(S& s, MyStruct& o) {
 
 This example we choosed probably unfamiliar verbose syntax, so lets explain core functionality that you'll use all the time:
 * **s.value4b(o.i);** serialize fundamental types (ints, floats, enums) value**4b** means, that data type is 4 bytes. If you use same code on different machines, if it compiles it means it is compatible.
-* **s.text1b(o.str);** serialize text (null-terminated) of char type, if you use *wchar* then you would write *text2b*.
+* **s.text1b(o.str);** serialize text (null-terminated) of char type, if you use *wchar* then you would write *text2b* or *text4b* depending on the OS platform.
 * **s.container4b(o.fs, 100);** serializes any container of fundamental types of size 4bytes, **100** is max size of container.
 **Bitsery** is designed to be save with untrusted (malicious) data from network, so for dynamic containers you always need to provide max possible size available, to avoid buffer-overflow attacks.
 **text** didn't had this max size specified, because it was serializing fixed size container.
@@ -76,8 +74,8 @@ Create buffer and use helper functions for serialization and deserialization.
 ```cpp
 Buffer buffer;
 
-  auto writtenSize = quickSerialization(OutputAdapter{buffer}, data);
-  auto state = quickDeserialization(InputAdapter{buffer.begin(), writtenSize}, res);
+  auto writtenSize = bitsery::quickSerialization(OutputAdapter{buffer}, data);
+  auto state = bitsery::quickDeserialization(InputAdapter{buffer.begin(), writtenSize}, res);
 ```
 
 These helper functions use default configuration *bitsery::DefaultConfig*
@@ -93,11 +91,9 @@ deserialization state has two properties, error code and bool that indicates if 
 #include <bitsery/traits/vector.h>
 #include <bitsery/traits/string.h>
 
-using namespace bitsery;
-
 using Buffer = std::vector<uint8_t>;
-using OutputAdapter = OutputBufferAdapter<Buffer>;
-using InputAdapter = InputBufferAdapter<Buffer>;
+using OutputAdapter = bitsery::OutputBufferAdapter<Buffer>;
+using InputAdapter = bitsery::InputBufferAdapter<Buffer>;
 
 struct MyStruct {
   uint32_t i;
@@ -110,17 +106,17 @@ void serialize(S& s, MyStruct& o) {
   s.value4b(o.i);
   s.text1b(o.str);
   s.container4b(o.fs, 100);
-};
+}
 
 int main() {
   MyStruct data{8941, "hello", {15.0f, -8.5f, 0.045f}};
   MyStruct res{};
 
   Buffer buffer;
-  auto writtenSize = quickSerialization(OutputAdapter{buffer}, data);
-  auto state = quickDeserialization(InputAdapter{buffer.begin(), writtenSize}, res);
+  auto writtenSize = bitsery::quickSerialization(OutputAdapter{buffer}, data);
+  auto state = bitsery::quickDeserialization(InputAdapter{buffer.begin(), writtenSize}, res);
 
-  assert(state.first == ReaderError::NoError && state.second);
+  assert(state.first == bitsery::ReaderError::NoError && state.second);
   assert(data.fs == res.fs && data.i == res.i && std::strcmp(data.str, res.str) == 0);
 }
 ```

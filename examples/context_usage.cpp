@@ -67,10 +67,9 @@ using Context = std::tuple<int, std::pair<uint32_t, uint32_t>>;
 
 //use fixed-size buffer
 using Buffer = std::vector<uint8_t>;
-using namespace bitsery;
 // define adapter types,
-using OutputAdapter = OutputBufferAdapter<Buffer>;
-using InputAdapter = InputBufferAdapter<Buffer>;
+using OutputAdapter = bitsery::OutputBufferAdapter<Buffer>;
+using InputAdapter = bitsery::InputBufferAdapter<Buffer>;
 
 int main() {
 
@@ -90,10 +89,10 @@ int main() {
 
     //create buffer to store data to
     Buffer buffer{};
-    auto writtenSize = quickSerialization(ctx, OutputAdapter{buffer}, data);
+    auto writtenSize = bitsery::quickSerialization(ctx, OutputAdapter{buffer}, data);
 
     MyTypes::GameState res{};
-    auto state = quickDeserialization(ctx, InputAdapter{buffer.begin(), writtenSize}, res);
+    auto state = bitsery::quickDeserialization(ctx, InputAdapter{buffer.begin(), writtenSize}, res);
 
-    assert(state.first == ReaderError::NoError && state.second);
+    assert(state.first == bitsery::ReaderError::NoError && state.second);
 }

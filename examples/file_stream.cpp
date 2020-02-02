@@ -19,8 +19,6 @@ void serialize(S& s, MyStruct& o) {
     s.value8b(o.f);
 }
 
-using namespace bitsery;
-
 int main() {
     //set some random data
     MyStruct data{8941, MyEnum::V2, 0.045};
@@ -35,7 +33,7 @@ int main() {
     }
 
     //we cannot use quick serialization function, because streams cannot use writtenBytesCount method
-    Serializer<OutputBufferedStreamAdapter> ser{s};
+    bitsery::Serializer<bitsery::OutputBufferedStreamAdapter> ser{s};
     ser.object(data);
     //flush to writer
     ser.adapter().flush();
@@ -50,8 +48,8 @@ int main() {
 
     //same as serialization, but returns deserialization state as a pair
     //first = error code, second = is buffer was successfully read from begin to the end.
-    auto state = quickDeserialization<InputStreamAdapter>(s, res);
+    auto state = bitsery::quickDeserialization<bitsery::InputStreamAdapter>(s, res);
 
-    assert(state.first == ReaderError::NoError && state.second);
+    assert(state.first == bitsery::ReaderError::NoError && state.second);
     assert(data.f == res.f && data.i == res.i && data.e == res.e);
 }

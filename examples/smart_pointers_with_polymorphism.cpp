@@ -181,23 +181,21 @@ namespace bitsery {
 // also it automatically ensures, that classes is registered in the same order for serialization and deserialization
 using MyPolymorphicClassesForRegistering = bitsery::ext::PolymorphicClassesList<Shape>;
 
-
-//use bitsery namespace for convenience
-using namespace bitsery;
-
 //some helper types
 using Buffer = std::vector<uint8_t>;
-using Writer = OutputBufferAdapter<Buffer>;
-using Reader = InputBufferAdapter<Buffer>;
+using Writer = bitsery::OutputBufferAdapter<Buffer>;
+using Reader = bitsery::InputBufferAdapter<Buffer>;
 
 //we need to define few things in order to work with polymorphism
 //1) we need pointer linking context to work with pointers
 //2) we need polymorphic context to be able to work with polymorphic types
-using TContext = std::tuple<ext::PointerLinkingContext, ext::PolymorphicContext<ext::StandardRTTI>>;
+using TContext = std::tuple<
+        bitsery::ext::PointerLinkingContext,
+        bitsery::ext::PolymorphicContext<bitsery::ext::StandardRTTI>>;
 //NOTE:
 // RTTI can be customizable, if you can't use dynamic_cast and typeid, and have 'custom' solution
-using MySerializer = Serializer<Writer, TContext>;
-using MyDeserializer = Deserializer<Reader, TContext>;
+using MySerializer = bitsery::Serializer<Writer, TContext>;
+using MyDeserializer = bitsery::Deserializer<Reader, TContext>;
 
 //checks if deserialized data is equal
 void assertSameShapes(const SomeShapes &data, const SomeShapes &res) {
@@ -257,7 +255,7 @@ int main() {
         //deserialize our data
         MyDeserializer des{ctx, buffer.begin(), writtenSize};
         des.object(res);
-        assert(des.adapter().error() == ReaderError::NoError && des.adapter().isCompletedSuccessfully());
+        assert(des.adapter().error() == bitsery::ReaderError::NoError && des.adapter().isCompletedSuccessfully());
         //also check for dangling pointers, after deserialization
         assert(std::get<0>(ctx).isValid());
         // clear shared state from pointer linking context,
