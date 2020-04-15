@@ -39,11 +39,11 @@
 #include <bitsery/brief_syntax/tuple.h>
 #include <bitsery/brief_syntax/variant.h>
 #else
-#if defined(_MSC_VER)
+/*#if defined(_MSC_VER)
 #pragma message("tuple and variant only works with c++17")
 #else
 #warning "tuple and variant only works with c++17"
-#endif
+#endif*/
 #endif
 
 #include <gmock/gmock.h>
