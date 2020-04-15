@@ -23,12 +23,10 @@ struct MyStruct {
 
 };
 
-using namespace bitsery;
-
 //some helper types
 using Buffer = std::vector<uint8_t>;
-using OutputAdapter = OutputBufferAdapter<Buffer>;
-using InputAdapter = InputBufferAdapter<Buffer>;
+using OutputAdapter = bitsery::OutputBufferAdapter<Buffer>;
+using InputAdapter = bitsery::InputBufferAdapter<Buffer>;
 
 int main() {
     //set some random data
@@ -37,10 +35,10 @@ int main() {
 
     //serialization, deserialization flow is unchanged as in basic usage
     Buffer buffer;
-    auto writtenSize = quickSerialization<OutputAdapter>(buffer, data);
+    auto writtenSize = bitsery::quickSerialization<OutputAdapter>(buffer, data);
 
-    auto state = quickDeserialization<InputAdapter>({buffer.begin(), writtenSize}, res);
+    auto state = bitsery::quickDeserialization<InputAdapter>({buffer.begin(), writtenSize}, res);
 
-    assert(state.first == ReaderError::NoError && state.second);
+    assert(state.first == bitsery::ReaderError::NoError && state.second);
     assert(data.fs == res.fs && data.i == res.i && data.e == res.e);
 }

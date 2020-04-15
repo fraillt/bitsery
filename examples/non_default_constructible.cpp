@@ -30,12 +30,10 @@ public:
     }
 };
 
-using namespace bitsery;
-
 //some helper types
 using Buffer = std::vector<uint8_t>;
-using Writer = OutputBufferAdapter<Buffer>;
-using Reader = InputBufferAdapter<Buffer>;
+using Writer = bitsery::OutputBufferAdapter<Buffer>;
+using Reader = bitsery::InputBufferAdapter<Buffer>;
 
 int main() {
 
@@ -49,16 +47,16 @@ int main() {
 
     //we cant use quick (de)serialization helper methods, because we ant to serialize container directly
     //create writer and serialize container
-    Serializer<Writer> ser{buffer};
+    bitsery::Serializer<Writer> ser{buffer};
     ser.container(data, 10);
     ser.adapter().flush();
 
     //create reader and deserialize container
-    Deserializer<Reader> des{buffer.begin(), ser.adapter().writtenBytesCount()};
+    bitsery::Deserializer<Reader> des{buffer.begin(), ser.adapter().writtenBytesCount()};
     des.container(res, 10);
 
     //check if everything went ok
-    assert(des.adapter().error() == ReaderError::NoError && des.adapter().isCompletedSuccessfully());
+    assert(des.adapter().error() == bitsery::ReaderError::NoError && des.adapter().isCompletedSuccessfully());
     assert(res == data);
 }
 

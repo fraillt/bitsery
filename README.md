@@ -64,11 +64,9 @@ void serialize(S& s, MyStruct& o) {
     s.container4b(o.fs, 10);
 }
 
-using namespace bitsery;
-
 using Buffer = std::vector<uint8_t>;
-using OutputAdapter = OutputBufferAdapter<Buffer>;
-using InputAdapter = InputBufferAdapter<Buffer>;
+using OutputAdapter = bitsery::OutputBufferAdapter<Buffer>;
+using InputAdapter = bitsery::InputBufferAdapter<Buffer>;
 
 int main() {
     MyStruct data{8941, MyEnum::V2, {15.0f, -8.5f, 0.045f}};
@@ -76,10 +74,10 @@ int main() {
 
     Buffer buffer;
 
-    auto writtenSize = quickSerialization<OutputAdapter>(buffer, data);
-    auto state = quickDeserialization<InputAdapter>({buffer.begin(), writtenSize}, res);
+    auto writtenSize = bitsery::quickSerialization<OutputAdapter>(buffer, data);
+    auto state = bitsery::quickDeserialization<InputAdapter>({buffer.begin(), writtenSize}, res);
 
-    assert(state.first == ReaderError::NoError && state.second);
+    assert(state.first == bitsery::ReaderError::NoError && state.second);
     assert(data.fs == res.fs && data.i == res.i && data.e == res.e);
 }
 ```

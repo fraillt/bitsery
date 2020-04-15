@@ -78,12 +78,10 @@ private:
     }
 };
 
-using namespace bitsery;
-
 //some helper types
 using Buffer = std::vector<uint8_t>;
-using Writer = OutputBufferAdapter<Buffer>;
-using Reader = InputBufferAdapter<Buffer>;
+using Writer = bitsery::OutputBufferAdapter<Buffer>;
+using Reader = bitsery::InputBufferAdapter<Buffer>;
 
 //we will need PointerLinkingContext to work with pointers
 //if we would require additional context for our own custom flow, we can define it as tuple like this:
@@ -114,7 +112,7 @@ int main() {
     size_t writtenSize{};
     //in order to use pointers, we need to pass pointer linking context serializer/deserializer
     {
-        ext::PointerLinkingContext ctx{};
+        bitsery::ext::PointerLinkingContext ctx{};
         writtenSize = quickSerialization(ctx, Writer{buffer}, data);
 
         //make sure that pointer linking context is valid
@@ -125,10 +123,10 @@ int main() {
 
     Test1Data res{};
     {
-        ext::PointerLinkingContext ctx{};
+        bitsery::ext::PointerLinkingContext ctx{};
         auto state = quickDeserialization(ctx, Reader{buffer.begin(), writtenSize}, res);
         //check if everything went find
-        assert(state.first == ReaderError::NoError && state.second);
+        assert(state.first == bitsery::ReaderError::NoError && state.second);
         //also check for dangling pointers, after deserialization
         assert(ctx.isValid());
     }

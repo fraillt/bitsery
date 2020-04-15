@@ -78,13 +78,10 @@ namespace bitsery {
     struct SelectSerializeFnc<MultipleInheritance>:UseNonMemberFnc {};
 }
 
-using namespace bitsery;
-
-
 //some helper types
 using Buffer = std::vector<uint8_t>;
-using Writer = OutputBufferAdapter<Buffer>;
-using Reader = InputBufferAdapter<Buffer>;
+using Writer = bitsery::OutputBufferAdapter<Buffer>;
+using Reader = bitsery::InputBufferAdapter<Buffer>;
 
 int main() {
 
@@ -95,13 +92,13 @@ int main() {
 
     Buffer buf{};
 
-    ext::InheritanceContext ctx1;
-    auto writtenSize = quickSerialization(ctx1, Writer{buf}, data);
+    bitsery::ext::InheritanceContext ctx1;
+    auto writtenSize = bitsery::quickSerialization(ctx1, Writer{buf}, data);
     assert(writtenSize == 4);//base is serialized once, because it is inherited virtually
 
     MultipleInheritance res{0};
-    ext::InheritanceContext ctx2;
-    auto state = quickDeserialization(ctx2, Reader{buf.begin(), writtenSize}, res);
-    assert(state.first == ReaderError::NoError && state.second);
+    bitsery::ext::InheritanceContext ctx2;
+    auto state = bitsery::quickDeserialization(ctx2, Reader{buf.begin(), writtenSize}, res);
+    assert(state.first == bitsery::ReaderError::NoError && state.second);
     assert(data.x == res.x && data.y1 == res.y1 && data.getY2() == res.getY2() && data.z == res.z);
 }

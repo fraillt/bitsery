@@ -41,12 +41,10 @@ namespace MyTypes {
     }
 }
 
-using namespace bitsery;
-
 //use fixed-size buffer
 using Buffer = std::array<uint8_t, 10000>;
-using OutputAdapter = OutputBufferAdapter<Buffer>;
-using InputAdapter = InputBufferAdapter<Buffer>;
+using OutputAdapter = bitsery::OutputBufferAdapter<Buffer>;
+using InputAdapter = bitsery::InputBufferAdapter<Buffer>;
 
 int main() {
     //set some random data
@@ -55,10 +53,10 @@ int main() {
 
     //create buffer to store data to
     Buffer buffer{};
-    auto writtenSize = quickSerialization<OutputAdapter>(buffer, data);
+    auto writtenSize = bitsery::quickSerialization<OutputAdapter>(buffer, data);
 
     MyTypes::Monster res{};
-    auto state = quickDeserialization<InputAdapter>({buffer.begin(), writtenSize}, res);
+    auto state = bitsery::quickDeserialization<InputAdapter>({buffer.begin(), writtenSize}, res);
 
-    assert(state.first == ReaderError::NoError && state.second);
+    assert(state.first == bitsery::ReaderError::NoError && state.second);
 }

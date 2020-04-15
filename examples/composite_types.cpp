@@ -29,27 +29,24 @@ void serialize(S& s, MyStruct& o) {
 using MyTuple = std::tuple<float, MyStruct>;
 using MyVariant = std::variant<int64_t, MyTuple, MyStruct>;
 
-// for convenience
-using namespace bitsery;
-
 // define default serialize function for MyVariant, so that we could use quickSerialization/Deserialization functions
 template<typename S>
 void serialize(S& s, MyVariant& o) {
     // in order to serialize a variant, it needs to know how to do it for all types
     // we can do this simply by providing any callable object, that accepts serializer and type as arguments
-    s.ext(o, ext::StdVariant{
+    s.ext(o, bitsery::ext::StdVariant{
         // specify how to serialize tuple by creating a lambda
         [](S& s, MyTuple& o) {
             // StdTuple is used exactly the same as StdVariant
-            s.ext(o, ext::StdTuple{
+            s.ext(o, bitsery::ext::StdTuple{
                 // this is convenient callable object to specify integral value size
                 // it is different equivalent to lambda [](auto& s, float&o) { s.value4b(o);}
-                ext::OverloadValue<float, 4>{},
+                    bitsery::ext::OverloadValue<float, 4>{},
                 // it is not required to provide MyStruct overload, because it we have defined 'serialize' function for it
             });
         },
         // this might also be useful if you want to overload using extension
-        ext::OverloadExtValue<int64_t, 8, ext::CompactValue>{},
+        bitsery::ext::OverloadExtValue<int64_t, 8, bitsery::ext::CompactValue>{},
         // you can even go further and instead of writing lambda for MyTuple you can as well compose the same functionality
         // with OverloadExtObject, like this:
         // (comment out MyTuple lambda, and uncomment this)
@@ -59,7 +56,7 @@ void serialize(S& s, MyVariant& o) {
         [](S& s, MyStruct& o) {
             s.value4b(o.f);
             s.container(o.v, 1000, [](S& s, int32_t& v) {
-                s.ext4b(v, ext::CompactValue{});
+                s.ext4b(v, bitsery::ext::CompactValue{});
             });
         },
         // NOTE.
@@ -78,8 +75,8 @@ void serialize(S& s, MyVariant& o) {
 
 //some helper types
 using Buffer = std::vector<uint8_t>;
-using OutputAdapter = OutputBufferAdapter<Buffer>;
-using InputAdapter = InputBufferAdapter<Buffer>;
+using OutputAdapter = bitsery::OutputBufferAdapter<Buffer>;
+using InputAdapter = bitsery::InputBufferAdapter<Buffer>;
 
 int main() {
 
@@ -93,13 +90,13 @@ int main() {
     //use quick serialization function,
     //it will use default configuration to setup all the nesessary steps
     //and serialize data to container
-    auto writtenSize = quickSerialization<OutputAdapter>(buffer, data);
+    auto writtenSize = bitsery::quickSerialization<OutputAdapter>(buffer, data);
 
     //same as serialization, but returns deserialization state as a pair
     //first = error code, second = is buffer was successfully read from begin to the end.
-    auto state = quickDeserialization<InputAdapter>({buffer.begin(), writtenSize}, res);
+    auto state = bitsery::quickDeserialization<InputAdapter>({buffer.begin(), writtenSize}, res);
 
-    assert(state.first == ReaderError::NoError && state.second);
+    assert(state.first == bitsery::ReaderError::NoError && state.second);
     assert(data == res);
 }
 #else
