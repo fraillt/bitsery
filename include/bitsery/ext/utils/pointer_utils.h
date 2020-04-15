@@ -71,7 +71,7 @@ namespace bitsery {
                     StdPolyAlloc<PointerSharedStateBase> alloc{_memResource};
                     alloc.deallocate(data, 1);
                 }
-                MemResourceBase* _memResource;
+                MemResourceBase* _memResource = nullptr;
             };
 
             //PLC info is internal classes for serializer, and deserializer

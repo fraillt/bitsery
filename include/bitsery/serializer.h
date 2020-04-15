@@ -452,11 +452,12 @@ namespace bitsery {
         //process text,
         template<size_t VSIZE, typename T>
         void procText(const T& str, size_t maxSize) {
-            auto length = traits::TextTraits<T>::length(str);
+            const size_t length = traits::TextTraits<T>::length(str);
             assert((length + (traits::TextTraits<T>::addNUL ? 1u : 0u)) <= maxSize);
             details::writeSize(this->_adapter, length);
             auto begin = std::begin(str);
-            procContainer<VSIZE>(begin, std::next(begin, length), std::integral_constant<bool, traits::ContainerTraits<T>::isContiguous>{});
+            using diff_t = typename std::iterator_traits<decltype(begin)>::difference_type;
+            procContainer<VSIZE>(begin, std::next(begin, static_cast<diff_t>(length)), std::integral_constant<bool, traits::ContainerTraits<T>::isContiguous>{});
         }
 
         //process object types
