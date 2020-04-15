@@ -25,7 +25,7 @@
 
 #include <unordered_set>
 #include "../traits/core/traits.h"
-#include "bitsery/ext/utils/memory_resource.h"
+#include "../ext/utils/memory_resource.h"
 
 namespace bitsery {
 
