@@ -121,8 +121,8 @@ namespace bitsery {
         details::SameSizeUnsigned<T> getRangeValue(const T &v, const RangeSpec<T> &r) {
             using VT = details::SameSizeUnsigned<T>;
             const VT maxUint = (static_cast<VT>(1) << r.bitsRequired) - 1;
-            const auto ratio = (v - r.min) / (r.max - r.min);
-            return static_cast<VT>(ratio * maxUint);
+            const T ratio = (v - r.min) / (r.max - r.min);
+            return static_cast<VT>(ratio * static_cast<T>(maxUint));
         }
 
         template<typename T, typename std::enable_if<std::is_integral<T>::value>::type * = nullptr>
@@ -141,7 +141,7 @@ namespace bitsery {
             using UIT = details::SameSizeUnsigned<T>;
             const auto intRep = reinterpret_cast<UIT &>(v);
             const UIT maxUint = (static_cast<UIT>(1) << r.bitsRequired) - 1;
-            v = r.min + (static_cast<T>(intRep) / maxUint) * (r.max - r.min);
+            v = r.min + (static_cast<T>(intRep) / static_cast<T>(maxUint)) * (r.max - r.min);
         }
 
         template<typename T, typename std::enable_if<std::is_arithmetic<T>::value>::type * = nullptr>
