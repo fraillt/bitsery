@@ -125,7 +125,7 @@ TYPED_TEST(SerializeContainerDynamicSizeArthmeticTypes, CustomFunctionIncrements
     });
     //decrement result by 1, before comparing for eq
     for (auto &v:this->res)
-        v -= 1;
+        v = static_cast<TValue>(v-1);
 
     EXPECT_THAT(ctx.getBufferSize(), Eq(this->getExpectedBufSize(ctx)));
     EXPECT_THAT(this->res, ContainerEq(this->src));
