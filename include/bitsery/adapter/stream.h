@@ -120,7 +120,7 @@ namespace bitsery {
         using TValue = TChar;
 
         BasicOutputStreamAdapter(std::basic_ostream<TChar, CharTraits>& ostream)
-                :_ios{std::addressof(ostream)} {}
+                :_ostream{std::addressof(ostream)} {}
 
         void currentWritePos(size_t ) {
             static_assert(std::is_void<TChar>::value, "setting write position is not supported with StreamAdapter");
@@ -132,7 +132,7 @@ namespace bitsery {
         }
 
         void flush() {
-            ostream->flush();
+            _ostream->flush();
         }
 
         size_t writtenBytesCount() const {
@@ -152,7 +152,7 @@ namespace bitsery {
             _ios->rdbuf()->sputn( data , size );
         }
 
-        std::basic_ostream<TChar, CharTraits>* _ios;
+        std::basic_ostream<TChar, CharTraits>* _ostream;
     };
 
     template <typename TChar, typename Config, typename CharTraits, typename TBuffer = std::array<TChar, 256>>
@@ -169,7 +169,7 @@ namespace bitsery {
 
         //bufferSize is used when buffer is dynamically allocated
         BasicBufferedOutputStreamAdapter(std::basic_ios<TChar, CharTraits>& ostream, size_t bufferSize = 256)
-                :_ios(std::addressof(ostream)),
+                :_ostream(std::addressof(ostream)),
                  _buf{},
                  _beginIt{std::begin(_buf)},
                  _currOffset{0}
@@ -212,7 +212,7 @@ namespace bitsery {
 
         void flush() {
             writeBufferToStream();
-            ostream->flush();
+            _ostream->flush();
         }
 
         size_t writtenBytesCount() const {
@@ -263,7 +263,7 @@ namespace bitsery {
             _bufferSize = traits::ContainerTraits<Buffer>::size(_buf);
         }
 
-        std::basic_ostream<TChar, CharTraits>* _ios;
+        std::basic_ostream<TChar, CharTraits>* _ostream;
         TBuffer _buf;
         BufferIt _beginIt;
         size_t _currOffset;
