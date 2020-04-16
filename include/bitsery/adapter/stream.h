@@ -119,7 +119,7 @@ namespace bitsery {
         using TConfig = Config;
         using TValue = TChar;
 
-        BasicOutputStreamAdapter(std::basic_ios<TChar, CharTraits>& ostream)
+        BasicOutputStreamAdapter(std::basic_ostream<TChar, CharTraits>& ostream)
                 :_ios{std::addressof(ostream)} {}
 
         void currentWritePos(size_t ) {
@@ -132,8 +132,7 @@ namespace bitsery {
         }
 
         void flush() {
-            if (auto ostream = dynamic_cast<std::basic_ostream<TChar, CharTraits>*>(_ios))
-                ostream->flush();
+            ostream->flush();
         }
 
         size_t writtenBytesCount() const {
@@ -153,7 +152,7 @@ namespace bitsery {
             _ios->rdbuf()->sputn( data , size );
         }
 
-        std::basic_ios<TChar, CharTraits>* _ios;
+        std::basic_ostream<TChar, CharTraits>* _ios;
     };
 
     template <typename TChar, typename Config, typename CharTraits, typename TBuffer = std::array<TChar, 256>>
@@ -213,8 +212,7 @@ namespace bitsery {
 
         void flush() {
             writeBufferToStream();
-            if (auto ostream = dynamic_cast<std::basic_ostream<TChar, CharTraits>*>(_ios))
-                ostream->flush();
+            ostream->flush();
         }
 
         size_t writtenBytesCount() const {
@@ -265,7 +263,7 @@ namespace bitsery {
             _bufferSize = traits::ContainerTraits<Buffer>::size(_buf);
         }
 
-        std::basic_ios<TChar, CharTraits>* _ios;
+        std::basic_ostream<TChar, CharTraits>* _ios;
         TBuffer _buf;
         BufferIt _beginIt;
         size_t _currOffset;
@@ -273,22 +271,24 @@ namespace bitsery {
     };
 
     template <typename TChar, typename Config, typename CharTraits>
-    class BasicIOStreamAdapter:public BasicInputStreamAdapter<TChar, Config, CharTraits>, public BasicOutputStreamAdapter<TChar, Config, CharTraits> {
+    class BasicIOStreamAdapter
+        : public BasicInputStreamAdapter<TChar, Config, CharTraits>
+        , public BasicOutputStreamAdapter<TChar, Config, CharTraits>
+    {
     public:
         using TValue = TChar;
 
         //both bases contain reference to same iostream, so no need to do anything
-        BasicIOStreamAdapter(std::basic_ios<TChar, CharTraits>& iostream)
-                :BasicInputStreamAdapter<TChar, Config, CharTraits>{iostream},
-                 BasicOutputStreamAdapter<TChar, Config, CharTraits>{iostream} {
-
-        }
+        BasicIOStreamAdapter(std::basic_iostream<TChar, CharTraits>& iostream)
+            :BasicInputStreamAdapter<TChar, Config, CharTraits>{iostream}
+            ,BasicOutputStreamAdapter<TChar, Config, CharTraits>{iostream}
+        {}
     };
 
     //helper types for most common implementations for std streams
     using OutputStreamAdapter = BasicOutputStreamAdapter<char, DefaultConfig, std::char_traits<char>>;
-    using InputStreamAdapter = BasicInputStreamAdapter<char, DefaultConfig, std::char_traits<char>>;
-    using IOStreamAdapter = BasicIOStreamAdapter<char, DefaultConfig, std::char_traits<char>>;
+    using InputStreamAdapter  = BasicInputStreamAdapter<char, DefaultConfig, std::char_traits<char>>;
+    using IOStreamAdapter     = BasicIOStreamAdapter<char, DefaultConfig, std::char_traits<char>>;
 
     using OutputBufferedStreamAdapter = BasicBufferedOutputStreamAdapter<char, DefaultConfig, std::char_traits<char>>;
 }
