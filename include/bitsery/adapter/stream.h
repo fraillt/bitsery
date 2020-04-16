@@ -168,14 +168,14 @@ namespace bitsery {
         using TValue = TChar;
 
         //bufferSize is used when buffer is dynamically allocated
-        BasicBufferedOutputStreamAdapter(std::basic_ios<TChar, CharTraits>& ostream, size_t bufferSize = 256)
+        BasicBufferedOutputStreamAdapter(std::basic_ostream<TChar, CharTraits>& ostream, size_t bufferSize = 256)
                 :_ostream(std::addressof(ostream)),
                  _buf{},
                  _beginIt{std::begin(_buf)},
                  _currOffset{0}
         {
             init(bufferSize, TResizable{});
-            // buffer size must be atleast 16, because writeIntervalValue expect that atleast one value fits to buffer.
+            // buffer size must be atleast 16, because writeIntervalValue expect that at least one value fits to buffer.
             assert(_bufferSize >= 16);
         }
 
