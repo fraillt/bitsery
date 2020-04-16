@@ -184,7 +184,7 @@ namespace bitsery {
         BasicBufferedOutputStreamAdapter& operator = (const BasicBufferedOutputStreamAdapter&) = delete;
 
         BasicBufferedOutputStreamAdapter(BasicBufferedOutputStreamAdapter&& rhs)
-                : _ios{rhs._ios},
+                : _ostream{rhs._ostream},
                   _buf{std::move(rhs._buf)},
                   _beginIt{std::begin(_buf)},
                   _currOffset{rhs._currOffset},
@@ -193,7 +193,7 @@ namespace bitsery {
         };
 
         BasicBufferedOutputStreamAdapter& operator = (BasicBufferedOutputStreamAdapter&& rhs) {
-            _ios = rhs._ios;
+            _ostream = rhs._ostream;
             _buf = std::move(rhs._buf);
             _beginIt = std::begin(_buf);
             _currOffset = rhs._currOffset;
