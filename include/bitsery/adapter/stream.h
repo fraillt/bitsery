@@ -145,11 +145,11 @@ namespace bitsery {
 
         template <size_t SIZE>
         void writeInternalValue(const TValue* data) {
-            _ios->rdbuf()->sputn( data , SIZE );
+            _ostream->rdbuf()->sputn( data , SIZE );
         }
 
         void writeInternalBuffer(const TValue* data, size_t size) {
-            _ios->rdbuf()->sputn( data , size );
+            _ostream->rdbuf()->sputn( data , size );
         }
 
         std::basic_ostream<TChar, CharTraits>* _ostream;
@@ -243,12 +243,12 @@ namespace bitsery {
             } else {
                 writeBufferToStream();
                 // write buffer directly to stream
-                _ios->rdbuf()->sputn(data, size);
+                _ostream->rdbuf()->sputn(data, size);
             }
         }
 
         void writeBufferToStream() {
-            _ios->rdbuf()->sputn(std::addressof(*_beginIt), _currOffset);
+            _ostream->rdbuf()->sputn(std::addressof(*_beginIt), _currOffset);
             _currOffset = 0;
         }
 
