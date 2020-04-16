@@ -176,7 +176,7 @@ namespace bitsery {
 
         template<>
         struct ScratchType<uint8_t> {
-            using type = uint16_t;
+            using type = uint_fast16_t;
         };
 
         /**
