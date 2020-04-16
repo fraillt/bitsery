@@ -71,7 +71,7 @@ void serialize(S& s, Derived& o) {
 }
 
 struct MoreDerived : Derived {
-    int8_t z{};
+    uint8_t z{};
 
     MoreDerived() = default;
 
