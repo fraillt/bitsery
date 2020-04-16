@@ -48,7 +48,7 @@ namespace bitsery {
         };
 
         InputBufferAdapter(TIterator beginIt, TIterator endIt)
-                :InputBufferAdapter(beginIt, std::distance(beginIt, endIt)) {
+                :InputBufferAdapter(beginIt, static_cast<size_t>(std::distance(beginIt, endIt))) {
         }
 
         InputBufferAdapter(const InputBufferAdapter&) = delete;

@@ -93,7 +93,7 @@ namespace bitsery {
         }
 
         void readChecked(TValue* data, size_t size, std::true_type) {
-            if (size - static_cast<size_t>(_ios->rdbuf()->sgetn(data, size)) != _zeroIfNoErrors) {
+            if (size - static_cast<size_t>(_ios->rdbuf()->sgetn(data, static_cast<std::streamsize>(size))) != _zeroIfNoErrors) {
                 *data = {};
                 if (_zeroIfNoErrors == 0) {
                     error(_ios->rdstate() == std::ios_base::badbit
@@ -104,7 +104,7 @@ namespace bitsery {
         }
 
         void readChecked(TValue* data, size_t size, std::false_type) {
-            _ios->rdbuf()->sgetn(data , size);
+            _ios->rdbuf()->sgetn(data , static_cast<std::streamsize>(size));
         }
 
         std::basic_ios<TChar, CharTraits>* _ios;
@@ -250,7 +250,7 @@ namespace bitsery {
         }
 
         void writeBufferToStream() {
-            _ios->rdbuf()->sputn(std::addressof(*_beginIt), _currOffset);
+            _ios->rdbuf()->sputn(std::addressof(*_beginIt), static_cast<std::streamsize>(_currOffset));
             _currOffset = 0;
         }
 
