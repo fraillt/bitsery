@@ -25,7 +25,7 @@
 #define BITSERY_BRIEF_SYNTAX_TYPE_STD_STRING_H
 
 #include "../traits/string.h"
-#include "bitsery/details/brief_syntax_common.h"
+#include "../details/brief_syntax_common.h"
 
 namespace bitsery {
     template<typename S, typename CharT, typename Traits, typename Allocator>

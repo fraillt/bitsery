@@ -25,7 +25,7 @@
 #define BITSERY_BRIEF_SYNTAX_H
 
 #include "details/serialization_common.h"
-#include "bitsery/details/brief_syntax_common.h"
+#include "details/brief_syntax_common.h"
 
 namespace bitsery {
 

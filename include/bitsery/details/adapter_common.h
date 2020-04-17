@@ -125,7 +125,7 @@ namespace bitsery {
             }
 
             static uint16_t exec(uint16_t value) {
-                return (value & 0x00ff) << 8 | (value & 0xff00) >> 8;
+                return static_cast<uint16_t>((value & 0x00ff) << 8 | (value & 0xff00) >> 8);
             }
 
             static uint8_t exec(uint8_t value) {

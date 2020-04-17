@@ -25,7 +25,7 @@
 #define BITSERY_BRIEF_SYNTAX_TYPE_STD_ARRAY_H
 
 #include "../traits/array.h"
-#include "bitsery/details/brief_syntax_common.h"
+#include "../details/brief_syntax_common.h"
 
 namespace bitsery {
     template<typename S, typename T, size_t N>
