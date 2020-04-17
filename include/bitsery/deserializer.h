@@ -141,7 +141,7 @@ namespace bitsery {
                     }
                     auto shiftedRes =
                         static_cast<T>(m_scratch & ((static_cast<ScratchType>(1) << bits) - 1)) << (size - bitsLeft);
-                    res |= shiftedRes;
+                    res = static_cast<T>(res | shiftedRes);
                     m_scratch >>= bits;
                     m_scratchBits -= bits;
                     bitsLeft -= bits;

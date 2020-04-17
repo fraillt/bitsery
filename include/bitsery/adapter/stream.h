@@ -225,6 +225,7 @@ namespace bitsery {
 
     private:
         using TResizable = std::integral_constant<bool, traits::ContainerTraits<TBuffer>::isResizable>;
+        using diff_t = typename std::iterator_traits<BufferIt>::difference_type;
 
         template <size_t SIZE>
         void writeInternalValue(const TValue* data) {
@@ -233,14 +234,14 @@ namespace bitsery {
                 writeBufferToStream();
                 newOffset = SIZE;
             }
-            std::copy_n(data, SIZE, _beginIt + _currOffset);
+            std::copy_n(data, SIZE, _beginIt + static_cast<diff_t>(_currOffset));
             _currOffset = newOffset;
         }
 
         void writeInternalBuffer(const TValue* data, size_t size) {
             const auto newOffset = _currOffset + size;
             if (newOffset <= _bufferSize) {
-                std::copy_n(data, size, _beginIt + _currOffset);
+                std::copy_n(data, size, _beginIt + static_cast<diff_t>(_currOffset));
                 _currOffset = newOffset;
             } else {
                 writeBufferToStream();
