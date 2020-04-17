@@ -139,7 +139,7 @@ namespace bitsery {
             using UT = typename std::conditional<TSize == 1, uint8_t,
                     typename std::conditional<TSize == 2, uint16_t,
                             typename std::conditional<TSize == 4, uint32_t, uint64_t>::type>::type>::type;
-            return SwapImpl::exec(static_cast<UT>(value));
+            return static_cast<TValue>(SwapImpl::exec(static_cast<UT>(value)));
         }
 
         /**
@@ -290,7 +290,8 @@ namespace bitsery {
 
             template<typename T>
             void swapDataBits(T *v, size_t count, std::true_type) {
-                std::for_each(v, std::next(v, count), [](T &x) { x = details::swap(x); });
+                using diff_t = typename std::iterator_traits<T*>::difference_type;
+                std::for_each(v, std::next(v, static_cast<diff_t>(count)), [](T &x) { x = details::swap(x); });
             }
 
             template<typename T>

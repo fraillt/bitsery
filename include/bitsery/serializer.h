@@ -120,8 +120,8 @@ namespace bitsery {
             template<typename T>
             void writeBitsInternal(const T &v, size_t size) {
                 constexpr size_t valueSize = details::BitsSize<UnsignedType>::value;
-                auto value = v;
-                auto bitsLeft = size;
+                T value = v;
+                size_t bitsLeft = size;
                 while (bitsLeft > 0) {
                     auto bits = (std::min)(bitsLeft, valueSize);
                     _scratch |= static_cast<ScratchType>( value ) << _scratchBits;
@@ -132,7 +132,7 @@ namespace bitsery {
                         _scratch >>= valueSize;
                         _scratchBits -= valueSize;
 
-                        value >>= valueSize;
+                        value = static_cast<T>(value >> valueSize);
                     }
                     bitsLeft -= bits;
                 }
