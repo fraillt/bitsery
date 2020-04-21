@@ -145,11 +145,14 @@ namespace bitsery {
         /**
          * endianness utils
          */
-        //add test data in separate struct, because some compilers only support constexpr functions with return-only body
+        // add test data in separate struct, because some compilers only support constexpr functions with return-only body
+        // suppress msvc warnings.
+        #pragma warning( disable : 4310 )
         struct EndiannessTestData {
             static constexpr uint32_t _sample4Bytes = 0x01020304;
             static constexpr uint8_t _sample1stByte = (const uint8_t &) _sample4Bytes;
         };
+        #pragma warning( default : 4310 )
 
         constexpr EndiannessType getSystemEndianness() {
             static_assert(EndiannessTestData::_sample1stByte == 0x04 || EndiannessTestData::_sample1stByte == 0x01,
