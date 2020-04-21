@@ -93,7 +93,7 @@ namespace bitsery {
         }
 
         void readChecked(TValue* data, size_t size, std::true_type) {
-            if (size - static_cast<size_t>(_ios->rdbuf()->sgetn(data, size)) != _zeroIfNoErrors) {
+            if (size - static_cast<size_t>(_ios->rdbuf()->sgetn(data, static_cast<std::streamsize>(size))) != _zeroIfNoErrors) {
                 *data = {};
                 if (_zeroIfNoErrors == 0) {
                     error(_ios->rdstate() == std::ios_base::badbit
@@ -104,7 +104,7 @@ namespace bitsery {
         }
 
         void readChecked(TValue* data, size_t size, std::false_type) {
-            _ios->rdbuf()->sgetn(data , size);
+            _ios->rdbuf()->sgetn(data , static_cast<std::streamsize>(size));
         }
 
         std::basic_ios<TChar, CharTraits>* _ios;
@@ -223,6 +223,7 @@ namespace bitsery {
 
     private:
         using TResizable = std::integral_constant<bool, traits::ContainerTraits<TBuffer>::isResizable>;
+        using diff_t = typename std::iterator_traits<BufferIt>::difference_type;
 
         template <size_t SIZE>
         void writeInternalValue(const TValue* data) {
@@ -231,14 +232,14 @@ namespace bitsery {
                 writeBufferToStream();
                 newOffset = SIZE;
             }
-            std::copy_n(data, SIZE, _beginIt + _currOffset);
+            std::copy_n(data, SIZE, _beginIt + static_cast<diff_t>(_currOffset));
             _currOffset = newOffset;
         }
 
         void writeInternalBuffer(const TValue* data, size_t size) {
             const auto newOffset = _currOffset + size;
             if (newOffset <= _bufferSize) {
-                std::copy_n(data, size, _beginIt + _currOffset);
+                std::copy_n(data, size, _beginIt + static_cast<diff_t>(_currOffset));
                 _currOffset = newOffset;
             } else {
                 writeBufferToStream();
@@ -248,7 +249,7 @@ namespace bitsery {
         }
 
         void writeBufferToStream() {
-            _ostream->rdbuf()->sputn(std::addressof(*_beginIt), _currOffset);
+            _ostream->rdbuf()->sputn(std::addressof(*_beginIt), static_cast<std::streamsize>(_currOffset));
             _currOffset = 0;
         }
 

@@ -44,6 +44,7 @@ namespace bitsery {
                 resizeImpl(container, size, std::is_default_constructible<TValue>{});
             }
         private:
+            using diff_t = typename std::forward_list<T, Allocator>::difference_type;
             static void resizeImpl(std::forward_list<T, Allocator>& container, size_t size, std::true_type) {
                 container.resize(size);
             }
@@ -55,7 +56,7 @@ namespace bitsery {
                 if (oldSize > newSize) {
                     //erase_after must have atleast one element to work
                     if (newSize > 0)
-                        container.erase_after(std::next(std::begin(container), newSize-1));
+                        container.erase_after(std::next(std::begin(container), static_cast<diff_t>(newSize-1)));
                     else
                         container.clear();
                 }

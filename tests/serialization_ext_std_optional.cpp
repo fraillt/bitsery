@@ -121,9 +121,9 @@ TEST(SerializeExtensionStdOptional, NoAlignAfterStateWriteRead) {
 }
 
 #else
-#if defined(_MSC_VER)
+/*#if defined(_MSC_VER)
 #pragma message("Tests for StdOptional requires C++17")
 #else
 #warning "Tests for StdOptional requires C++17"
-#endif
+#endif*/
 #endif

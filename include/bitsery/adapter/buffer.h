@@ -48,7 +48,7 @@ namespace bitsery {
         };
 
         InputBufferAdapter(TIterator beginIt, TIterator endIt)
-                :InputBufferAdapter(beginIt, std::distance(beginIt, endIt)) {
+                :InputBufferAdapter(beginIt, static_cast<size_t>(std::distance(beginIt, endIt))) {
         }
 
         InputBufferAdapter(const InputBufferAdapter&) = delete;
@@ -103,6 +103,7 @@ namespace bitsery {
         }
 
     private:
+        using diff_t = typename std::iterator_traits<TIterator>::difference_type;
 
         template <size_t SIZE>
         void readInternalValue(TValue *data) {
@@ -115,17 +116,17 @@ namespace bitsery {
 
         template <size_t SIZE>
         void readInternalValueChecked(TValue *data, std::false_type) {
-            const auto newOffset = _currOffset + SIZE;
+            const size_t newOffset = _currOffset + SIZE;
             assert(newOffset <= _endReadOffset);
-            std::copy_n(_beginIt + _currOffset, SIZE, data);
+            std::copy_n(_beginIt + static_cast<diff_t>(_currOffset), SIZE, data);
             _currOffset = newOffset;
         }
 
         template <size_t SIZE>
         void readInternalValueChecked(TValue *data, std::true_type) {
-            const auto newOffset = _currOffset + SIZE;
+            const size_t newOffset = _currOffset + SIZE;
             if (newOffset <= _endReadOffset) {
-                std::copy_n(_beginIt + _currOffset, SIZE, data);
+                std::copy_n(_beginIt + static_cast<diff_t>(_currOffset), SIZE, data);
                 _currOffset = newOffset;
             } else {
                 //set everything to zeros
@@ -136,16 +137,16 @@ namespace bitsery {
         }
 
         void readInternalBufferChecked(TValue *data, size_t size, std::false_type) {
-            const auto newOffset = _currOffset + size;
+            const size_t newOffset = _currOffset + size;
             assert(newOffset <= _endReadOffset);
-            std::copy_n(_beginIt + _currOffset, size, data);
+            std::copy_n(_beginIt + static_cast<diff_t>(_currOffset), size, data);
             _currOffset = newOffset;
         }
 
         void readInternalBufferChecked(TValue *data, size_t size, std::true_type) {
-            const auto newOffset = _currOffset + size;
+            const size_t newOffset = _currOffset + size;
             if (newOffset <= _endReadOffset) {
-                std::copy_n(_beginIt + _currOffset, size, data);
+                std::copy_n(_beginIt + static_cast<diff_t>(_currOffset), size, data);
                 _currOffset = newOffset;
             } else {
                 //set everything to zeros
@@ -229,6 +230,7 @@ namespace bitsery {
 
     private:
         using TResizable = std::integral_constant<bool, traits::ContainerTraits<Buffer>::isResizable>;
+        using diff_t = typename std::iterator_traits<TIterator>::difference_type;
 
         template <size_t SIZE>
         void writeInternalValue(const TValue *data) {
@@ -259,9 +261,9 @@ namespace bitsery {
 
         template <size_t SIZE>
         void writeInternalValueImpl(const TValue *data, std::true_type) {
-            const auto newOffset = _currOffset + SIZE;
+            const size_t newOffset = _currOffset + SIZE;
             if (newOffset <= _bufferSize) {
-                std::copy_n(data, SIZE, _beginIt + _currOffset);
+                std::copy_n(data, SIZE, _beginIt + static_cast<diff_t>(_currOffset));
                 _currOffset = newOffset;
             } else {
                 traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
@@ -271,9 +273,9 @@ namespace bitsery {
         }
 
         void writeInternalBufferImpl(const TValue *data, const size_t size, std::true_type) {
-            const auto newOffset = _currOffset + size;
+            const size_t newOffset = _currOffset + size;
             if (newOffset <= _bufferSize) {
-                std::copy_n(data, size, _beginIt + _currOffset);
+                std::copy_n(data, size, _beginIt + static_cast<diff_t>(_currOffset));
                 _currOffset = newOffset;
             } else {
                 traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
@@ -301,16 +303,16 @@ namespace bitsery {
 
         template <size_t SIZE>
         void writeInternalValueImpl(const TValue *data, std::false_type) {
-            const auto newOffset = _currOffset + SIZE;
+            const size_t newOffset = _currOffset + SIZE;
             assert(newOffset <= _bufferSize);
-            std::copy_n(data, SIZE, _beginIt + _currOffset);
+            std::copy_n(data, SIZE, _beginIt + static_cast<diff_t>(_currOffset));
             _currOffset = newOffset;
         }
 
         void writeInternalBufferImpl(const TValue *data, size_t size, std::false_type) {
-            const auto newOffset = _currOffset + size;
+            const size_t newOffset = _currOffset + size;
             assert(newOffset <= _bufferSize);
-            std::copy_n(data, size, _beginIt + _currOffset);
+            std::copy_n(data, size, _beginIt + static_cast<diff_t>(_currOffset));
             _currOffset = newOffset;
         }
 

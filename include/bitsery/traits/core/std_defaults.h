@@ -56,6 +56,8 @@ namespace bitsery {
                 resizeImpl(container, size, std::is_default_constructible<TValue>{});
             }
         private:
+            using diff_t = typename T::difference_type;
+
             static void resizeImpl(T& container, size_t size, std::true_type) {
                 container.resize(size);
             }
@@ -65,7 +67,7 @@ namespace bitsery {
                     container.push_back(::bitsery::Access::create<TValue>());
                 }
                 if (oldSize > newSize) {
-                    container.erase(std::next(std::begin(container), newSize), std::end(container));
+                    container.erase(std::next(std::begin(container), static_cast<diff_t>(newSize)), std::end(container));
                 }
             }
 

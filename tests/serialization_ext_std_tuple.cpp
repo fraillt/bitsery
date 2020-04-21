@@ -119,9 +119,9 @@ TEST(SerializeExtensionStdTuple, NonDefaultConstructable) {
 }
 
 #else
-#if defined(_MSC_VER)
+/*#if defined(_MSC_VER)
 #pragma message("Tests for StdTuple requires C++17")
 #else
 #warning "Tests for StdTuple requires C++17"
-#endif
+#endif*/
 #endif
