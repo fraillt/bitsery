@@ -91,18 +91,19 @@ namespace bitsery {
 
             template<typename T>
             SameSizeUnsigned<T> zigZagEncode(const T &v, std::true_type) const {
-                return (v << 1) ^ (v >> (BitsSize<T>::value - 1));
+                return static_cast<SameSizeUnsigned<T>>((v << 1) ^ (v >> (BitsSize<T>::value - 1)));
             }
 
             template<typename TResult, typename TUnsigned>
             TResult zigZagDecode(TUnsigned v, std::true_type) const {
-                return (v >> 1) ^ (~(v & 1) + 1); // same as -(v & 1), but no warning on VisualStudio
+                return static_cast<TResult>((v >> 1) ^ (~(v & 1) + 1)); // same as -(v & 1), but no warning on VisualStudio
             }
 
             // write/read bytes one by one
             template<typename Writer, typename T>
             void writeBytes(Writer &w, const T &v) const {
-                auto val = v;
+                using TFast = typename FastType<T>::type;
+                auto val= static_cast<TFast>(v);
                 while(val > 0x7Fu) {
                     w.template writeBytes<1>(static_cast<uint8_t>(val | 0x80u));
                     val >>=7u;
@@ -112,13 +113,16 @@ namespace bitsery {
 
             template<bool CheckErrors, typename Reader, typename T>
             void readBytes(Reader &r, T &v) const {
+                using TFast = typename FastType<T>::type;
                 constexpr auto TBITS = sizeof(T)*8;
                 uint8_t b1{0x80u};
                 auto i = 0u;
+                TFast tmp={};
                 for (;i < TBITS && b1 > 0x7Fu; i +=7u) {
                     r.template readBytes<1>(b1);
-                    v += static_cast<T>(b1 & 0x7Fu) << i;
+                    tmp += static_cast<TFast>(b1 & 0x7Fu) << i;
                 }
+                v = static_cast<T>(tmp);
                 handleReadOverflow<Reader, T>(r, i, b1,
                                               std::integral_constant<bool, CheckOverflow && CheckErrors>{});
             }

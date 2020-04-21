@@ -130,7 +130,8 @@ namespace bitsery {
             template<typename T>
             void readBitsInternal(T &v, size_t size) {
                 auto bitsLeft = size;
-                T res{};
+                using TFast = typename FastType<T>::type;
+                TFast res{};
                 while (bitsLeft > 0) {
                     auto bits = (std::min)(bitsLeft, details::BitsSize<UnsignedValue>::value);
                     if (m_scratchBits < bits) {
@@ -141,12 +142,12 @@ namespace bitsery {
                     }
                     auto shiftedRes =
                         static_cast<T>(m_scratch & ((static_cast<ScratchType>(1) << bits) - 1)) << (size - bitsLeft);
-                    res = static_cast<T>(res | shiftedRes);
+                    res = static_cast<TFast>(res | shiftedRes);
                     m_scratch >>= bits;
                     m_scratchBits -= bits;
                     bitsLeft -= bits;
                 }
-                v = res;
+                v = static_cast<T>(res);
             }
 
             void handleAlignErrors(ScratchType value, std::true_type) {
@@ -445,7 +446,6 @@ namespace bitsery {
             using TIntegral = typename details::IntegralFromFundamental<TValue>::TValue;
             if (first != last){
                 const auto distance = std::distance(first, last);
-                assert(distance>=0);
                 this->_adapter.template readBuffer<VSIZE>(reinterpret_cast<TIntegral*>(&(*first)), static_cast<size_t>(distance));
             }
         }

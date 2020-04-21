@@ -43,11 +43,11 @@ TValue getValue(bool isPositive, size_t significantBits) {
 
     using TUnsigned = typename std::make_unsigned<TValue>::type;
     TUnsigned mask = {};
-    mask = ~mask; // invert shiftByBits
+    mask = static_cast<TUnsigned>(~mask); // invert shiftByBits
     auto shiftBy = bitsery::details::BitsSize<TValue>::value - significantBits;
-    mask >>= shiftBy;
+    mask = static_cast<TUnsigned>(mask >> shiftBy);
     //cast to unsigned when applying mask
-    return (TUnsigned)v ^ mask;
+    return static_cast<TValue>(v ^ mask);
 }
 
 // helper function, that serialize and return deserialized value

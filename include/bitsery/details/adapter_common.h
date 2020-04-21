@@ -182,6 +182,52 @@ namespace bitsery {
             using type = uint_fast16_t;
         };
 
+        template<typename T>
+        struct FastType {
+            using type = T;
+        };
+
+        template<>
+        struct FastType<uint8_t> {
+            using type = uint_fast8_t;
+        };
+
+        template<>
+        struct FastType<uint16_t> {
+            using type = uint_fast16_t;
+        };
+
+        template<>
+        struct FastType<uint32_t> {
+            using type = uint_fast32_t;
+        };
+
+        template<>
+        struct FastType<uint64_t> {
+            using type = uint_fast64_t;
+        };
+
+        template<>
+        struct FastType<int8_t> {
+            using type = int_fast8_t;
+        };
+
+        template<>
+        struct FastType<int16_t> {
+            using type = int_fast16_t;
+        };
+
+        template<>
+        struct FastType<int32_t> {
+            using type = int_fast32_t;
+        };
+
+        template<>
+        struct FastType<int64_t> {
+            using type = int_fast64_t;
+        };
+
+
         /**
          * output/input adapter base that handles endianness
          */

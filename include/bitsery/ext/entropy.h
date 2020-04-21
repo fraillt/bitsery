@@ -75,7 +75,7 @@ namespace bitsery {
                 if (_alignBeforeData)
                     d.adapter().align();
                 if (index)
-                    obj = *std::next(std::begin(_values), index-1);
+                    obj = static_cast<T>(*std::next(std::begin(_values), index-1));
                 else
                     fnc(d, obj);
             }
