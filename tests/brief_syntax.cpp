@@ -22,6 +22,7 @@
 
 #include <bitsery/brief_syntax.h>
 #include <bitsery/brief_syntax/array.h>
+#include <bitsery/brief_syntax/atomic.h>
 #include <bitsery/brief_syntax/chrono.h>
 #include <bitsery/brief_syntax/deque.h>
 #include <bitsery/brief_syntax/forward_list.h>
@@ -48,6 +49,9 @@
 
 #include <gmock/gmock.h>
 #include "serialization_test_utils.h"
+
+#include <atomic>
+#include <utility>
 
 using testing::Eq;
 
@@ -149,6 +153,15 @@ T procBriefSyntax(const T& testData) {
     T res{};
     ctx.createDeserializer()(res);
     return res;
+}
+
+template<typename T>
+T&& procBriefSyntaxRvalue(const T& testData) {
+    SerializationContext ctx;
+    ctx.createSerializer()(testData);
+    T res{};
+    ctx.createDeserializer()(res);
+    return std::move(res);
 }
 
 template<typename T>
@@ -409,6 +422,21 @@ TEST(BriefSyntax, StdTimePoint) {
 
     TP data{Duration{874656.4798}};
     EXPECT_TRUE(procBriefSyntax(data) == data);
+}
+
+TEST(BriefSyntax, StdAtomic) {
+    std::atomic<int32_t> atm0{54654};
+    EXPECT_TRUE(procBriefSyntaxRvalue(atm0) == atm0);
+
+    std::atomic<bool> atm1{false};
+    EXPECT_TRUE(procBriefSyntaxRvalue(atm1) == atm1);
+
+    std::atomic<bool> atm2{true};
+    EXPECT_TRUE(procBriefSyntaxRvalue(atm2) == atm2);
+
+    std::atomic<uint16_t> atm3;
+    atm3.store(0x1337);
+    EXPECT_TRUE(procBriefSyntaxRvalue(atm3).load() == 0x1337);
 }
 
 #if __cplusplus > 201402L
