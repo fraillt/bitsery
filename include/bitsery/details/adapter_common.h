@@ -81,9 +81,8 @@ namespace bitsery {
         void handleReadMaxSize(Reader&, size_t&, size_t, std::false_type) {
         }
 
-
-        template <typename Writter>
-        void writeSize(Writter& w, const size_t size) {
+        template <typename Writer>
+        void writeSize(Writer& w, const size_t size) {
             if (size < 0x80u) {
                 w.template writeBytes<1>(static_cast<uint8_t>(size));
             } else {
