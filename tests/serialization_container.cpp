@@ -96,7 +96,7 @@ using SequenceContainersWithArthmeticTypes = ::testing::Types<
         std::forward_list<int>,
         std::deque<unsigned short>>;
 
-TYPED_TEST_CASE(SerializeContainerDynamicSizeArthmeticTypes, SequenceContainersWithArthmeticTypes);
+TYPED_TEST_SUITE(SerializeContainerDynamicSizeArthmeticTypes, SequenceContainersWithArthmeticTypes,);
 
 TYPED_TEST(SerializeContainerDynamicSizeArthmeticTypes, Values) {
     SerializationContext ctx{};
@@ -151,7 +151,7 @@ using SerializeContainerDynamicSizeWithCompositeTypes = ::testing::Types<
         std::vector<MyStruct1>,
         std::list<MyStruct2>>;
 
-TYPED_TEST_CASE(SerializeContainerDynamicSizeCompositeTypes, SerializeContainerDynamicSizeWithCompositeTypes);
+TYPED_TEST_SUITE(SerializeContainerDynamicSizeCompositeTypes, SerializeContainerDynamicSizeWithCompositeTypes,);
 
 TYPED_TEST(SerializeContainerDynamicSizeCompositeTypes, DefaultSerializeFunction) {
     SerializationContext ctx{};
@@ -189,7 +189,7 @@ using StaticContainersWithIntegralTypes = ::testing::Types<
         std::array<int16_t, 4>,
         int16_t[4]>;
 
-TYPED_TEST_CASE(SerializeContainerFixedSizeArithmeticTypes, StaticContainersWithIntegralTypes);
+TYPED_TEST_SUITE(SerializeContainerFixedSizeArithmeticTypes, StaticContainersWithIntegralTypes,);
 
 TYPED_TEST(SerializeContainerFixedSizeArithmeticTypes, ArithmeticValues) {
     using Container = typename TestFixture::TContainer;
@@ -214,7 +214,7 @@ class SerializeContainerFixedSizeCompositeTypes : public SerializeContainerFixed
 using StaticContainersWithCompositeTypes = ::testing::Types<
         std::array<MyStruct1, 4>, MyStruct1[4]>;
 
-TYPED_TEST_CASE(SerializeContainerFixedSizeCompositeTypes, StaticContainersWithCompositeTypes);
+TYPED_TEST_SUITE(SerializeContainerFixedSizeCompositeTypes, StaticContainersWithCompositeTypes,);
 
 TYPED_TEST(SerializeContainerFixedSizeCompositeTypes, DefaultSerializationFunction) {
     using Container = typename TestFixture::TContainer;
@@ -269,6 +269,5 @@ TEST_P(SerializeContainer, SizeHasVariableLength) {
     EXPECT_THAT(ctx.getBufferSize(), Eq(ctx.containerSizeSerializedBytesCount(src.size())));
 }
 
-//last comma is to suppress error that otherwise can be suppressed by clang/gcc with -Wgnu-zero-variadic-macro-arguments
-INSTANTIATE_TEST_CASE_P(LargeContainerSize, SerializeContainer, ::testing::Values(0x01, 0x80, 0x4000),);
+INSTANTIATE_TEST_SUITE_P(LargeContainerSize, SerializeContainer, ::testing::Values(0x01, 0x80, 0x4000));
 

@@ -42,7 +42,7 @@ using FixedContainer = std::array<uint8_t, 100>;
 
 using ContainerTypes = ::testing::Types<FixedContainer,NonFixedContainer>;
 
-TYPED_TEST_CASE(DataWriting, ContainerTypes);
+TYPED_TEST_SUITE(DataWriting, ContainerTypes,);
 
 static constexpr size_t DATA_SIZE = 14u;
 

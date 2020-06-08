@@ -156,12 +156,11 @@ T procBriefSyntax(const T& testData) {
 }
 
 template<typename T>
-T&& procBriefSyntaxRvalue(const T& testData) {
+T&& procBriefSyntaxRvalue(T&& init_value, const T& testData) {
     SerializationContext ctx;
     ctx.createSerializer()(testData);
-    T res{};
-    ctx.createDeserializer()(res);
-    return std::move(res);
+    ctx.createDeserializer()(init_value);
+    return std::move(init_value);
 }
 
 template<typename T>
@@ -426,17 +425,17 @@ TEST(BriefSyntax, StdTimePoint) {
 
 TEST(BriefSyntax, StdAtomic) {
     std::atomic<int32_t> atm0{54654};
-    EXPECT_TRUE(procBriefSyntaxRvalue(atm0) == atm0);
+    EXPECT_TRUE(procBriefSyntaxRvalue(std::atomic<int32_t>{}, atm0) == atm0);
 
     std::atomic<bool> atm1{false};
-    EXPECT_TRUE(procBriefSyntaxRvalue(atm1) == atm1);
+    EXPECT_TRUE(procBriefSyntaxRvalue(std::atomic<bool>{}, atm1) == atm1);
 
     std::atomic<bool> atm2{true};
-    EXPECT_TRUE(procBriefSyntaxRvalue(atm2) == atm2);
+    EXPECT_TRUE(procBriefSyntaxRvalue(std::atomic<bool>{}, atm2) == atm2);
 
     std::atomic<uint16_t> atm3;
     atm3.store(0x1337);
-    EXPECT_TRUE(procBriefSyntaxRvalue(atm3).load() == 0x1337);
+    EXPECT_TRUE(procBriefSyntaxRvalue(std::atomic<uint16_t>{}, atm3).load() == 0x1337);
 }
 
 #if __cplusplus > 201402L

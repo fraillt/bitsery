@@ -44,7 +44,7 @@ using SerializeExtensionStdSetTypes = ::testing::Types<
         std::set<int32_t>,
         std::multiset<int32_t>>;
 
-TYPED_TEST_CASE(SerializeExtensionStdSet, SerializeExtensionStdSetTypes);
+TYPED_TEST_SUITE(SerializeExtensionStdSet, SerializeExtensionStdSetTypes,);
 
 TYPED_TEST(SerializeExtensionStdSet, ValuesSyntaxDifferentSetTypes) {
     SerializationContext ctx1;

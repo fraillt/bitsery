@@ -1,3 +1,19 @@
+# [5.1.0](https://github.com/fraillt/bitsery/compare/v5.0.3...v5.1.0) (2020-06-08)
+
+### Features
+
+* new extension **StdAtomic** (thanks for [VelocityRa](https://github.com/VelocityRa)).
+
+### Improvements
+* [examples](examples) no longer include bitsery in global namespace (removed `using namespace bitsery`).
+* removed multiple warning regarding integer conversions (thanks to [tower120](https://github.com/tower120)).
+* removed unnecessary `dynamic_cast` from BasicInput/OutputStreamAdapter (thanks to [tower120](https://github.com/tower120)).
+* fixed some include paths, now you can basically to copy/paste bitsery include directory to your project without cmake support.
+
+### Other notes
+* added tutorial of how to write your own extension ([here])(doc/tutorial/first_extension.md).
+* now gtest 1.10 is required if you want to build tests.
+
 # [5.0.3](https://github.com/fraillt/bitsery/compare/v5.0.2...v5.0.3) (2020-01-29)
 
 ### Improvements

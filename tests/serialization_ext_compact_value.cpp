@@ -37,7 +37,7 @@ using bitsery::EndiannessType;
 // helper function, that gets value filled with specified number of bits
 template <typename TValue>
 TValue getValue(bool isPositive, size_t significantBits) {
-    TValue v = isPositive ? 0 : -1;
+    TValue v = isPositive ? 0 : static_cast<TValue>(-1);
     if (significantBits == 0)
         return v;
 
@@ -47,7 +47,7 @@ TValue getValue(bool isPositive, size_t significantBits) {
     auto shiftBy = bitsery::details::BitsSize<TValue>::value - significantBits;
     mask = static_cast<TUnsigned>(mask >> shiftBy);
     //cast to unsigned when applying mask
-    return static_cast<TValue>(v ^ mask);
+    return v ^ static_cast<TValue>(mask);
 }
 
 // helper function, that serialize and return deserialized value
@@ -118,7 +118,7 @@ using AllValueSizesTestCases = ::testing::Types<
         TC<int64_t, false, BigEndianConfig>
 >;
 
-TYPED_TEST_CASE(SerializeExtensionCompactValueCorrectness, AllValueSizesTestCases);
+TYPED_TEST_SUITE(SerializeExtensionCompactValueCorrectness, AllValueSizesTestCases,);
 
 TYPED_TEST(SerializeExtensionCompactValueCorrectness, TestDifferentSizeValues) {
     using TCase = typename TestFixture::TestCase;
@@ -202,7 +202,7 @@ using RequiredBytesTestCases = ::testing::Types<
         SizeTC<int64_t, false, 63,10>
 >;
 
-TYPED_TEST_CASE(SerializeExtensionCompactValueRequiredBytes, RequiredBytesTestCases);
+TYPED_TEST_SUITE(SerializeExtensionCompactValueRequiredBytes, RequiredBytesTestCases,);
 
 TYPED_TEST(SerializeExtensionCompactValueRequiredBytes, Test) {
     using TCase = typename TestFixture::TestCase;

@@ -45,7 +45,7 @@ namespace bitsery {
         };
 
         // default implementation for MemResourceBase using new and delete
-        class MemResourceNewDelete : public MemResourceBase {
+        class MemResourceNewDelete final: public MemResourceBase {
         public:
             inline void* allocate(size_t bytes, size_t /*alignment*/, size_t /*typeId*/) final {
                 return (::operator new(bytes));

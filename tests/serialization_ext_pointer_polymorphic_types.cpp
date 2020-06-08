@@ -87,7 +87,7 @@ struct MultipleVirtualInheritance : Derived1, Derived2 {
 
     MultipleVirtualInheritance() = default;
 
-    MultipleVirtualInheritance(uint8_t x_, uint8_t y1_, uint8_t y2_, uint8_t z_) {
+    MultipleVirtualInheritance(uint8_t x_, uint8_t y1_, uint8_t y2_, int8_t z_) {
         x = x_;
         y1 = y1_;
         y2 = y2_;

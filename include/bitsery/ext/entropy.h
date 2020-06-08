@@ -74,8 +74,10 @@ namespace bitsery {
                 d.ext(index, ext::ValueRange<size_t>{0u, traits::ContainerTraits<TContainer>::size(_values)});
                 if (_alignBeforeData)
                     d.adapter().align();
-                if (index)
-                    obj = static_cast<T>(*std::next(std::begin(_values), index-1));
+                if (index) {
+                    using TDiff = typename std::iterator_traits<decltype(std::begin(_values))>::difference_type;
+                    obj = static_cast<T>(*std::next(std::begin(_values), static_cast<TDiff>(index-1)));
+                }
                 else
                     fnc(d, obj);
             }

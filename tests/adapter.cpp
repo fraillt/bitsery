@@ -286,7 +286,7 @@ template <typename TConfig>
 class InputAll: public AdapterConfig<TConfig> {
 };
 
-TYPED_TEST_CASE(InputAll, AdapterInputTypes);
+TYPED_TEST_SUITE(InputAll, AdapterInputTypes,);
 
 
 TYPED_TEST(InputAll, SettingMultipleErrorsAlwaysReturnsFirstError) {
@@ -455,7 +455,7 @@ template <typename TConfig>
 class OutputAll: public AdapterConfig<TConfig> {
 };
 
-TYPED_TEST_CASE(OutputAll, AdapterOutputTypes);
+TYPED_TEST_SUITE(OutputAll, AdapterOutputTypes,);
 
 TYPED_TEST(OutputAll, CanBeMoveConstructedAndMoveAssigned) {
     auto w = this->config.createWriter();
@@ -500,7 +500,7 @@ using BufferedAdapterInternalBufferTypes = ::testing::Types<
     std::string
 >;
 
-TYPED_TEST_CASE(OutputStreamBuffered, BufferedAdapterInternalBufferTypes);
+TYPED_TEST_SUITE(OutputStreamBuffered, BufferedAdapterInternalBufferTypes,);
 
 TYPED_TEST(OutputStreamBuffered, WhenInternalBufferIsFullThenWriteBufferToStream) {
     uint8_t x{};

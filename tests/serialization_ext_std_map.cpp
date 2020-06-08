@@ -89,7 +89,7 @@ using SerializeExtensionStdMapTypes = ::testing::Types<
         std::multimap<int32_t ,int64_t>
 >;
 
-TYPED_TEST_CASE(SerializeExtensionStdMap, SerializeExtensionStdMapTypes);
+TYPED_TEST_SUITE(SerializeExtensionStdMap, SerializeExtensionStdMapTypes,);
 
 namespace bitsery {
 

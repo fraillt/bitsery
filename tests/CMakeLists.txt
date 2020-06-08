@@ -23,7 +23,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(bitsery_tests CXX)
 
-find_package(GTest 1.8 REQUIRED)
+find_package(GTest 1.10 REQUIRED)
 
 if (NOT TARGET Bitsery::bitsery)
     message(FATAL_ERROR "Bitsery::bitsery alias not set. Please generate CMake from bitsery root directory.")

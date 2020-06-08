@@ -197,13 +197,13 @@ using TestingWithNonPolymorphicTypes = ::testing::Types<
     UniquePtrTest,
     SharedPtrTest>;
 
-TYPED_TEST_CASE(SerializeExtensionStdSmartPtrNonPolymorphicType, TestingWithNonPolymorphicTypes);
+TYPED_TEST_SUITE(SerializeExtensionStdSmartPtrNonPolymorphicType, TestingWithNonPolymorphicTypes,);
 
 using TestingWithPolymorphicTypes = ::testing::Types<
     UniquePtrTest,
     SharedPtrTest>;
 
-TYPED_TEST_CASE(SerializeExtensionStdSmartPtrPolymorphicType, TestingWithPolymorphicTypes);
+TYPED_TEST_SUITE(SerializeExtensionStdSmartPtrPolymorphicType, TestingWithPolymorphicTypes,);
 
 TYPED_TEST(SerializeExtensionStdSmartPtrNonPolymorphicType, Data0Result0) {
     using Ptr = typename TestFixture::template TPtr<MyStruct1>;

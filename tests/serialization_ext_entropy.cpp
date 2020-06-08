@@ -176,7 +176,7 @@ TEST(SerializeExtensionEntropy, CustomFunctionNotEntropyEncodedWithAlignBeforeDa
     });
 
     EXPECT_THAT(res, Eq(v));
-    auto bitsForIndex = 8; //because aligned
+    auto bitsForIndex = 8u; //because aligned
     EXPECT_THAT(ctx.getBufferSize(), Eq((bitsForIndex + rangeForValue.getRequiredBits() * 2 - 1) / 8 + 1 ));
 }
 
