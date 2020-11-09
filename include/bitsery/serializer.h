@@ -289,6 +289,7 @@ namespace bitsery {
             static_assert(traits::ContainerTraits<T>::isResizable,
                           "use container(const T&, Fnc) overload without `maxSize` for static containers");
             auto size = traits::ContainerTraits<T>::size(obj);
+            (void)maxSize; // unused in release
             assert(size <= maxSize);
             details::writeSize(this->_adapter, size);
             procContainer(std::begin(obj), std::end(obj), std::forward<Fnc>(fnc));
@@ -302,6 +303,7 @@ namespace bitsery {
                           "use container(const T&) overload without `maxSize` for static containers");
             static_assert(VSIZE > 0, "");
             auto size = traits::ContainerTraits<T>::size(obj);
+            (void)maxSize; // unused in release
             assert(size <= maxSize);
             details::writeSize(this->_adapter, size);
 
@@ -315,6 +317,7 @@ namespace bitsery {
             static_assert(traits::ContainerTraits<T>::isResizable,
                           "use container(const T&) overload without `maxSize` for static containers");
             auto size = traits::ContainerTraits<T>::size(obj);
+            (void)maxSize; // unused in release
             assert(size <= maxSize);
             details::writeSize(this->_adapter, size);
             procContainer(std::begin(obj), std::end(obj));
@@ -453,6 +456,7 @@ namespace bitsery {
         template<size_t VSIZE, typename T>
         void procText(const T& str, size_t maxSize) {
             const size_t length = traits::TextTraits<T>::length(str);
+            (void)maxSize; // unused in release
             assert((length + (traits::TextTraits<T>::addNUL ? 1u : 0u)) <= maxSize);
             details::writeSize(this->_adapter, length);
             auto begin = std::begin(str);

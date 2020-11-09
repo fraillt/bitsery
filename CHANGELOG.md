@@ -1,3 +1,13 @@
+# [5.2.0](https://github.com/fraillt/bitsery/compare/v5.1.0...v5.2.0) (2020-11-09)
+
+### Features
+
+* new extension **StdBitset**.
+
+### Improvements
+* removed unused variable warnings in release build, where `max_size` variable during serialization is ignored.
+* removed unknown pragmas warnings for GCC/Clang (thanks to [Mmpuskas](https://github.com/Mmpuskas)).
+
 # [5.1.0](https://github.com/fraillt/bitsery/compare/v5.0.3...v5.1.0) (2020-06-08)
 
 ### Features

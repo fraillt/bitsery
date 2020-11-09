@@ -166,7 +166,6 @@ TYPED_TEST(SerializeContainerDynamicSizeCompositeTypes, DefaultSerializeFunction
 
 TYPED_TEST(SerializeContainerDynamicSizeCompositeTypes, CustomFunctionThatDoNothing) {
     SerializationContext ctx{};
-    using TValue = typename TestFixture::TValue;
 
     ctx.createSerializer().container(this->src, 1000, EmptyFtor{});
     ctx.createDeserializer().container(this->res, 1000, EmptyFtor{});

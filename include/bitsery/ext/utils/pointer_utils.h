@@ -376,12 +376,12 @@ namespace bitsery {
                                      std::true_type, OwnershipType<PointerOwnershipType::Owner>) const {
                     const auto& ctx = des.template context<TPolymorphicContext<RTTI>>();
                     ctx.deserialize(des, TPtrManager<T>::getPtr(obj),
-                                     [&obj, this, memResource](
+                                     [&obj, memResource](
                                          const std::shared_ptr<PolymorphicHandlerBase>& handler) {
                                          TPtrManager<T>::createPolymorphic(obj, memResource, handler);
                                          return TPtrManager<T>::getPtr(obj);
                                      },
-                                     [&obj, memResource, this](const std::shared_ptr<PolymorphicHandlerBase>& handler) {
+                                     [&obj, memResource](const std::shared_ptr<PolymorphicHandlerBase>& handler) {
                                          TPtrManager<T>::destroyPolymorphic(obj, memResource, handler);
                                      });
                     ptrInfo.processOwner(TPtrManager<T>::getPtr(obj));
@@ -414,7 +414,7 @@ namespace bitsery {
                                                  obj, memResource, handler);
                                              return TPtrManager<T>::getPtr(obj);
                                          },
-                                         [&obj, memResource, this](const std::shared_ptr<PolymorphicHandlerBase>& handler) {
+                                         [&obj, memResource](const std::shared_ptr<PolymorphicHandlerBase>& handler) {
                                              TPtrManager<T>::destroyPolymorphic(obj, memResource, handler);
                                          });
                         if (!ptrInfo.sharedState)
