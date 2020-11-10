@@ -34,10 +34,13 @@ using testing::Eq;
 TEST(SerializeExtensionStdBitset, BitsetSmallerThanULongLong) {
     SerializationContext ctx;
 
-    std::bitset<9> data;
+    std::bitset<31> data;
     data[2] = true;
     data[8] = true;
-    std::bitset<9> res;
+    data[15] = true;
+    data[25] = true;
+    data[30] = true;
+    std::bitset<31> res;
 
     ctx.createSerializer().ext(data, StdBitset{});
     ctx.createDeserializer().ext(res, StdBitset{});
@@ -62,6 +65,8 @@ TEST(SerializeExtensionStdBitset, BitsetLargerThanULongLong) {
 
     std::bitset<200> data;
     data[1] = true;
+    data[31] = true;
+    data[63] = true;
     data[100] = true;
     data[191] = true;
     std::bitset<200> res;

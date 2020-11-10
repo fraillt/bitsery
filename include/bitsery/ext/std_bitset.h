@@ -55,7 +55,7 @@ namespace bitsery {
                     auto data = obj.to_ullong();
                     for(size_t i = 0u; i < BYTES; ++i) {
                         ser.value1b(static_cast<uint8_t>(data & 0xFF));
-                        data >>= 1;
+                        data >>= 8;
                     }
                 }
                 if (LEFTOVER > 0) {

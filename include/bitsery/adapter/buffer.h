@@ -39,6 +39,7 @@ namespace bitsery {
                       "Please define BufferAdapterTraits or include from <bitsery/traits/...>");
         static_assert(traits::ContainerTraits<typename std::remove_const<Buffer>::type>::isContiguous,
                       "BufferAdapter only works with contiguous containers");
+        static_assert(sizeof(TValue) == 1, "BufferAdapter underlying type must be 1byte.");
 
         InputBufferAdapter(TIterator beginIt, size_t size)
                 : _beginIt{beginIt},
@@ -196,6 +197,7 @@ namespace bitsery {
                       "Please define BufferAdapterTraits or include from <bitsery/traits/...>");
         static_assert(traits::ContainerTraits<Buffer>::isContiguous,
                       "BufferAdapter only works with contiguous containers");
+        static_assert(sizeof(TValue) == 1, "BufferAdapter underlying type must be 1byte.");
 
         OutputBufferAdapter(Buffer &buffer)
                 : _buffer{std::addressof(buffer)},

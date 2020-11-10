@@ -1,3 +1,11 @@
+# [5.2.1](https://github.com/fraillt/bitsery/compare/v5.2.0...v5.2.1) (2020-11-14)
+
+### Improvements
+* `Input/OutputBufferAdapter` now statically asserts that underlying type is 1byte in size.
+
+### Bug fixes
+* fixed serialization in `StdBitset` when it's size is less then `unsigned long long`.
+
 # [5.2.0](https://github.com/fraillt/bitsery/compare/v5.1.0...v5.2.0) (2020-11-09)
 
 ### Features
