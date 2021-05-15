@@ -75,6 +75,8 @@ namespace bitsery {
     struct FtorExtValue4b: FtorExtValue<4, Ext> {};
     template <typename Ext>
     struct FtorExtValue8b: FtorExtValue<8, Ext> {};
+    template <typename Ext>
+    struct FtorExtValue16b: FtorExtValue<16, Ext> {};
 
     template<typename Ext>
     struct FtorExtObject : public Ext {

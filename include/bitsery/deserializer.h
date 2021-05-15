@@ -369,6 +369,9 @@ namespace bitsery {
         template<typename T>
         void value8b(T &&v) { value<8>(std::forward<T>(v)); }
 
+        template<typename T>
+        void value16b(T &&v) { value<16>(std::forward<T>(v)); }
+
         template<typename T, typename Ext>
         void ext1b(T &v, Ext &&extension) { ext<1, T, Ext>(v, std::forward<Ext>(extension)); }
 
@@ -380,6 +383,9 @@ namespace bitsery {
 
         template<typename T, typename Ext>
         void ext8b(T &v, Ext &&extension) { ext<8, T, Ext>(v, std::forward<Ext>(extension)); }
+
+        template<typename T, typename Ext>
+        void ext16b(T &v, Ext &&extension) { ext<16, T, Ext>(v, std::forward<Ext>(extension)); }
 
         template<typename T>
         void text1b(T &str, size_t maxSize) { text<1>(str, maxSize); }
@@ -412,6 +418,9 @@ namespace bitsery {
         void container8b(T &&obj, size_t maxSize) { container<8>(std::forward<T>(obj), maxSize); }
 
         template<typename T>
+        void container16b(T &&obj, size_t maxSize) { container<16>(std::forward<T>(obj), maxSize); }
+
+        template<typename T>
         void container1b(T &&obj) { container<1>(std::forward<T>(obj)); }
 
         template<typename T>
@@ -422,6 +431,9 @@ namespace bitsery {
 
         template<typename T>
         void container8b(T &&obj) { container<8>(std::forward<T>(obj)); }
+
+        template<typename T>
+        void container16b(T &&obj) { container<16>(std::forward<T>(obj)); }
 
     private:
 
