@@ -59,7 +59,7 @@ namespace bitsery {
                     // reference heap data, so if `data` is already holding the requested
                     // variant then we'll deserialize into the existing object
                     if constexpr (!std::is_trivial_v<TElem>) {
-                        if (auto item = std::get_if<TElem>(&data)) {
+                        if (auto item = std::get_if<Index>(&data)) {
                             this->serializeType(des, *item);
                             return;
                         }
