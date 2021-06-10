@@ -56,6 +56,17 @@ namespace bitsery {
                 if (_alignBeforeData)
                     des.adapter().align();
                 if (exists) {
+                    // Reinitializing nontrivial types may be expensive
+                    // especially when they reference heap data, so if `obj`
+                    // already holds a value then we'll deserialize into the
+                    // existing object
+                    if constexpr (!std::is_trivial_v<T>) {
+                        if (obj) {
+                            fnc(des, *obj);
+                            return;
+                        }
+                    }
+
                     obj = ::bitsery::Access::create<T>();
                     fnc(des, *obj);
                 } else {
