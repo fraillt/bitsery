@@ -27,6 +27,7 @@
 #include "details/serialization_common.h"
 #include "details/adapter_common.h"
 #include <cassert>
+#include <limits>
 
 namespace bitsery {
 
