@@ -63,3 +63,30 @@ if (ParentDir)
     target_sources(bitsery.dummy_for_ide PRIVATE ${HeadersForIDE} serialization_test_utils.h)
     target_link_libraries(bitsery.dummy_for_ide PRIVATE GTest::Main Bitsery::bitsery)
 endif()
+
+# Check missing includes for each header file in include/bitsery
+# We compile each header files individually to check if each header contains all required includes
+# Usage:
+# run from repo root directory
+# > mkdir -p build && cd build
+# > cmake -D BITSERY_BUILD_TESTS=1 ..
+# > make check_includes
+add_custom_target(check_includes)
+get_directory_property(ParentDir PARENT_DIRECTORY)
+if (ParentDir)
+    file(GLOB_RECURSE HeaderFiles "${ParentDir}/include/bitsery/*.h")
+    FOREACH (HeaderFile ${HeaderFiles})
+        # message(STATUS "${HeaderFile}")
+        SET(CHK_TARGET_NAME "${HeaderFile}.chk")
+        STRING(REGEX REPLACE "/" "_" CHK_TARGET_NAME ${CHK_TARGET_NAME})
+        STRING(REGEX REPLACE "\\." "_" CHK_TARGET_NAME ${CHK_TARGET_NAME})
+        STRING(REGEX REPLACE ":" "_" CHK_TARGET_NAME ${CHK_TARGET_NAME})
+        STRING(REGEX REPLACE "\\\\" "_" CHK_TARGET_NAME ${CHK_TARGET_NAME})
+        add_custom_target(
+            ${CHK_TARGET_NAME}
+            COMMAND ${CMAKE_CXX_COMPILER} -c ${HeaderFile}
+            VERBATIM
+        )
+        add_dependencies(check_includes ${CHK_TARGET_NAME})
+    ENDFOREACH ()
+endif()
