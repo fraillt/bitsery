@@ -23,6 +23,10 @@
 #ifndef BITSERY_ADAPTER_MEASURE_SIZE_H
 #define BITSERY_ADAPTER_MEASURE_SIZE_H
 
+#include <cstddef>
+#include <type_traits>
+#include "../details/adapter_common.h"
+
 namespace bitsery {
 
 

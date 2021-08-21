@@ -25,6 +25,7 @@
 #define BITSERY_BRIEF_SYNTAX_TYPE_STD_UNORDERED_MAP_H
 
 #include <unordered_map>
+#include <limits>
 #include "../ext/std_map.h"
 
 namespace bitsery {
