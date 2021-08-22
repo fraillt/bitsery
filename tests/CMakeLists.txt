@@ -66,6 +66,7 @@ endif()
 
 # Check missing includes for each header file in include/bitsery
 # We compile each header files individually to check if each header contains all required includes
+# Code adopted from `https://stackoverflow.com/questions/57885042`
 # Usage:
 # run from repo root directory
 # > mkdir -p build && cd build
@@ -74,13 +75,12 @@ endif()
 add_custom_target(check_includes)
 get_directory_property(ParentDir PARENT_DIRECTORY)
 if (ParentDir)
+    message("add header include test, run test with 'make check_includes'")
     file(GLOB_RECURSE HeaderFiles "${ParentDir}/include/bitsery/*.h")
     FOREACH (HeaderFile ${HeaderFiles})
-        # message(STATUS "${HeaderFile}")
         SET(CHK_TARGET_NAME "${HeaderFile}.chk")
+        STRING(REPLACE "${ParentDir}/include/bitsery/" "" CHK_TARGET_NAME ${CHK_TARGET_NAME})
         STRING(REGEX REPLACE "/" "_" CHK_TARGET_NAME ${CHK_TARGET_NAME})
-        STRING(REGEX REPLACE "\\." "_" CHK_TARGET_NAME ${CHK_TARGET_NAME})
-        STRING(REGEX REPLACE ":" "_" CHK_TARGET_NAME ${CHK_TARGET_NAME})
         STRING(REGEX REPLACE "\\\\" "_" CHK_TARGET_NAME ${CHK_TARGET_NAME})
         add_custom_target(
             ${CHK_TARGET_NAME}
