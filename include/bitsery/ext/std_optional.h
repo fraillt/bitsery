@@ -56,13 +56,26 @@ namespace bitsery {
                 if (_alignBeforeData)
                     des.adapter().align();
                 if (exists) {
-                    obj = ::bitsery::Access::create<T>();
-                    fnc(des, *obj);
+                    deserialize_impl(des, obj, fnc, std::is_trivial<T>{});
                 } else {
                     obj = std::nullopt;
                 }
             }
         private:
+
+            template<typename Des, typename T, typename Fnc>
+            void deserialize_impl(Des &des, std::optional<T> &obj, Fnc &&fnc, std::true_type) const {
+                obj = ::bitsery::Access::create<T>();
+                fnc(des, *obj);
+            }
+
+            template<typename Des, typename T, typename Fnc>
+            void deserialize_impl(Des &des, std::optional<T> &obj, Fnc &&fnc, std::false_type) const {
+                if (!obj) {
+                    obj = ::bitsery::Access::create<T>();
+                }
+                fnc(des, *obj);
+            }
             bool _alignBeforeData;
         };
     }

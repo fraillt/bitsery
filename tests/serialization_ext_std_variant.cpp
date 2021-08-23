@@ -167,10 +167,8 @@ TEST(SerializeExtensionStdVariant, CorrectlyHandleMonoState) {
 
 }
 
+#elif defined(_MSC_VER)
+#pragma message("C++17 and /Zc:__cplusplus option is required to enable std::variant tests")
 #else
-/*#if defined(_MSC_VER)
-#pragma message("Tests for StdVariant requires C++17")
-#else
-#warning "Tests for StdVariant requires C++17"
-#endif*/
+#pragma message("C++17 is required to enable std::variant tests")
 #endif

@@ -4,4 +4,3 @@ build/
 cmake-build-*
 CTestConfig.cmake
 Testing/
-*.gch

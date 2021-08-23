@@ -1,3 +1,19 @@
+# [5.2.2](https://github.com/fraillt/bitsery/compare/v5.2.1...v5.2.2) (2021-08-31)
+
+### Improvements
+* add 16 byte value support #75 (thanks to [Victor Stewart](https://github.com/victorstewart))
+* avoid reinitializing nontrivial std::variant #77 (thanks to [Robbert van der Helm](https://github.com/robbert-vdh))
+* avoid reinitializing nontrivial std::optional.
+
+### Bug fixes
+* fix missing headers for GCC11, also added test to check includes #82 (thanks to [michael-mueller-git](https://github.com/michael-mueller-git))
+* fixed **StdBitset** to build on macOS (proxy type, returned by `[]` operator wasn't correctly converted to unsigned integral type).
+
+### Other notes
+* migrated to [Github actions](https://docs.github.com/en/actions) for running tests.
+* fixes few warnings on MSVC compiler.
+* now tests are also run on macOS and Windows.
+
 # [5.2.1](https://github.com/fraillt/bitsery/compare/v5.2.0...v5.2.1) (2020-11-14)
 
 ### Improvements

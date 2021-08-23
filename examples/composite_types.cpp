@@ -41,7 +41,7 @@ void serialize(S& s, MyVariant& o) {
             s.ext(o, bitsery::ext::StdTuple{
                 // this is convenient callable object to specify integral value size
                 // it is different equivalent to lambda [](auto& s, float&o) { s.value4b(o);}
-                    bitsery::ext::OverloadValue<float, 4>{},
+                bitsery::ext::OverloadValue<float, 4>{},
                 // it is not required to provide MyStruct overload, because it we have defined 'serialize' function for it
             });
         },
@@ -66,7 +66,7 @@ void serialize(S& s, MyVariant& o) {
         // also note, that first parameter (serializer) is also "auto", this is required, so that it would be least specialized case
         // otherwise it will not compile if you any ext::Overload* helper defined, because it will have ambiguous definitions
         // (ext::OverLoad* defines (templated_type& s, concrete_type& o) and lambda would be (concrete_type& s, templated_type& o))
-        [](auto& , auto& ) {
+        [](auto& , auto&) {
             assert(false);
         }
     });
@@ -81,8 +81,7 @@ using InputAdapter = bitsery::InputBufferAdapter<Buffer>;
 int main() {
 
     //set some random data
-    MyVariant data{MyTuple{-7549, {{-451, 2, 968, 75, 4, 156, 49}, 874.4f}}};
-//    MyVariant data{MyStruct{{-451, 2, 968, 75, 4, 156, 49}, 874.4f}};
+    MyVariant data{ MyTuple{-7549, {{-451, 2, 968, 75, 4, 156, 49}, 874.4f}} };
     MyVariant res{};
 
     //create buffer to store data
@@ -94,19 +93,18 @@ int main() {
 
     //same as serialization, but returns deserialization state as a pair
     //first = error code, second = is buffer was successfully read from begin to the end.
-    auto state = bitsery::quickDeserialization<InputAdapter>({buffer.begin(), writtenSize}, res);
+    auto state = bitsery::quickDeserialization<InputAdapter>({ buffer.begin(), writtenSize }, res);
 
     assert(state.first == bitsery::ReaderError::NoError && state.second);
     assert(data == res);
 }
 #else
 #if defined(_MSC_VER)
-#pragma message("example works only on c++17")
+#pragma message("C++17 and /Zc:__cplusplus option is required to enable this example")
 #else
-#warning "example works only on c++17"
+#pragma message("C++17 is required to enable this example")
 #endif
 int main() {
     return 0;
 }
-
 #endif

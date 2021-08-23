@@ -120,10 +120,8 @@ TEST(SerializeExtensionStdOptional, NoAlignAfterStateWriteRead) {
     EXPECT_THAT(t1.value(), Eq(r1.value()));
 }
 
+#elif defined(_MSC_VER)
+#pragma message("C++17 and /Zc:__cplusplus option is required to enable std::optional tests")
 #else
-/*#if defined(_MSC_VER)
-#pragma message("Tests for StdOptional requires C++17")
-#else
-#warning "Tests for StdOptional requires C++17"
-#endif*/
+#pragma message("C++17 is required to enable std::optional tests")
 #endif

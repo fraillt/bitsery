@@ -39,12 +39,10 @@
 #if __cplusplus > 201402L
 #include <bitsery/brief_syntax/tuple.h>
 #include <bitsery/brief_syntax/variant.h>
+#elif defined(_MSC_VER)
+#pragma message("C++17 and /Zc:__cplusplus option is required to enable std::tuple and std::variant brief syntax tests")
 #else
-/*#if defined(_MSC_VER)
-#pragma message("tuple and variant only works with c++17")
-#else
-#warning "tuple and variant only works with c++17"
-#endif*/
+#pragma message("C++17 is required to enable std::tuple and std::variant brief syntax tests")
 #endif
 
 #include <gmock/gmock.h>

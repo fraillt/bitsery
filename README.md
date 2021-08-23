@@ -1,6 +1,8 @@
 # Bitsery
 
-[![Build Status](https://travis-ci.org/fraillt/bitsery.svg?branch=master)](https://travis-ci.org/fraillt/bitsery)
+[![Build On Windows](https://github.com/fraillt/bitsery/actions/workflows/on_windows.yml/badge.svg)](https://github.com/fraillt/bitsery/actions/workflows/on_windows.yml)
+[![Build On Mac](https://github.com/fraillt/bitsery/actions/workflows/on_mac.yml/badge.svg)](https://github.com/fraillt/bitsery/actions/workflows/on_mac.yml)
+[![Build On Linux](https://github.com/fraillt/bitsery/actions/workflows/on_linux.yml/badge.svg)](https://github.com/fraillt/bitsery/actions/workflows/on_linux.yml)
 [![Join the chat at https://gitter.im/bitsery/Lobby](https://badges.gitter.im/bitsery/Lobby.svg)](https://gitter.im/bitsery/Lobby)
 
 Header only C++ binary serialization library.
@@ -30,17 +32,17 @@ All cross-platform requirements are enforced at compile time, so serialized data
 
 Look at the numbers and features list, and decide yourself.
 
-| library          | data size | serialize | deserialize |
-| ---------------- | --------- | --------- | ----------- |
-| bitsery          | 6913B     | 959ms     | 927ms       |
-| bitsery_compress | 4213B     | 1282ms    | 1115ms      |
-| boost            | 11037B    | 9826ms    | 8313ms      |
-| cereal           | 10413B    | 6324ms    | 5698ms      |
-| flatbuffers      | 14924B    | 5129ms    | 2142ms      |
-| protobuf         | 10018B    | 11966ms   | 13919ms     |
-| yas              | 10463B    | 1908ms    | 1217ms      |
+| library     | data size | ser time | des time |
+| ----------- | --------- | -------- | -------- |
+| bitsery     | 6913B     | 1119ms   | 1166ms   |
+| boost       | 11037B    | 15391ms  | 12912ms  |
+| cereal      | 10413B    | 10518ms  | 10245ms  |
+| flatbuffers | 14924B    | 9075ms   | 3701ms   |
+| msgpack     | 8857B     | 3340ms   | 13842ms  |
+| protobuf    | 10018B    | 21229ms  | 22077ms  |
+| yas         | 10463B    | 2107ms   | 1554ms   |
 
-*benchmarked on Ubuntu with GCC 8.3.0, more details can be found [here](https://github.com/fraillt/cpp_serializers_benchmark.git)*
+*benchmarked on Ubuntu with GCC 10.3.0, more details can be found [here](https://github.com/fraillt/cpp_serializers_benchmark.git)*
 
 If still not convinced read more in library [motivation](doc/design/README.md) section.
 
@@ -98,10 +100,7 @@ Works with C++11 compiler, no additional dependencies, include `<bitsery/bitsery
 
 ## Platforms
 
-This library was tested on
-* Windows: Visual Studio 2015, MinGW (GCC 5.2)
-* Linux: GCC 5.4, Clang 3.9
-* OS X Mavericks: AppleClang 8
+Library is tested on all major compilers on Windows, Linux and macOS.
 
 There is a patch that allows using bitsery with non-fully compatible C++11 compilers.
 * CentOS 7 with gcc 4.8.2.

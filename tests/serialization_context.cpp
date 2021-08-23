@@ -41,7 +41,7 @@ TEST(SerializationContext, WhenContextIsNotTupleThenReturnThisContext) {
 
 TEST(SerializationContext, WhenContextIsTupleThenReturnsTupleElements) {
 
-    MultipleTypesContext ctx{5, 798.654, 'F'};
+    MultipleTypesContext ctx{5, 798.654f, 'F'};
     BasicSerializationContext<MultipleTypesContext> c1;
     auto& ser1 = c1.createSerializer(ctx);
 
@@ -59,7 +59,7 @@ TEST(SerializationContext, WhenContextDoesntExistsThenContextOrNullReturnsNull) 
     *ser.contextOrNull<int>() = 2;
     EXPECT_THAT(ctx1, Eq(2));
 
-    MultipleTypesContext ctx2{5, 798.654, 'F'};
+    MultipleTypesContext ctx2{5, 798.654f, 'F'};
     BasicSerializationContext<MultipleTypesContext> c2;
     auto& des = c2.createDeserializer(ctx2);
     EXPECT_THAT(des.contextOrNull<double>(), ::testing::IsNull());

@@ -102,8 +102,8 @@ private:
 };
 
 TEST(SerializeExtensionStdTuple, NonDefaultConstructable) {
-    std::tuple<NonDefaultConstructable> t1{34};
-    std::tuple<NonDefaultConstructable> r1{8};
+    std::tuple<NonDefaultConstructable> t1{34.0f};
+    std::tuple<NonDefaultConstructable> r1{8.0f};
     SerializationContext ctx;
     ctx.createSerializer().ext(t1, bitsery::ext::StdTuple{
         [](auto& s, NonDefaultConstructable& v) {
@@ -118,10 +118,8 @@ TEST(SerializeExtensionStdTuple, NonDefaultConstructable) {
     EXPECT_THAT(t1, Eq(r1));
 }
 
+#elif defined(_MSC_VER)
+#pragma message("C++17 and /Zc:__cplusplus option is required to enable std::tuple tests")
 #else
-/*#if defined(_MSC_VER)
-#pragma message("Tests for StdTuple requires C++17")
-#else
-#warning "Tests for StdTuple requires C++17"
-#endif*/
+#pragma message("C++17 is required to enable std::tuple tests")
 #endif

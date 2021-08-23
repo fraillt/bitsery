@@ -103,7 +103,7 @@ namespace bitsery {
             template<typename Writer, size_t N>
             void serializeLeftoverImpl(Writer& w, const std::bitset<N> &obj, size_t from, size_t to, std::integral_constant<bool, true>) const {
                 for (auto i = from; i < to; ++i) {
-                    w.writeBits(obj[i], 1);
+                    w.writeBits(obj[i] ? 1u : 0u, 1);
                 }
             }
 
@@ -126,7 +126,7 @@ namespace bitsery {
                 for (auto i = from; i < to; ++i) {
                     uint8_t res = 0u;
                     r.readBits(res, 1);
-                    obj[i] = res;
+                    obj[i] = res == 1;
                 }
             }
 
