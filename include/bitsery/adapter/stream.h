@@ -26,6 +26,7 @@
 #include "../details/adapter_common.h"
 #include "../traits/array.h"
 #include <ios>
+#include <limits>
 
 namespace bitsery {
 

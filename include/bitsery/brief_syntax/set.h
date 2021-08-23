@@ -25,6 +25,7 @@
 #define BITSERY_BRIEF_SYNTAX_TYPE_STD_SET_H
 
 #include <set>
+#include <limits>
 #include "../ext/std_set.h"
 
 namespace bitsery {

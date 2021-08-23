@@ -24,6 +24,7 @@
 #define BITSERY_DETAILS_BRIEF_SYNTAX_COMMON_H
 
 #include "../traits/core/traits.h"
+#include "serialization_common.h"
 #include <limits>
 
 namespace bitsery {

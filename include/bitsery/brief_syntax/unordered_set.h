@@ -24,6 +24,7 @@
 #ifndef BITSERY_BRIEF_SYNTAX_TYPE_STD_UNORDERED_SET_H
 #define BITSERY_BRIEF_SYNTAX_TYPE_STD_UNORDERED_SET_H
 
+#include <limits>
 #include <unordered_set>
 #include "../ext/std_set.h"
 

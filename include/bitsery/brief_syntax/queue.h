@@ -25,6 +25,7 @@
 #define BITSERY_BRIEF_SYNTAX_TYPE_STD_QUEUE_H
 
 #include "../ext/std_queue.h"
+#include <limits>
 
 namespace bitsery {
     template<typename S, typename T, typename C>

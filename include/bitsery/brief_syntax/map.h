@@ -25,6 +25,7 @@
 #define BITSERY_BRIEF_SYNTAX_TYPE_STD_MAP_H
 
 #include <map>
+#include <limits>
 #include "../ext/std_map.h"
 
 namespace bitsery {
