@@ -285,8 +285,8 @@ namespace bitsery {
 
             template<typename T>
             void writeSwappedBuffer(const T *v, size_t count, std::true_type) {
-                std::for_each(v, std::next(v, count), [this](const T &v) {
-                    const auto res = details::swap(v);
+                std::for_each(v, std::next(v, count), [this](const T &inner_v) {
+                    const auto res = details::swap(inner_v);
                     static_cast<Adapter*>(this)->template writeInternalValue<sizeof(T)>(reinterpret_cast<const typename Adapter::TValue *>(&res));
                 });
             }
