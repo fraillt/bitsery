@@ -256,7 +256,7 @@ namespace bitsery {
         void init(std::true_type) {
             //resize buffer immediately, because we need output iterator at valid position
             if (traits::ContainerTraits<Buffer>::size(*_buffer) == 0u) {
-                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
+                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer, 0, 0);
             }
             updateIteratorAndSize();
         }
@@ -268,7 +268,7 @@ namespace bitsery {
                 std::copy_n(data, SIZE, _beginIt + static_cast<diff_t>(_currOffset));
                 _currOffset = newOffset;
             } else {
-                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
+                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer, _currOffset, SIZE);
                 updateIteratorAndSize();
                 writeInternalValueImpl<SIZE>(data, std::true_type{});
             }
@@ -280,7 +280,7 @@ namespace bitsery {
                 std::copy_n(data, size, _beginIt + static_cast<diff_t>(_currOffset));
                 _currOffset = newOffset;
             } else {
-                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
+                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer, _currOffset, size);
                 updateIteratorAndSize();
                 writeInternalBufferImpl(data, size, std::true_type{});
             }
@@ -290,7 +290,7 @@ namespace bitsery {
             if (pos <= _bufferSize) {
                 _currOffset = pos;
             } else {
-                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
+                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer, _currOffset, sizeof(size_t));
                 updateIteratorAndSize();
                 setCurrentWritePos(pos, std::true_type{});
             }

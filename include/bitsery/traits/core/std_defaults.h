@@ -84,7 +84,7 @@ namespace bitsery {
         template <typename T>
         struct StdContainerForBufferAdapter<T, true> {
 
-            static void increaseBufferSize(T& container) {
+            static void increaseBufferSize(T& container, size_t cursor, size_t atLeastN) {
                 //since we're writing to buffer use different resize strategy than default implementation
                 //when small size grow faster, to avoid thouse 2/4/8/16... byte allocations
                 auto newSize = static_cast<size_t>(static_cast<double>(container.size()) * 1.5) + 128;
