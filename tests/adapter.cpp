@@ -47,14 +47,6 @@ struct DisableAdapterErrorsConfig {
     static constexpr bool CheckDataErrors = true;
 };
 
-TEST(OutputBuffer, WhenInitialBufferIsEmptyThenResizeInAdapterConstructor) {
-    //setup data
-    Buffer buf{};
-    EXPECT_THAT(buf.size(), Eq(0));
-    OutputAdapter adapter{buf};
-    EXPECT_THAT(buf.size(), Ge(1));
-}
-
 TEST(OutputBuffer, WhenSetWritePositionThenResizeUnderlyingBufferIfRequired) {
     //setup data
     Buffer buf{};
@@ -502,13 +494,13 @@ using BufferedAdapterInternalBufferTypes = ::testing::Types<
 
 TYPED_TEST_SUITE(OutputStreamBuffered, BufferedAdapterInternalBufferTypes,);
 
-TYPED_TEST(OutputStreamBuffered, WhenInternalBufferIsFullThenWriteBufferToStream) {
+TYPED_TEST(OutputStreamBuffered, WhenInternalBufferIsFullThenWriteBufferAndValueToStream) {
     uint8_t x{};
     for (auto i = 0u; i < TestFixture::InternalBufferSize; ++i)
         this->writer.template writeBytes<1>(x);
     EXPECT_TRUE(this->stream.str().empty());
     this->writer.template writeBytes<1>(x);
-    EXPECT_THAT(this->stream.str().size(), Eq(TestFixture::InternalBufferSize));
+    EXPECT_THAT(this->stream.str().size(), Eq(TestFixture::InternalBufferSize + 1));
 }
 
 TYPED_TEST(OutputStreamBuffered, WhenFlushThenWriteImmediately) {

@@ -49,8 +49,21 @@ namespace bitsery {
         /**
          * size read/write functions
          */
-        template <typename Reader, typename TCheckMaxSize>
-        void readSize(Reader& r, size_t& size, size_t maxSize, TCheckMaxSize) {
+
+        template <typename Reader>
+        void handleReadMaxSize(Reader& r, size_t& size, size_t maxSize, std::true_type) {
+            if (size > maxSize) {
+                r.error(ReaderError::InvalidData);
+                size = {};
+            }
+        }
+
+        template <typename Reader>
+        void handleReadMaxSize(Reader&, size_t&, size_t, std::false_type) {
+        }
+
+        template <typename Reader, bool CheckMaxSize>
+        void readSize(Reader& r, size_t& size, size_t maxSize, std::integral_constant<bool, CheckMaxSize> checkMaxSize) {
             uint8_t hb{};
             r.template readBytes<1>(hb);
             if (hb < 0x80u) {
@@ -66,19 +79,7 @@ namespace bitsery {
                     size = ((hb & 0x7Fu) << 8) | lb;
                 }
             }
-            handleReadMaxSize(r, size, maxSize, TCheckMaxSize{});
-        }
-
-        template <typename Reader>
-        void handleReadMaxSize(Reader& r, size_t& size, size_t maxSize, std::true_type) {
-            if (size > maxSize) {
-                r.error(ReaderError::InvalidData);
-                size = {};
-            }
-        }
-
-        template <typename Reader>
-        void handleReadMaxSize(Reader&, size_t&, size_t, std::false_type) {
+            handleReadMaxSize(r, size, maxSize, checkMaxSize);
         }
 
         template <typename Writer>

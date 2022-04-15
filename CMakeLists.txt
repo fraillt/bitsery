@@ -51,6 +51,7 @@ endif()
 
 if (BITSERY_BUILD_TESTS)
     message("build bitsery tests")
+    enable_testing()
     add_subdirectory(tests)
 else()
     message("skip bitsery tests")

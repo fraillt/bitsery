@@ -228,16 +228,14 @@ namespace bitsery {
 
         template <size_t SIZE>
         void writeInternalValue(const TValue* data) {
-            auto newOffset = _currOffset + SIZE;
-            if (newOffset > _bufferSize) {
-                writeBufferToStream();
-                newOffset = SIZE;
-            }
-            std::copy_n(data, SIZE, _beginIt + static_cast<diff_t>(_currOffset));
-            _currOffset = newOffset;
+            writeInternalImpl(data, SIZE);
         }
 
         void writeInternalBuffer(const TValue* data, size_t size) {
+            writeInternalImpl(data, size);
+        }
+
+        void writeInternalImpl(const TValue* data, size_t size) {
             const auto newOffset = _currOffset + size;
             if (newOffset <= _bufferSize) {
                 std::copy_n(data, size, _beginIt + static_cast<diff_t>(_currOffset));

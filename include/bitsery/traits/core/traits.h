@@ -141,6 +141,10 @@ namespace bitsery {
         //traits only for buffer adapters
         template <typename T>
         struct BufferAdapterTraits {
+            using TIterator = details::NotDefinedType;
+            using TConstIterator = details::NotDefinedType;
+            using TValue = typename ContainerTraits<T>::TValue;
+
             //this function is only applies to resizable containers
 
             //this function is only used by Writer, when writing data to buffer,
@@ -148,14 +152,11 @@ namespace bitsery {
             //it is used to dramaticaly improve performance by updating buffer directly
             //instead of using back_insert_iterator to append each byte to buffer.
 
-            static void increaseBufferSize(T& ) {
+            static void increaseBufferSize(T& ,size_t currentOffset, size_t minSize) {
                 static_assert(std::is_void<T>::value,
                               "Define BufferAdapterTraits or include from <bitsery/traits/...> to use as buffer adapter container");
             }
 
-            using TIterator = details::NotDefinedType;
-            using TConstIterator = details::NotDefinedType;
-            using TValue = typename ContainerTraits<T>::TValue;
         };
 
         //specialization for c-style buffer

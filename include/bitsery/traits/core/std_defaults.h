@@ -83,18 +83,19 @@ namespace bitsery {
         //specialization for resizable buffers
         template <typename T>
         struct StdContainerForBufferAdapter<T, true> {
+            using TIterator = typename T::iterator;
+            using TConstIterator = typename T::const_iterator;
+            using TValue = typename ContainerTraits<T>::TValue;
 
-            static void increaseBufferSize(T& container) {
+
+            static void increaseBufferSize(T& container, size_t currSize, size_t minSize) {
                 //since we're writing to buffer use different resize strategy than default implementation
                 //when small size grow faster, to avoid thouse 2/4/8/16... byte allocations
                 auto newSize = static_cast<size_t>(static_cast<double>(container.size()) * 1.5) + 128;
                 //make data cache friendly
                 newSize -= newSize % 64;//64 is cache line size
-                container.resize((std::max)(newSize, container.capacity()));
+                container.resize((std::max)(newSize > minSize ? newSize : minSize, container.capacity()));
             }
-            using TIterator = typename T::iterator;
-            using TConstIterator = typename T::const_iterator;
-            using TValue = typename ContainerTraits<T>::TValue;
         };
 
     }

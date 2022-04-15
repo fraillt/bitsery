@@ -108,43 +108,21 @@ namespace bitsery {
 
         template <size_t SIZE>
         void readInternalValue(TValue *data) {
-            readInternalValueChecked<SIZE>(data, std::integral_constant<bool, Config::CheckAdapterErrors>{});
+            readInternalChecked(data, SIZE, std::integral_constant<bool, Config::CheckAdapterErrors>{});
         }
 
         void readInternalBuffer(TValue *data, size_t size) {
-            readInternalBufferChecked(data, size, std::integral_constant<bool, Config::CheckAdapterErrors>{});
+            readInternalChecked(data, size, std::integral_constant<bool, Config::CheckAdapterErrors>{});
         }
 
-        template <size_t SIZE>
-        void readInternalValueChecked(TValue *data, std::false_type) {
-            const size_t newOffset = _currOffset + SIZE;
-            assert(newOffset <= _endReadOffset);
-            std::copy_n(_beginIt + static_cast<diff_t>(_currOffset), SIZE, data);
-            _currOffset = newOffset;
-        }
-
-        template <size_t SIZE>
-        void readInternalValueChecked(TValue *data, std::true_type) {
-            const size_t newOffset = _currOffset + SIZE;
-            if (newOffset <= _endReadOffset) {
-                std::copy_n(_beginIt + static_cast<diff_t>(_currOffset), SIZE, data);
-                _currOffset = newOffset;
-            } else {
-                //set everything to zeros
-                std::memset(data, 0, SIZE);
-                if (_overflowOnReadEndPos)
-                    error(ReaderError::DataOverflow);
-            }
-        }
-
-        void readInternalBufferChecked(TValue *data, size_t size, std::false_type) {
+        void readInternalChecked(TValue *data, size_t size, std::false_type) {
             const size_t newOffset = _currOffset + size;
             assert(newOffset <= _endReadOffset);
             std::copy_n(_beginIt + static_cast<diff_t>(_currOffset), size, data);
             _currOffset = newOffset;
         }
 
-        void readInternalBufferChecked(TValue *data, size_t size, std::true_type) {
+        void readInternalChecked(TValue *data, size_t size, std::true_type) {
             const size_t newOffset = _currOffset + size;
             if (newOffset <= _endReadOffset) {
                 std::copy_n(_beginIt + static_cast<diff_t>(_currOffset), size, data);
@@ -177,7 +155,6 @@ namespace bitsery {
             return _currOffset;
         }
 
-
         TIterator _beginIt;
         size_t _currOffset;
         size_t _endReadOffset;
@@ -201,8 +178,8 @@ namespace bitsery {
 
         OutputBufferAdapter(Buffer &buffer)
                 : _buffer{std::addressof(buffer)},
-                _beginIt{std::begin(buffer)} {
-            init(TResizable{});
+                _beginIt{std::begin(buffer)},
+                _bufferSize{traits::ContainerTraits<Buffer>::size(buffer)} {
         }
 
         OutputBufferAdapter(const OutputBufferAdapter&) = delete;
@@ -215,7 +192,8 @@ namespace bitsery {
             if (maxPos > _biggestCurrentPos) {
                 _biggestCurrentPos = maxPos;
             }
-            setCurrentWritePos(pos, TResizable{});
+            maybeResize(pos, TResizable{});
+            _currOffset = pos;
         }
 
         size_t currentWritePos() const {
@@ -236,11 +214,11 @@ namespace bitsery {
 
         template <size_t SIZE>
         void writeInternalValue(const TValue *data) {
-            writeInternalValueImpl<SIZE>(data, TResizable{});
+            writeInternalImpl(data, SIZE);
         }
 
         void writeInternalBuffer(const TValue *data, size_t size) {
-            writeInternalBufferImpl(data, size, TResizable{});
+            writeInternalImpl(data, size);
         }
 
         Buffer* _buffer;
@@ -249,84 +227,25 @@ namespace bitsery {
         size_t _bufferSize{0};
         size_t _biggestCurrentPos{0};
 
-        /*
-         * resizable buffer
-         */
-
-        void init(std::true_type) {
-            //resize buffer immediately, because we need output iterator at valid position
-            if (traits::ContainerTraits<Buffer>::size(*_buffer) == 0u) {
-                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
-            }
-            updateIteratorAndSize();
-        }
-
-        template <size_t SIZE>
-        void writeInternalValueImpl(const TValue *data, std::true_type) {
-            const size_t newOffset = _currOffset + SIZE;
-            if (newOffset <= _bufferSize) {
-                std::copy_n(data, SIZE, _beginIt + static_cast<diff_t>(_currOffset));
-                _currOffset = newOffset;
-            } else {
-                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
-                updateIteratorAndSize();
-                writeInternalValueImpl<SIZE>(data, std::true_type{});
+        void maybeResize(size_t newOffset, std::true_type) {
+            if (newOffset > _bufferSize) {
+                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer, _currOffset, newOffset);
+                _beginIt = std::begin(*_buffer);
+                _bufferSize = traits::ContainerTraits<Buffer>::size(*_buffer);
             }
         }
 
-        void writeInternalBufferImpl(const TValue *data, const size_t size, std::true_type) {
-            const size_t newOffset = _currOffset + size;
-            if (newOffset <= _bufferSize) {
-                std::copy_n(data, size, _beginIt + static_cast<diff_t>(_currOffset));
-                _currOffset = newOffset;
-            } else {
-                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
-                updateIteratorAndSize();
-                writeInternalBufferImpl(data, size, std::true_type{});
-            }
-        }
-
-        void setCurrentWritePos(size_t pos, std::true_type) {
-            if (pos <= _bufferSize) {
-                _currOffset = pos;
-            } else {
-                traits::BufferAdapterTraits<Buffer>::increaseBufferSize(*_buffer);
-                updateIteratorAndSize();
-                setCurrentWritePos(pos, std::true_type{});
-            }
-        }
-
-        /*
-         * non resizable buffer
-         */
-        void init(std::false_type) {
-            updateIteratorAndSize();
-        }
-
-        template <size_t SIZE>
-        void writeInternalValueImpl(const TValue *data, std::false_type) {
-            const size_t newOffset = _currOffset + SIZE;
+        void maybeResize(size_t newOffset, std::false_type) {
             assert(newOffset <= _bufferSize);
-            std::copy_n(data, SIZE, _beginIt + static_cast<diff_t>(_currOffset));
-            _currOffset = newOffset;
         }
 
-        void writeInternalBufferImpl(const TValue *data, size_t size, std::false_type) {
+        void writeInternalImpl(const TValue *data, size_t size) {
             const size_t newOffset = _currOffset + size;
-            assert(newOffset <= _bufferSize);
+            maybeResize(newOffset, TResizable{});
             std::copy_n(data, size, _beginIt + static_cast<diff_t>(_currOffset));
             _currOffset = newOffset;
         }
 
-        void setCurrentWritePos(size_t pos, std::false_type) {
-            assert(pos <= _bufferSize);
-            _currOffset = pos;
-        }
-
-        void updateIteratorAndSize() {
-            _beginIt = std::begin(*_buffer);
-            _bufferSize = traits::ContainerTraits<Buffer>::size(*_buffer);
-        }
     };
 
 }
