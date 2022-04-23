@@ -24,9 +24,9 @@
 #ifndef BITSERY_BRIEF_SYNTAX_TYPE_STD_MAP_H
 #define BITSERY_BRIEF_SYNTAX_TYPE_STD_MAP_H
 
+#include "../ext/std_map.h"
 #include <map>
 #include <limits>
-#include "../ext/std_map.h"
 
 namespace bitsery {
     template<typename S, typename Key, typename T, typename Compare, typename Allocator>

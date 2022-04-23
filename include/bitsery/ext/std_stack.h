@@ -24,10 +24,8 @@
 #ifndef BITSERY_EXT_STD_STACK_H
 #define BITSERY_EXT_STD_STACK_H
 
-#include <type_traits>
-#include <stack>
-//include type traits for deque, because stack default underlying container is deque
 #include "../traits/deque.h"
+#include <stack>
 
 namespace bitsery {
     namespace ext {

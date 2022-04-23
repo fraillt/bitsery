@@ -23,7 +23,6 @@
 #ifndef BITSERY_EXT_STD_SMART_PTR_H
 #define BITSERY_EXT_STD_SMART_PTR_H
 
-#include <cassert>
 #include "../traits/core/traits.h"
 #include "utils/pointer_utils.h"
 #include "utils/polymorphism_utils.h"

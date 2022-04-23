@@ -25,148 +25,15 @@
 #define BITSERY_SERIALIZER_H
 
 #include "details/serialization_common.h"
-#include "details/adapter_common.h"
 #include <cassert>
-#include <limits>
 
 namespace bitsery {
-
-    namespace details {
-        template<typename TAdapter>
-        class OutputAdapterBitPackingWrapper {
-        public:
-
-            static constexpr bool BitPackingEnabled = true;
-            using TConfig = typename TAdapter::TConfig;
-            using TValue = typename TAdapter::TValue;
-
-            OutputAdapterBitPackingWrapper(TAdapter& adapter)
-                : _wrapped{adapter}
-            {
-            }
-
-
-            ~OutputAdapterBitPackingWrapper() {
-                align();
-            }
-
-            template<size_t SIZE, typename T>
-            void writeBytes(const T &v) {
-                static_assert(std::is_integral<T>(), "");
-                static_assert(sizeof(T) == SIZE, "");
-
-                if (!_scratchBits) {
-                    this->_wrapped.template writeBytes<SIZE,T>(v);
-                } else {
-                    using UT = typename std::make_unsigned<T>::type;
-                    writeBitsInternal(reinterpret_cast<const UT &>(v), details::BitsSize<T>::value);
-                }
-            }
-
-            template<size_t SIZE, typename T>
-            void writeBuffer(const T *buf, size_t count) {
-                static_assert(std::is_integral<T>(), "");
-                static_assert(sizeof(T) == SIZE, "");
-                if (!_scratchBits) {
-                    this->_wrapped.template writeBuffer<SIZE,T>(buf, count);
-                } else {
-                    using UT = typename std::make_unsigned<T>::type;
-                    //todo improve implementation
-                    const auto end = buf + count;
-                    for (auto it = buf; it != end; ++it)
-                        writeBitsInternal(reinterpret_cast<const UT &>(*it), details::BitsSize<T>::value);
-                }
-            }
-
-            template<typename T>
-            void writeBits(const T &v, size_t bitsCount) {
-                static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
-                assert(0 < bitsCount && bitsCount <= details::BitsSize<T>::value);
-                assert(v <= (bitsCount < 64
-                             ? (1ULL << bitsCount) - 1
-                             : (1ULL << (bitsCount-1)) + ((1ULL << (bitsCount-1)) -1)));
-                writeBitsInternal(v, bitsCount);
-            }
-
-            void align() {
-                writeBitsInternal(UnsignedType{}, (details::BitsSize<UnsignedType>::value - _scratchBits) % 8);
-            }
-
-            void currentWritePos(size_t pos) {
-                align();
-                this->_wrapped.currentWritePos(pos);
-            }
-
-            size_t currentWritePos() const {
-                return this->_wrapped.currentWritePos();
-            }
-
-            void flush() {
-                align();
-                this->_wrapped.flush();
-            }
-
-            size_t writtenBytesCount() const {
-                return this->_wrapped.writtenBytesCount();
-            }
-
-        private:
-            TAdapter& _wrapped;
-
-            using UnsignedType = typename std::make_unsigned<typename TAdapter::TValue>::type;
-            using ScratchType = typename details::ScratchType<UnsignedType>::type;
-            static_assert(details::IsDefined<ScratchType>::value, "Underlying adapter value type is not supported");
-
-
-            template<typename T>
-            void writeBitsInternal(const T &v, size_t size) {
-                constexpr size_t valueSize = details::BitsSize<UnsignedType>::value;
-                T value = v;
-                size_t bitsLeft = size;
-                while (bitsLeft > 0) {
-                    auto bits = (std::min)(bitsLeft, valueSize);
-                    _scratch |= static_cast<ScratchType>( value ) << _scratchBits;
-                    _scratchBits += bits;
-                    if (_scratchBits >= valueSize) {
-                        auto tmp = static_cast<UnsignedType>(_scratch & _MASK);
-                        this->_wrapped.template writeBytes<sizeof(UnsignedType), UnsignedType >(tmp);
-                        _scratch >>= valueSize;
-                        _scratchBits -= valueSize;
-
-                        value = static_cast<T>(value >> valueSize);
-                    }
-                    bitsLeft -= bits;
-                }
-            }
-
-            //overload for TValue, for better performance
-            void writeBitsInternal(const UnsignedType &v, size_t size) {
-                if (size > 0) {
-                    _scratch |= static_cast<ScratchType>( v ) << _scratchBits;
-                    _scratchBits += size;
-                    if (_scratchBits >= details::BitsSize<UnsignedType>::value) {
-                        auto tmp = static_cast<UnsignedType>(_scratch & _MASK);
-                        this->_wrapped.template writeBytes<sizeof(UnsignedType), UnsignedType>(tmp);
-                        _scratch >>= details::BitsSize<UnsignedType>::value;
-                        _scratchBits -= details::BitsSize<UnsignedType>::value;
-                    }
-                }
-            }
-
-            const UnsignedType _MASK = (std::numeric_limits<UnsignedType>::max)();
-            ScratchType _scratch{};
-            size_t _scratchBits{};
-        };
-
-    }
 
     template<typename TOutputAdapter, typename TContext = void>
     class Serializer: public details::AdapterAndContextRef<TOutputAdapter, TContext> {
     public:
         //helper type, that always returns bit-packing enabled type, useful inside serialize function when enabling bitpacking
-        using BPEnabledType = Serializer<typename std::conditional<TOutputAdapter::BitPackingEnabled,
-                TOutputAdapter,
-                details::OutputAdapterBitPackingWrapper<TOutputAdapter>>::type, TContext>;
+        using BPEnabledType = Serializer<typename TOutputAdapter::BitPackingEnabled, TContext>;
         using TConfig = typename TOutputAdapter::TConfig;
 
         using details::AdapterAndContextRef<TOutputAdapter, TContext>::AdapterAndContextRef;
@@ -211,7 +78,7 @@ namespace bitsery {
         template <typename Fnc>
         void enableBitPacking(Fnc&& fnc) {
             procEnableBitPacking(std::forward<Fnc>(fnc),
-                std::integral_constant<bool, TOutputAdapter::BitPackingEnabled>{},
+                std::is_same<TOutputAdapter, typename TOutputAdapter::BitPackingEnabled>{},
                 std::integral_constant<bool, Serializer::HasContext>{});
         }
 
@@ -252,7 +119,7 @@ namespace bitsery {
          */
 
         void boolValue(bool v) {
-            procBoolValue(v, std::integral_constant<bool, TOutputAdapter::BitPackingEnabled>{});
+            procBoolValue(v, std::is_same<TOutputAdapter, typename TOutputAdapter::BitPackingEnabled>{});
         }
 
         /*
@@ -501,14 +368,12 @@ namespace bitsery {
 
         template <typename Fnc>
         void procEnableBitPacking(const Fnc& fnc, std::false_type, std::true_type) {
-            //create serializer using bitpacking wrapper
             BPEnabledType ser{this->_context, this->_adapter};
             fnc(ser);
         }
 
         template <typename Fnc>
         void procEnableBitPacking(const Fnc& fnc, std::false_type, std::false_type) {
-            //create serializer using bitpacking wrapper
             BPEnabledType ser{this->_adapter};
             fnc(ser);
         }

@@ -23,9 +23,9 @@
 #ifndef BITSERY_EXT_INHERITANCE_H
 #define BITSERY_EXT_INHERITANCE_H
 
-#include <unordered_set>
 #include "../traits/core/traits.h"
 #include "../ext/utils/memory_resource.h"
+#include <unordered_set>
 
 namespace bitsery {
 

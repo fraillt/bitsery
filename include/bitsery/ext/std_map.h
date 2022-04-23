@@ -24,7 +24,6 @@
 #define BITSERY_EXT_STD_MAP_H
 
 #include "../traits/core/traits.h"
-#include "../details/adapter_common.h"
 #include "../details/serialization_common.h"
 //we need this, so we could reserve for non ordered map
 #include <unordered_map>

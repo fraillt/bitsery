@@ -24,8 +24,6 @@
 #ifndef BITSERY_COMMON_H
 #define BITSERY_COMMON_H
 
-#include <tuple>
-
 namespace bitsery {
 
 /*

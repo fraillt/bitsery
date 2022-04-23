@@ -24,8 +24,6 @@
 #define BITSERY_EXT_VALUE_RANGE_H
 
 #include "../details/serialization_common.h"
-#include "../details/adapter_common.h"
-#include <cassert>
 
 namespace bitsery {
 

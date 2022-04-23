@@ -24,9 +24,9 @@
 #ifndef BITSERY_BRIEF_SYNTAX_TYPE_STD_UNORDERED_SET_H
 #define BITSERY_BRIEF_SYNTAX_TYPE_STD_UNORDERED_SET_H
 
+#include "../ext/std_set.h"
 #include <limits>
 #include <unordered_set>
-#include "../ext/std_set.h"
 
 namespace bitsery {
     template<typename S, typename Key, typename Hash, typename KeyEqual, typename Allocator>

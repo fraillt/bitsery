@@ -23,10 +23,7 @@
 #ifndef BITSERY_EXT_STD_SET_H
 #define BITSERY_EXT_STD_SET_H
 
-#include <cassert>
-#include "../details/adapter_common.h"
 #include "../details/serialization_common.h"
-//we need this, so we could reserve for non ordered set
 #include <unordered_set>
 
 namespace bitsery {

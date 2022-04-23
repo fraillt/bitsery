@@ -24,11 +24,11 @@
 #ifndef BITSERY_EXT_STD_QUEUE_H
 #define BITSERY_EXT_STD_QUEUE_H
 
-#include <type_traits>
-#include <queue>
 //include type traits for deque and vector, because they are defaults for queue and priority_queue
 #include "../traits/deque.h"
 #include "../traits/vector.h"
+#include <type_traits>
+#include <queue>
 
 namespace bitsery {
     namespace ext {

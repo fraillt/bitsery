@@ -23,16 +23,11 @@
 #ifndef BITSERY_DETAILS_ADAPTER_COMMON_H
 #define BITSERY_DETAILS_ADAPTER_COMMON_H
 
-#include <algorithm>
-#include <utility>
-#include <cassert>
-#include <vector>
-#include <stack>
-#include <cstring>
-#include <climits>
 #include "not_defined_type.h"
-
 #include "../common.h"
+#include <algorithm>
+#include <cassert>
+#include <climits>
 
 namespace bitsery {
 
@@ -231,15 +226,12 @@ namespace bitsery {
             using type = int_fast64_t;
         };
 
-
         /**
          * output/input adapter base that handles endianness
          */
 
         template<typename Adapter>
         struct OutputAdapterBaseCRTP {
-
-            static constexpr bool BitPackingEnabled = false;
 
             template<size_t SIZE, typename T>
             void writeBytes(const T &v) {
@@ -299,25 +291,24 @@ namespace bitsery {
 
         };
 
-        template <typename Base>
-        struct InputAdapterBaseCRTP {
 
-            static constexpr bool BitPackingEnabled = false;
+        template <typename Adapter>
+        struct InputAdapterBaseCRTP {
 
             template<size_t SIZE, typename T>
             void readBytes(T& v) {
                 static_assert(std::is_integral<T>(), "");
                 static_assert(sizeof(T) == SIZE, "");
-                static_cast<Base*>(this)->template readInternalValue<sizeof(T)>(reinterpret_cast<typename Base::TValue *>(&v));
-                swapDataBits(v, ShouldSwap<typename Base::TConfig>{});
+                static_cast<Adapter*>(this)->template readInternalValue<sizeof(T)>(reinterpret_cast<typename Adapter::TValue *>(&v));
+                swapDataBits(v, ShouldSwap<typename Adapter::TConfig>{});
             }
 
             template<size_t SIZE, typename T>
             void readBuffer(T* buf, size_t count) {
                 static_assert(std::is_integral<T>(), "");
                 static_assert(sizeof(T) == SIZE, "");
-                static_cast<Base*>(this)->readInternalBuffer(reinterpret_cast<typename Base::TValue *>(buf), sizeof(T) * count);
-                swapDataBits(buf, count, ShouldSwap<typename Base::TConfig>{});
+                static_cast<Adapter*>(this)->readInternalBuffer(reinterpret_cast<typename Adapter::TValue *>(buf), sizeof(T) * count);
+                swapDataBits(buf, count, ShouldSwap<typename Adapter::TConfig>{});
             }
 
             template<typename T>
@@ -361,10 +352,7 @@ namespace bitsery {
             void swapDataBits(T &, std::false_type) {
                 //empty function because no swap is required
             }
-
-
         };
-
     }
 }
 

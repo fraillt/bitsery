@@ -23,14 +23,7 @@
 #ifndef BITSERY_POINTER_UTILS_H
 #define BITSERY_POINTER_UTILS_H
 
-#include <unordered_map>
-#include <vector>
-#include <memory>
-#include <algorithm>
-#include <cassert>
 #include "polymorphism_utils.h"
-#include "../../details/adapter_common.h"
-#include "../../details/serialization_common.h"
 
 namespace bitsery {
     namespace ext {

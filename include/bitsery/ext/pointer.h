@@ -23,11 +23,11 @@
 #ifndef BITSERY_EXT_POINTER_H
 #define BITSERY_EXT_POINTER_H
 
-#include <cassert>
 #include "../traits/core/traits.h"
 #include "utils/pointer_utils.h"
 #include "utils/polymorphism_utils.h"
 #include "utils/rtti_utils.h"
+#include <cassert>
 
 namespace bitsery {
 

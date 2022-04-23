@@ -24,8 +24,8 @@
 #ifndef BITSERY_BRIEF_SYNTAX_TYPE_STD_STACK_H
 #define BITSERY_BRIEF_SYNTAX_TYPE_STD_STACK_H
 
-#include <limits>
 #include "../ext/std_stack.h"
+#include <limits>
 
 namespace bitsery {
     template<typename S, typename T, typename C>

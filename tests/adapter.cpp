@@ -28,6 +28,8 @@
 #include <bitsery/traits/vector.h>
 #include <bitsery/traits/array.h>
 #include <bitsery/traits/string.h>
+#include <bitsery/ext/value_range.h>
+#include <bitsery/serializer.h>
 
 #include <gmock/gmock.h>
 
@@ -526,27 +528,34 @@ TYPED_TEST(OutputStreamBuffered, WhenBufferIsStackAllocatedThenBufferSizeViaCtor
     EXPECT_THAT(this->stream.str().empty(), ::testing::Ne(ShouldWriteToStream));
 }
 
-TEST(AdapterWriterMeasureSize, CorrectlyMeasuresWrittenBytesCountForSerialization) {
-    bitsery::MeasureSize w{};
-    EXPECT_THAT(w.writtenBytesCount(), Eq(0));
-    w.writeBytes<8>(uint64_t{0});
-    EXPECT_THAT(w.writtenBytesCount(), Eq(8));
-    w.writeBuffer<8, uint64_t>(nullptr, 9);
-    EXPECT_THAT(w.writtenBytesCount(), Eq(80));
-    w.currentWritePos(10);
-    w.writeBytes<4>(uint32_t{0});
-    EXPECT_THAT(w.writtenBytesCount(), Eq(80));
-    EXPECT_THAT(w.currentWritePos(), Eq(14));
-    w.currentWritePos(80);
-    EXPECT_THAT(w.writtenBytesCount(), Eq(80));
-    w.writeBits(uint32_t{0}, 7u);
-    EXPECT_THAT(w.writtenBytesCount(), Eq(80));
-    w.align();
-    EXPECT_THAT(w.writtenBytesCount(), Eq(81));
-    w.writeBits(uint32_t{0}, 7u);
-    w.flush();
-    EXPECT_THAT(w.writtenBytesCount(), Eq(82));
-    // doesn't compile on older compilers if I write bitsery::MeasureSize::BitPackingEnabled directly in EXPECT_THAT macro.
-    constexpr bool bpEnabled = bitsery::MeasureSize::BitPackingEnabled;
-    EXPECT_THAT(bpEnabled, Eq(true));
+struct TestData
+{
+    uint32_t b4;
+    std::vector<uint16_t> vb2;
+};
+
+template <typename S>
+void serialize(S &s, TestData &o)
+{
+    s.value4b(o.b4);
+    s.enableBitPacking([&o](typename S::BPEnabledType &sbp) {
+        sbp.ext(o.b4, bitsery::ext::ValueRange<uint32_t>{0,1023}); // 10 bits
+        sbp.value4b(o.b4);
+        sbp.container(o.vb2, 10, [](typename S::BPEnabledType& sbp, uint16_t& data) {
+            sbp.ext(data, bitsery::ext::ValueRange<uint16_t>{0, 200}); // 7 bits
+        });
+    });
+    s.container2b(o.vb2, 10);
+}
+
+
+TEST(AdapterWriterMeasureSize, CorrectlyMeasuresBytesAndBitsSize)
+{
+    TestData data{456, {45, 98, 189, 4}};
+
+    Buffer buf{};
+    auto measuredSize = bitsery::quickSerialization(bitsery::MeasureSize{}, data);
+    auto writtenSize = bitsery::quickSerialization(OutputAdapter{buf}, data);
+    EXPECT_THAT(measuredSize, Eq(24));
+    EXPECT_THAT(measuredSize, Eq(writtenSize));
 }

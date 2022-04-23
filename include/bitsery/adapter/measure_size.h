@@ -23,9 +23,9 @@
 #ifndef BITSERY_ADAPTER_MEASURE_SIZE_H
 #define BITSERY_ADAPTER_MEASURE_SIZE_H
 
+#include "../details/adapter_bit_packing.h"
 #include <cstddef>
 #include <type_traits>
-#include "../details/adapter_common.h"
 
 namespace bitsery {
 
@@ -34,7 +34,7 @@ namespace bitsery {
     class BasicMeasureSize {
     public:
 
-        static constexpr bool BitPackingEnabled = true;
+        using BitPackingEnabled = details::BasicMeasureSizeBitPackingWrapper<BasicMeasureSize<Config>>;
         using TConfig = Config;
         using TValue = void;
 
@@ -42,53 +42,42 @@ namespace bitsery {
         void writeBytes(const T&) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
-            _currPosBits += details::BitsSize<T>::value;
+            _currPos += SIZE;
         }
 
         template<size_t SIZE, typename T>
         void writeBuffer(const T*, size_t count) {
             static_assert(std::is_integral<T>(), "");
             static_assert(sizeof(T) == SIZE, "");
-            _currPosBits += details::BitsSize<T>::value * count;
-        }
-
-        template<typename T>
-        void writeBits(const T&, size_t bitsCount) {
-            static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
-            assert(bitsCount <= details::BitsSize<T>::value);
-            _currPosBits += bitsCount;
+            _currPos += SIZE * count;
         }
 
         void currentWritePos(size_t pos) {
-            align();
-            const auto newPos = pos * 8;
-            if (_currPosBits > newPos)
-                _prevLargestPos = _currPosBits;
-            _currPosBits = newPos;
+            const auto maxPos = _currPos > pos ? _currPos : pos;
+            if (maxPos > _biggestCurrentPos) {
+                _biggestCurrentPos = maxPos;
+            }
+            _currPos = pos;
         }
 
         size_t currentWritePos() const {
-            return _currPosBits / 8;
+            return _currPos;
         }
 
         void align() {
-            auto _scratch = (_currPosBits % 8);
-            _currPosBits += (8 - _scratch) % 8;
         }
 
         void flush() {
-            align();
         }
 
         //get size in bytes
         size_t writtenBytesCount() const {
-            const auto max = _currPosBits > _prevLargestPos ? _currPosBits : _prevLargestPos;
-            return max / 8;
+            return _currPos > _biggestCurrentPos ? _currPos : _biggestCurrentPos;
         }
 
     private:
-        size_t _prevLargestPos{};
-        size_t _currPosBits{};
+        size_t _biggestCurrentPos{};
+        size_t _currPos{};
     };
 
     //helper type for default config

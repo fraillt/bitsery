@@ -53,10 +53,10 @@ jobs:
           sudo add-apt-repository ppa:team-xbmc/ppa
           sudo apt-get update
           sudo apt-get install libgmock-dev
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Configure
         run: cmake -S . -B build -DBITSERY_BUILD_TESTS=ON -DBITSERY_BUILD_EXAMPLES=ON -DCMAKE_CXX_STANDARD=${{ matrix.config.cxx_ver }}
       - name: Build
         run: cmake --build build
       - name: Run tests
-        run: ctest --test-dir build/tests
+        run: ctest --test-dir build

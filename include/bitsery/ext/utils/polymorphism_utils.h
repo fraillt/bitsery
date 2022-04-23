@@ -23,11 +23,10 @@
 #ifndef BITSERY_EXT_POLYMORPHISM_UTILS_H
 #define BITSERY_EXT_POLYMORPHISM_UTILS_H
 
-#include <unordered_map>
-#include <memory>
 #include "memory_resource.h"
-#include "../../details/adapter_common.h"
-#include "../../details/serialization_common.h"
+#include <memory>
+#include <vector>
+#include <unordered_map>
 
 namespace bitsery {
 

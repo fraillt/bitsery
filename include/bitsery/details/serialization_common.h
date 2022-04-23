@@ -23,12 +23,9 @@
 #ifndef BITSERY_DETAILS_SERIALIZATION_COMMON_H
 #define BITSERY_DETAILS_SERIALIZATION_COMMON_H
 
-#include <type_traits>
-#include <utility>
-#include <tuple>
 #include "adapter_common.h"
 #include "../traits/core/traits.h"
-
+#include <tuple>
 
 namespace bitsery {
 

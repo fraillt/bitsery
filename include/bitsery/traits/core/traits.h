@@ -152,7 +152,7 @@ namespace bitsery {
             //it is used to dramaticaly improve performance by updating buffer directly
             //instead of using back_insert_iterator to append each byte to buffer.
 
-            static void increaseBufferSize(T& ,size_t currentOffset, size_t minSize) {
+            static void increaseBufferSize(T& ,size_t , size_t ) {
                 static_assert(std::is_void<T>::value,
                               "Define BufferAdapterTraits or include from <bitsery/traits/...> to use as buffer adapter container");
             }

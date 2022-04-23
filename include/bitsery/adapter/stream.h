@@ -23,8 +23,10 @@
 #ifndef BITSERY_ADAPTER_STREAM_H
 #define BITSERY_ADAPTER_STREAM_H
 
-#include "../details/adapter_common.h"
+#include "../details/adapter_bit_packing.h"
 #include "../traits/array.h"
+#include <algorithm>
+#include <cassert>
 #include <ios>
 #include <limits>
 
@@ -34,6 +36,8 @@ namespace bitsery {
     class BasicInputStreamAdapter: public details::InputAdapterBaseCRTP<BasicInputStreamAdapter<TChar, Config, CharTraits>> {
     public:
         friend details::InputAdapterBaseCRTP<BasicInputStreamAdapter<TChar, Config, CharTraits>>;
+
+        using BitPackingEnabled = details::InputAdapterBitPackingWrapper<BasicInputStreamAdapter<TChar, Config, CharTraits>>;
         using TConfig = Config;
         using TValue = TChar;
 
@@ -117,6 +121,8 @@ namespace bitsery {
     class BasicOutputStreamAdapter: public details::OutputAdapterBaseCRTP<BasicOutputStreamAdapter<TChar, Config, CharTraits>> {
     public:
         friend details::OutputAdapterBaseCRTP<BasicOutputStreamAdapter<TChar, Config, CharTraits>>;
+
+        using BitPackingEnabled = details::OutputAdapterBitPackingWrapper<BasicOutputStreamAdapter<TChar, Config, CharTraits>>;
         using TConfig = Config;
         using TValue = TChar;
 
@@ -161,6 +167,8 @@ namespace bitsery {
         public details::OutputAdapterBaseCRTP<BasicBufferedOutputStreamAdapter<TChar, Config, CharTraits, TBuffer>> {
     public:
         friend details::OutputAdapterBaseCRTP<BasicBufferedOutputStreamAdapter<TChar, Config, CharTraits, TBuffer>>;
+
+        using BitPackingEnabled = details::OutputAdapterBitPackingWrapper<BasicBufferedOutputStreamAdapter<TChar, Config, CharTraits, TBuffer>>;
         using TConfig = Config;
         using Buffer = TBuffer;
         using BufferIt = typename traits::BufferAdapterTraits<TBuffer>::TIterator;
@@ -243,7 +251,7 @@ namespace bitsery {
             } else {
                 writeBufferToStream();
                 // write buffer directly to stream
-                _ostream->rdbuf()->sputn(data, size);
+                _ostream->rdbuf()->sputn(data, static_cast<std::streamsize>(size));
             }
         }
 

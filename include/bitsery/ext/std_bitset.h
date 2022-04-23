@@ -59,7 +59,7 @@ namespace bitsery {
                     }
                 }
                 if (LEFTOVER > 0) {
-                    serializeLeftover(ser.adapter(), obj, N - LEFTOVER, N);
+                    serializeLeftoverImpl(ser.adapter(), obj, N - LEFTOVER, N, std::is_same<Ser, typename Ser::BPEnabledType>{});
                 }
             }
 
@@ -81,15 +81,11 @@ namespace bitsery {
                     obj[offset + 7] = data & 0x80u;
                 }
                 if (LEFTOVER > 0) {
-                    deserializeLeftover(des.adapter(), obj, N - LEFTOVER, N);
+                    deserializeLeftoverImpl(des.adapter(), obj, N - LEFTOVER, N, std::is_same<Des, typename Des::BPEnabledType>{});
                 }
             }
 
         private:
-            template<typename Writer, size_t N>
-            void serializeLeftover(Writer& w, const std::bitset<N> &obj, size_t from, size_t to) const {
-                serializeLeftoverImpl(w, obj, from, to, std::integral_constant<bool, Writer::BitPackingEnabled> {});
-            }
 
             template<typename Writer, size_t N>
             void serializeLeftoverImpl(Writer& w, const std::bitset<N> &obj, size_t from, size_t to, std::integral_constant<bool, false>) const {
@@ -105,11 +101,6 @@ namespace bitsery {
                 for (auto i = from; i < to; ++i) {
                     w.writeBits(obj[i] ? 1u : 0u, 1);
                 }
-            }
-
-            template<typename Reader, size_t N>
-            void deserializeLeftover(Reader& r, std::bitset<N> &obj, size_t from, size_t to) const {
-                deserializeLeftoverImpl(r, obj, from, to, std::integral_constant<bool, Reader::BitPackingEnabled> {});
             }
 
             template<typename Reader, size_t N>

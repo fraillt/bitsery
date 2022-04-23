@@ -23,8 +23,11 @@
 #ifndef BITSERY_ADAPTER_BUFFER_H
 #define BITSERY_ADAPTER_BUFFER_H
 
-#include "../details/adapter_common.h"
+#include "../details/adapter_bit_packing.h"
 #include "../traits/core/traits.h"
+#include <algorithm>
+#include <cassert>
+#include <cstring>
 
 namespace bitsery {
 
@@ -32,6 +35,8 @@ namespace bitsery {
     class InputBufferAdapter: public details::InputAdapterBaseCRTP<InputBufferAdapter<Buffer,Config>> {
     public:
         friend details::InputAdapterBaseCRTP<InputBufferAdapter<Buffer,Config>>;
+
+        using BitPackingEnabled = details::InputAdapterBitPackingWrapper<InputBufferAdapter<Buffer, Config>>;
         using TConfig = Config;
         using TIterator = typename traits::BufferAdapterTraits<typename std::remove_const<Buffer>::type>::TConstIterator;
         using TValue = typename traits::BufferAdapterTraits<typename std::remove_const<Buffer>::type>::TValue;
@@ -108,21 +113,21 @@ namespace bitsery {
 
         template <size_t SIZE>
         void readInternalValue(TValue *data) {
-            readInternalChecked(data, SIZE, std::integral_constant<bool, Config::CheckAdapterErrors>{});
+            readInternalImpl(data, SIZE, std::integral_constant<bool, Config::CheckAdapterErrors>{});
         }
 
         void readInternalBuffer(TValue *data, size_t size) {
-            readInternalChecked(data, size, std::integral_constant<bool, Config::CheckAdapterErrors>{});
+            readInternalImpl(data, size, std::integral_constant<bool, Config::CheckAdapterErrors>{});
         }
 
-        void readInternalChecked(TValue *data, size_t size, std::false_type) {
+        void readInternalImpl(TValue * data, size_t size, std::false_type) {
             const size_t newOffset = _currOffset + size;
             assert(newOffset <= _endReadOffset);
             std::copy_n(_beginIt + static_cast<diff_t>(_currOffset), size, data);
             _currOffset = newOffset;
         }
 
-        void readInternalChecked(TValue *data, size_t size, std::true_type) {
+        void readInternalImpl(TValue *data, size_t size, std::true_type) {
             const size_t newOffset = _currOffset + size;
             if (newOffset <= _endReadOffset) {
                 std::copy_n(_beginIt + static_cast<diff_t>(_currOffset), size, data);
@@ -155,6 +160,7 @@ namespace bitsery {
             return _currOffset;
         }
 
+
         TIterator _beginIt;
         size_t _currOffset;
         size_t _endReadOffset;
@@ -166,6 +172,8 @@ namespace bitsery {
     class OutputBufferAdapter: public details::OutputAdapterBaseCRTP<OutputBufferAdapter<Buffer,Config>> {
     public:
         friend details::OutputAdapterBaseCRTP<OutputBufferAdapter<Buffer,Config>>;
+
+        using BitPackingEnabled = details::OutputAdapterBitPackingWrapper<OutputBufferAdapter<Buffer, Config>>;
         using TConfig = Config;
         using TIterator = typename traits::BufferAdapterTraits<Buffer>::TIterator;
         using TValue = typename traits::BufferAdapterTraits<Buffer>::TValue;

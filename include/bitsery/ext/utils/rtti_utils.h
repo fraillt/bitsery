@@ -32,10 +32,6 @@ namespace bitsery {
 
         struct StandardRTTI {
 
-//                static_assert(!std::is_pointer<TBase>::value &&
-//                              !std::is_const<TBase>::value &&
-//                              !std::is_volatile<TBase>::value, "");
-
             template<typename TBase>
             static size_t get(TBase& obj) {
                 return typeid(obj).hash_code();

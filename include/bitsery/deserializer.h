@@ -25,150 +25,14 @@
 #define BITSERY_DESERIALIZER_H
 
 #include "details/serialization_common.h"
-#include "details/adapter_common.h"
-#include <utility>
 
 namespace bitsery {
-
-    namespace details {
-        template<typename TAdapter>
-        class InputAdapterBitPackingWrapper {
-        public:
-
-            static constexpr bool BitPackingEnabled = true;
-            using TConfig = typename TAdapter::TConfig;
-            using TValue = typename TAdapter::TValue;
-
-            InputAdapterBitPackingWrapper(TAdapter& adapter)
-                : _wrapped{adapter}
-            {
-            }
-
-
-            ~InputAdapterBitPackingWrapper() {
-                align();
-            }
-
-            template<size_t SIZE, typename T>
-            void readBytes(T &v) {
-                static_assert(std::is_integral<T>(), "");
-                static_assert(sizeof(T) == SIZE, "");
-                using UT = typename std::make_unsigned<T>::type;
-                if (!m_scratchBits)
-                    this->_wrapped.template readBytes<SIZE,T>(v);
-                else
-                    readBits(reinterpret_cast<UT &>(v), details::BitsSize<T>::value);
-            }
-
-            template<size_t SIZE, typename T>
-            void readBuffer(T *buf, size_t count) {
-                static_assert(std::is_integral<T>(), "");
-                static_assert(sizeof(T) == SIZE, "");
-
-                if (!m_scratchBits) {
-                    this->_wrapped.template readBuffer<SIZE,T>(buf, count);
-                } else {
-                    using UT = typename std::make_unsigned<T>::type;
-                    //todo improve implementation
-                    const auto end = buf + count;
-                    for (auto it = buf; it != end; ++it)
-                        readBits(reinterpret_cast<UT &>(*it), details::BitsSize<T>::value);
-                }
-            }
-
-            template<typename T>
-            void readBits(T &v, size_t bitsCount) {
-                static_assert(std::is_integral<T>() && std::is_unsigned<T>(), "");
-                readBitsInternal(v, bitsCount);
-            }
-
-            void align() {
-                if (m_scratchBits) {
-                    ScratchType tmp{};
-                    readBitsInternal(tmp, m_scratchBits);
-                    handleAlignErrors(tmp, std::integral_constant<bool, TConfig::CheckDataErrors>{});
-                }
-            }
-
-            void currentReadPos(size_t pos) {
-                align();
-                this->_wrapped.currentReadPos(pos);
-            }
-
-            size_t currentReadPos() const {
-                return this->_wrapped.currentReadPos();
-            }
-
-            void currentReadEndPos(size_t pos) {
-                this->_wrapped.currentReadEndPos(pos);
-            }
-
-            size_t currentReadEndPos() const {
-                return this->_wrapped.currentReadEndPos();
-            }
-
-            bool isCompletedSuccessfully() const {
-                return this->_wrapped.isCompletedSuccessfully();
-            }
-
-            ReaderError error() const {
-                return this->_wrapped.error();
-            }
-
-            void error(ReaderError error) {
-                this->_wrapped.error(error);
-            }
-
-        private:
-            TAdapter& _wrapped;
-            using UnsignedValue = typename std::make_unsigned<typename TAdapter::TValue>::type;
-            using ScratchType = typename details::ScratchType<UnsignedValue>::type;
-
-            ScratchType m_scratch{};
-            size_t m_scratchBits{};
-
-            template<typename T>
-            void readBitsInternal(T &v, size_t size) {
-                auto bitsLeft = size;
-                using TFast = typename FastType<T>::type;
-                TFast res{};
-                while (bitsLeft > 0) {
-                    auto bits = (std::min)(bitsLeft, details::BitsSize<UnsignedValue>::value);
-                    if (m_scratchBits < bits) {
-                        UnsignedValue tmp;
-                        this->_wrapped.template readBytes<sizeof(UnsignedValue), UnsignedValue>(tmp);
-                        m_scratch |= static_cast<ScratchType>(tmp) << m_scratchBits;
-                        m_scratchBits += details::BitsSize<UnsignedValue>::value;
-                    }
-                    auto shiftedRes =
-                        static_cast<T>(m_scratch & ((static_cast<ScratchType>(1) << bits) - 1)) << (size - bitsLeft);
-                    res = static_cast<TFast>(res | static_cast<TFast>(shiftedRes));
-                    m_scratch >>= bits;
-                    m_scratchBits -= bits;
-                    bitsLeft -= bits;
-                }
-                v = static_cast<T>(res);
-            }
-
-            void handleAlignErrors(ScratchType value, std::true_type) {
-                if (value)
-                    error(ReaderError::InvalidData);
-            }
-
-            void handleAlignErrors(ScratchType, std::false_type) {
-            }
-
-        };
-
-    }
 
     template<typename TInputAdapter, typename TContext = void>
     class Deserializer: public details::AdapterAndContextRef<TInputAdapter, TContext> {
     public:
         //helper type, that always returns bit-packing enabled type, useful inside deserialize function when enabling bitpacking
-        using BPEnabledType = Deserializer<typename std::conditional<TInputAdapter::BitPackingEnabled,
-            TInputAdapter,
-            details::InputAdapterBitPackingWrapper<TInputAdapter>>::type, TContext>;
+        using BPEnabledType = Deserializer<typename TInputAdapter::BitPackingEnabled, TContext>;
         using TConfig = typename TInputAdapter::TConfig;
 
         using details::AdapterAndContextRef<TInputAdapter, TContext>::AdapterAndContextRef;
@@ -213,7 +77,7 @@ namespace bitsery {
          */
         template <typename Fnc>
         void enableBitPacking(Fnc&& fnc) {
-            procEnableBitPacking(std::forward<Fnc>(fnc), std::integral_constant<bool, TInputAdapter::BitPackingEnabled>{});
+            procEnableBitPacking(std::forward<Fnc>(fnc), std::is_same<TInputAdapter, typename TInputAdapter::BitPackingEnabled>{});
         }
 
         /*
@@ -253,7 +117,7 @@ namespace bitsery {
          */
         void boolValue(bool &v) {
             procBoolValue(v,
-                std::integral_constant<bool, TInputAdapter::BitPackingEnabled>{},
+                std::is_same<TInputAdapter, typename TInputAdapter::BitPackingEnabled>{},
                 std::integral_constant<bool, TInputAdapter::TConfig::CheckDataErrors>{});
         }
 
@@ -518,7 +382,6 @@ namespace bitsery {
 
         template <typename Fnc>
         void procEnableBitPacking(const Fnc& fnc, std::false_type) {
-            //create deserializer using bitpacking wrapper
             auto des = createWithContext(std::integral_constant<bool, Deserializer::HasContext>{});
             fnc(des);
         }
