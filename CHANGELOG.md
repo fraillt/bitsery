@@ -1,3 +1,16 @@
+# [5.2.3](https://github.com/fraillt/bitsery/compare/v5.2.2...v5.2.3) (2022-12-01)
+
+### Improvements
+* refactored bit-packing implementation to make sure that `MeasureSize` adapter acts as all other adapters and is not bit-packing enabled by default. #91
+* `BufferAdapterTraits::increaseBufferSize` now accepts current size and minimum required size in order to better allocate required memory.
+
+### Bug fixes
+* fix shadow warning in gcc8 #87 (thanks to [museghost](https://github.com/museghost) and brian.kim)
+
+### Other notes
+* format whole code base in Mozilla style.
+* simplified adapters implementations
+
 # [5.2.2](https://github.com/fraillt/bitsery/compare/v5.2.1...v5.2.2) (2021-08-31)
 
 ### Improvements
