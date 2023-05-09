@@ -9,42 +9,27 @@ on:
 jobs:
   build:
     name: ${{ matrix.config.name }}
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         config:
-          - name: "Ubuntu 18.04 with Clang 3.9"
-            cxx_ver: 11
-            compiler: clang
-            compiler_ver: 3.9
-          - name: "Ubuntu 18.04 with GCC 5.0"
-            cxx_ver: 11
+          - name: "Ubuntu Latest with GCC 12"
             compiler: gcc
-            compiler_ver: 5
-          - name: "Ubuntu 18.04 with GCC 11.0"
-            cxx_ver: 17
-            compiler: gcc
-            compiler_ver: 11
-          - name: "Ubuntu 18.04 with Clang 13"
-            cxx_ver: 17
+            compiler_ver: 12
+          - name: "Ubuntu Latests with Clang 15"
             compiler: clang
-            compiler_ver: 13
+            compiler_ver: 15
     steps:
       - name: Prepare specific Clang version
         if: ${{ matrix.config.compiler == 'clang' }}
         run: |
-          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo apt-add-repository "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-13 main"
-          sudo apt update
           sudo apt install clang-${{ matrix.config.compiler_ver}}
           sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++-${{ matrix.config.compiler_ver}} 100
           sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang-${{ matrix.config.compiler_ver}} 100
       - name: Prepare specific GCC version
         if: ${{ matrix.config.compiler == 'gcc' }}
         run: |
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-          sudo apt update
           sudo apt install g++-${{ matrix.config.compiler_ver}}
           sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-${{ matrix.config.compiler_ver}} 100
           sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-${{ matrix.config.compiler_ver}} 100
@@ -55,7 +40,7 @@ jobs:
           sudo apt-get install libgmock-dev
       - uses: actions/checkout@v3
       - name: Configure
-        run: cmake -S . -B build -DBITSERY_BUILD_TESTS=ON -DBITSERY_BUILD_EXAMPLES=ON -DCMAKE_CXX_STANDARD=${{ matrix.config.cxx_ver }}
+        run: cmake -S . -B build -DBITSERY_BUILD_TESTS=ON -DBITSERY_BUILD_EXAMPLES=ON
       - name: Build
         run: cmake --build build
       - name: Run tests
