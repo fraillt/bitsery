@@ -39,7 +39,7 @@ private:
   template<typename S>
   void serialize(S& s)
   {
-    // forward/backward compatibility for monsters
+    // forward/backward compatibility for weapons
     s.ext(*this, bitsery::ext::Growable{}, [](S& s, Weapon& o1) {
       s.text1b(o1.name, 20);
       s.value2b(o1.damage);
@@ -103,8 +103,6 @@ main()
 
   // create buffer to store data to
   Buffer buffer{};
-  // since we're using different configuration, we cannot use quickSerialization
-  // function.
   auto writtenSize = bitsery::quickSerialization<OutputAdapter>(buffer, data);
 
   MyTypes::Monster res{};
