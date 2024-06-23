@@ -23,12 +23,14 @@
 #include <bitsery/brief_syntax.h>
 #include <bitsery/brief_syntax/array.h>
 #include <bitsery/brief_syntax/atomic.h>
+#include <bitsery/brief_syntax/bitset.h>
 #include <bitsery/brief_syntax/chrono.h>
 #include <bitsery/brief_syntax/deque.h>
 #include <bitsery/brief_syntax/forward_list.h>
 #include <bitsery/brief_syntax/list.h>
 #include <bitsery/brief_syntax/map.h>
 #include <bitsery/brief_syntax/memory.h>
+#include <bitsery/brief_syntax/optional.h>
 #include <bitsery/brief_syntax/queue.h>
 #include <bitsery/brief_syntax/set.h>
 #include <bitsery/brief_syntax/stack.h>
@@ -473,6 +475,12 @@ TEST(BriefSyntax, StdAtomic)
               0x1337);
 }
 
+TEST(BriefSyntax, StdBitset)
+{
+  std::bitset<17> bits{ 0b10101010101010101 };
+  EXPECT_TRUE(procBriefSyntax(bits) == bits);
+}
+
 #if __cplusplus > 201402L
 
 TEST(BriefSyntax, StdTuple)
@@ -488,6 +496,12 @@ TEST(BriefSyntax, StdVariant)
   std::variant<float, std::string, std::chrono::milliseconds> t1{ std::string(
     "hello hello") };
   EXPECT_TRUE(procBriefSyntax(t1) == t1);
+}
+
+TEST(BriefSyntax, StdOptional)
+{
+  std::optional<uint32_t> opt{ 54654 };
+  EXPECT_TRUE(procBriefSyntax(opt) == opt);
 }
 
 #endif
