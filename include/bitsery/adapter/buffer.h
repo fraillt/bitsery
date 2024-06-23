@@ -23,6 +23,7 @@
 #ifndef BITSERY_ADAPTER_BUFFER_H
 #define BITSERY_ADAPTER_BUFFER_H
 
+#include "../bitsery.h"
 #include "../details/adapter_bit_packing.h"
 #include "../traits/core/traits.h"
 #include <algorithm>
@@ -276,7 +277,7 @@ private:
     }
   }
 
-  void maybeResize(size_t newOffset, std::false_type)
+  void maybeResize(BITSERY_MAYBE_UNUSED size_t newOffset, std::false_type)
   {
     assert(newOffset <= _bufferSize);
   }

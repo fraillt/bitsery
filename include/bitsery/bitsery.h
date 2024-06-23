@@ -36,6 +36,12 @@
   BITSERY_BUILD_VERSION_STR(                                                   \
     BITSERY_MAJOR_VERSION, BITSERY_MINOR_VERSION, BITSERY_PATCH_VERSION)
 
+#if __cplusplus > 201402L
+#define BITSERY_MAYBE_UNUSED [[maybe_unused]]
+#else
+#define BITSERY_MAYBE_UNUSED
+#endif
+
 #include "deserializer.h"
 #include "serializer.h"
 
