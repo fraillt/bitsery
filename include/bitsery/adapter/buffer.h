@@ -269,12 +269,11 @@ private:
 
   void maybeResize(size_t newOffset, std::true_type)
   {
-    if (newOffset > _bufferSize) {
-      traits::BufferAdapterTraits<Buffer>::increaseBufferSize(
-        *_buffer, _currOffset, newOffset);
-      _beginIt = std::begin(*_buffer);
-      _bufferSize = traits::ContainerTraits<Buffer>::size(*_buffer);
-    }
+    if (newOffset > _bufferSize)
+      BITSERY_UNLIKELY
+      {
+        doResize(newOffset);
+      }
   }
 
   void maybeResize(BITSERY_MAYBE_UNUSED size_t newOffset, std::false_type)
@@ -288,6 +287,14 @@ private:
     maybeResize(newOffset, TResizable{});
     std::copy_n(data, size, _beginIt + static_cast<diff_t>(_currOffset));
     _currOffset = newOffset;
+  }
+
+  BITSERY_NOINLINE void doResize(size_t newOffset)
+  {
+    traits::BufferAdapterTraits<Buffer>::increaseBufferSize(
+      *_buffer, _currOffset, newOffset);
+    _beginIt = std::begin(*_buffer);
+    _bufferSize = traits::ContainerTraits<Buffer>::size(*_buffer);
   }
 };
 
