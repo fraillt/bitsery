@@ -77,12 +77,6 @@
 #define BITSERY_UNLIKELY
 #endif
 
-#if __has_cpp_attribute(maybe_unused)
-#define BITSERY_MAYBE_UNUSED BITSERY_ATTRIBUTE(maybe_unused)
-#else
-#define BITSERY_MAYBE_UNUSED
-#endif
-
 #if __GNUC__
 #define BITSERY_NOINLINE __attribute__((noinline))
 #elif defined(_MSC_VER)

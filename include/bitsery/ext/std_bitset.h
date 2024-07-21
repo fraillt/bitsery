@@ -25,7 +25,7 @@
 
 #include "../traits/core/traits.h"
 #include <bitset>
-#include <cstdint>
+#include <stdint.h>
 
 namespace bitsery {
 namespace ext {

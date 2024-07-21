@@ -276,8 +276,9 @@ private:
       }
   }
 
-  void maybeResize(BITSERY_MAYBE_UNUSED size_t newOffset, std::false_type)
+  void maybeResize(size_t newOffset, std::false_type)
   {
+    static_cast<void>(newOffset);
     assert(newOffset <= _bufferSize);
   }
 
