@@ -1,7 +1,7 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.25)
 project(bitsery
         LANGUAGES CXX
-        VERSION 5.2.2)
+        VERSION 5.2.4)
 
 #======== build options ===================================
 option(BITSERY_BUILD_EXAMPLES "Build examples" OFF)

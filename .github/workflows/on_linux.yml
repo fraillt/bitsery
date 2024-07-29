@@ -9,17 +9,17 @@ on:
 jobs:
   build:
     name: ${{ matrix.config.name }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         config:
-          - name: "Ubuntu Latest with GCC 12"
+          - name: "Ubuntu Latest with GCC 14"
             compiler: gcc
-            compiler_ver: 12
-          - name: "Ubuntu Latests with Clang 15"
+            compiler_ver: 14
+          - name: "Ubuntu Latests with Clang 18"
             compiler: clang
-            compiler_ver: 15
+            compiler_ver: 18
     steps:
       - name: Prepare specific Clang version
         if: ${{ matrix.config.compiler == 'clang' }}
@@ -35,7 +35,6 @@ jobs:
           sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-${{ matrix.config.compiler_ver}} 100
       - name: Installing GTest
         run: |
-          sudo add-apt-repository ppa:team-xbmc/ppa
           sudo apt-get update
           sudo apt-get install libgmock-dev
       - uses: actions/checkout@v3

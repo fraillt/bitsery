@@ -1,3 +1,15 @@
+# [5.2.4](https://github.com/fraillt/bitsery/compare/v5.2.3...v5.2.4) (2024-07-30)
+
+### Improvements
+* implement brief syntax for std::optional and std::bitset. #116 (thanks to [Destroyerrrocket](https://github.com/Destroyerrrocket))
+* improve performance for buffer adapters. #118 (thanks to [Destroyerrrocket](https://github.com/Destroyerrrocket))
+* check if should swap by taking into account actual type (in addition to configuration). #105 (thanks to [SoftdriveFelix](https://github.com/SoftdriveFelix))
+* fix compile errors for latest compilers. #106 (thanks to [NBurley93](https://github.com/NBurley93))
+
+### Other notes
+* change cmake_minimum_required to 3.25.
+* change compilers for ubuntu (gcc 14 and clang 18).
+
 # [5.2.3](https://github.com/fraillt/bitsery/compare/v5.2.2...v5.2.3) (2022-12-01)
 
 ### Improvements

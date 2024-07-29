@@ -25,7 +25,7 @@
 
 #define BITSERY_MAJOR_VERSION 5
 #define BITSERY_MINOR_VERSION 2
-#define BITSERY_PATCH_VERSION 2
+#define BITSERY_PATCH_VERSION 4
 
 #define BITSERY_QUOTE_MACRO(name) #name
 #define BITSERY_BUILD_VERSION_STR(major, minor, patch)                         \
@@ -75,12 +75,6 @@
 #define BITSERY_UNLIKELY BITSERY_ATTRIBUTE(unlikely)
 #else
 #define BITSERY_UNLIKELY
-#endif
-
-#if __has_cpp_attribute(maybe_unused)
-#define BITSERY_MAYBE_UNUSED BITSERY_ATTRIBUTE(maybe_unused)
-#else
-#define BITSERY_MAYBE_UNUSED
 #endif
 
 #if __GNUC__

@@ -15,7 +15,7 @@ jobs:
         run: |
           git clone https://github.com/google/googletest.git
           cd googletest
-          git checkout release-1.11.0
+          git checkout v1.14.0
           cmake -S . -B build -Dgtest_force_shared_crt=ON
           cmake --build build --config Release --target install
       - uses: actions/checkout@v3

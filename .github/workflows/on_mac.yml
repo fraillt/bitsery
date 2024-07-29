@@ -14,9 +14,9 @@ jobs:
         run: |
           git clone https://github.com/google/googletest.git
           cd googletest
-          git checkout release-1.11.0
+          git checkout v1.14.0
           cmake -S . -B build
-          cmake --build build --target install
+          sudo cmake --build build --target install
       - uses: actions/checkout@v3
       - name: Configure
         run: cmake -S . -B build -DBITSERY_BUILD_TESTS=ON -DBITSERY_BUILD_EXAMPLES=ON -DCMAKE_CXX_STANDARD=17
