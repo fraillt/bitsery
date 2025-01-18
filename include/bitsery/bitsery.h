@@ -66,7 +66,7 @@
 #endif
 
 #if __has_cpp_attribute(likely)
-#define BITSERY_LIKELY BITSERY_ATTRIBUTE(likey)
+#define BITSERY_LIKELY BITSERY_ATTRIBUTE(likely)
 #else
 #define BITSERY_LIKELY
 #endif
