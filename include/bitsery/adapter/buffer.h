@@ -127,7 +127,7 @@ public:
 
   bool isCompletedSuccessfully() const { return _currOffset == _bufferSize; }
 
-private:
+protected:
   using diff_t = typename std::iterator_traits<TIterator>::difference_type;
 
   template<size_t SIZE>
@@ -245,7 +245,7 @@ public:
     return _currOffset > _biggestCurrentPos ? _currOffset : _biggestCurrentPos;
   }
 
-private:
+protected:
   using TResizable =
     std::integral_constant<bool, traits::ContainerTraits<Buffer>::isResizable>;
   using diff_t = typename std::iterator_traits<TIterator>::difference_type;
@@ -296,6 +296,71 @@ private:
       *_buffer, _currOffset, newOffset);
     _beginIt = std::begin(*_buffer);
     _bufferSize = traits::ContainerTraits<Buffer>::size(*_buffer);
+  }
+};
+
+template <typename Buffer, size_t Alignment, typename Config = DefaultConfig>
+class InputAlignedBufferAdapter
+   : public InputBufferAdapter<Buffer, Config>
+{
+public:
+  using Base = InputBufferAdapter<Buffer, Config>;
+  using TIterator = typename Base::TIterator;
+
+  InputAlignedBufferAdapter(TIterator beginIt, size_t size)
+    : Base{ beginIt, size }
+  {
+    assert(details::is_sufficiently_aligned<Alignment>(this->_beginIt));
+  }
+
+  InputAlignedBufferAdapter(TIterator beginIt, TIterator endIt)
+    : Base{ beginIt, endIt }
+  {
+    assert(details::is_sufficiently_aligned<Alignment>(this->_beginIt));
+  }
+};
+
+template <typename Buffer, size_t Alignment, typename Config = DefaultConfig>
+class OutputAlignedBufferAdapter
+   : public OutputBufferAdapter<Buffer, Config>
+{
+public:
+  using Base = OutputBufferAdapter<Buffer, Config>;
+  using TValue = typename Base::TValue;
+
+  OutputAlignedBufferAdapter(Buffer& buffer)
+    : Base{ buffer }
+  {
+    assert(details::is_sufficiently_aligned<Alignment>(this->_beginIt));
+  }
+
+  template <size_t ALIGNMENT>
+  TValue* allocateForDirectWrite(size_t size)
+  {
+    constexpr size_t kAlign = ALIGNMENT > Alignment ? ALIGNMENT : Alignment;
+
+    // 1) compute required padding from current write offset
+    auto curr = this->currentWritePos();
+    auto padding = (kAlign - (curr % kAlign)) % kAlign;
+
+    auto newOffset = curr + padding + size;
+
+    // 2) ensure capacity
+    this->maybeResize(newOffset, typename Base::TResizable{});
+
+    // 3) compute result pointer
+    auto it = this->_beginIt + static_cast<typename Base::diff_t>(curr);
+    if (padding > 0) {
+        std::memset(std::addressof(*it), 0, padding);
+    }
+    
+    auto resIt = it + static_cast<typename Base::diff_t>(padding);
+    auto *res = std::addressof(*resIt);
+
+    // 4) advance internal offset
+    this->_currOffset = newOffset;
+
+    return res;
   }
 };
 

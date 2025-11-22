@@ -29,6 +29,8 @@
 #include <cassert>
 #include <climits>
 #include <cstdint>
+#include <type_traits>
+#include <memory>
 
 namespace bitsery {
 
@@ -42,6 +44,22 @@ enum class ReaderError
 };
 
 namespace details {
+
+template <typename>
+struct always_false : std::false_type {};
+
+template <size_t Alignment, typename T>
+bool is_sufficiently_aligned(const T* ptr) {
+    if (Alignment <= 1) return true;
+    return reinterpret_cast<uintptr_t>(ptr) % Alignment == 0;
+}
+
+template <size_t Alignment, typename TIterator>
+typename std::enable_if<!std::is_pointer<TIterator>::value, bool>::type
+is_sufficiently_aligned(const TIterator& it) {
+    if (Alignment <= 1) return true;
+    return is_sufficiently_aligned<Alignment>(std::addressof(*it));
+}
 
 /**
  * size read/write functions
@@ -304,6 +322,15 @@ struct OutputAdapterBaseCRTP
       std::is_void<T>::value,
       "Bit-packing is not enabled.\nEnable by call to `enableBitPacking`) or "
       "create Serializer with bit packing enabled.");
+  }
+
+  template <size_t ALIGNMENT>
+  uint8_t* allocateForDirectWrite(size_t size)
+  {
+    static_assert(details::always_false<Adapter>::value,
+                  "allocateForDirectWrite is not supported by this adapter");
+    (void)size;
+    return nullptr;
   }
 
   void align() {}
