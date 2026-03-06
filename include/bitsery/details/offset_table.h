@@ -779,26 +779,7 @@ struct OffsetTableWriterState
   size_t lastDynamicSignature{ 0 };
   size_t lastDynamicPayloadSize{ 0 };
   const StaticCacheEntry* lastDynamicCacheEntry{ nullptr };
-  struct CapturedEntry
-  {
-    uint16_t fieldId{};
-    FieldKind kind{ FieldKind::Scalar };
-    FieldFlags flags{ FieldFlags::None };
-    size_t begin{};
-    size_t end{};
-    uint32_t elemSize{};
-  };
-  struct CaptureTable
-  {
-    uint16_t typeVersion{ 0 };
-    std::vector<CapturedEntry> entries;
-    void clear()
-    {
-      typeVersion = 0;
-      entries.clear();
-    }
-  };
-  CaptureTable capture{};
+  RecordedTable capture{};
 
   struct Frame
   {
@@ -866,7 +847,8 @@ struct OffsetTableWriterState
     lastDynamicSignature = 0;
     lastDynamicPayloadSize = 0;
     lastDynamicCacheEntry = nullptr;
-    capture.clear();
+    capture.typeVersion = 0;
+    capture.entries.clear();
   }
 };
 
@@ -1032,7 +1014,7 @@ pushOffsetFrame(OffsetTableWriterState& state)
     // Enable capture for flat layouts with no nested tables; fallback to recorder otherwise.
     state.captureEnabled = (!state.rootStatic && !metadata.hasNested);
     if (state.captureEnabled) {
-      state.capture.clear();
+      state.capture.entries.clear();
       state.capture.typeVersion = FieldRegistry<T>::TypeVersion;
       state.capture.entries.reserve(kCount);
       state.postPayload.reserve(sizeof(TableHdr) +
@@ -1087,7 +1069,8 @@ disableCurrentFrame(OffsetTableWriterState& state)
   if (frame)
     frame->active = false;
   state.captureEnabled = false;
-  state.capture.clear();
+  state.capture.typeVersion = 0;
+  state.capture.entries.clear();
   state.enabled = false;
 }
 
@@ -1096,7 +1079,12 @@ closeCapturedFieldAt(OffsetTableWriterState& state, size_t end)
 {
   if (!state.captureEnabled || state.capture.entries.empty())
     return;
-  state.capture.entries.back().end = end;
+  auto& entry = state.capture.entries.back();
+  assert(end >= entry.payloadOff);
+  assert(end <= std::numeric_limits<uint32_t>::max());
+  const auto size = end - static_cast<size_t>(entry.payloadOff);
+  assert(size <= std::numeric_limits<uint32_t>::max());
+  entry.size = static_cast<uint32_t>(size);
 }
 
 inline bool
@@ -1123,18 +1111,39 @@ staticTableCache()
   return cache;
 }
 
-inline const StaticCacheEntry*
-findStaticCacheEntry(const FieldInfo* entries, size_t payloadSize)
+template<typename Adapter>
+inline size_t
+writePostPayloadAndTrailer(Adapter& adapter,
+                           const std::vector<uint8_t>& postPayload,
+                           size_t payloadSize,
+                           uint32_t rootPostOffset,
+                           bool hasNested)
 {
-  if (entries == nullptr)
-    return nullptr;
-  auto& cache = staticTableCache();
-  const auto it = cache.find(entries);
-  if (it == cache.end() || it->second.payloadSize != payloadSize ||
-      it->second.postPayload.empty()) {
-    return nullptr;
+  auto flags = TrailerFlags::OffsetsValid | TrailerFlags::CrossEndianDisallowed;
+  if (hasNested)
+    flags |= TrailerFlags::HasNestedTables;
+
+  const auto totalPayloadSize = payloadSize + postPayload.size();
+  assert(payloadSize <= std::numeric_limits<uint32_t>::max());
+  assert(totalPayloadSize <= std::numeric_limits<uint32_t>::max());
+  const auto rootTableOff =
+    payloadSize + static_cast<size_t>(rootPostOffset);
+  assert(rootTableOff <= std::numeric_limits<uint32_t>::max());
+
+  Trailer trailer{};
+  std::copy(
+    std::begin(TRAILER_MAGIC), std::end(TRAILER_MAGIC), trailer.magic.begin());
+  trailer.version = TRAILER_VERSION;
+  trailer.flags = static_cast<uint8_t>(flags);
+  trailer.reserved = 0;
+  trailer.rootTableOff = static_cast<uint32_t>(rootTableOff);
+
+  if (!postPayload.empty()) {
+    adapter.template writeBuffer<1>(postPayload.data(), postPayload.size());
   }
-  return std::addressof(it->second);
+  adapter.template writeBuffer<1>(reinterpret_cast<const uint8_t*>(&trailer),
+                                  sizeof(trailer));
+  return payloadSize + postPayload.size() + sizeof(trailer);
 }
 
 template<typename Adapter>
@@ -1149,66 +1158,12 @@ writeCachedTablesAndTrailer(Adapter& adapter,
                                     cached.serializedSuffix.size());
     return payloadSize + cached.serializedSuffix.size();
   }
-
-  auto flags = TrailerFlags::OffsetsValid | TrailerFlags::CrossEndianDisallowed;
-  if (cached.hasNested)
-    flags |= TrailerFlags::HasNestedTables;
-
-  Trailer trailer{};
-  std::copy(
-    std::begin(TRAILER_MAGIC), std::end(TRAILER_MAGIC), trailer.magic.begin());
-  trailer.version = TRAILER_VERSION;
-  trailer.flags = static_cast<uint8_t>(flags);
-  trailer.reserved = 0;
-  trailer.rootTableOff =
-    static_cast<uint32_t>(payloadSize + static_cast<size_t>(cached.rootPostOffset));
-
-  if (!cached.postPayload.empty()) {
-    adapter.template writeBuffer<1>(cached.postPayload.data(),
-                                    cached.postPayload.size());
-  }
-  adapter.template writeBuffer<1>(reinterpret_cast<const uint8_t*>(&trailer),
-                                  sizeof(trailer));
-  return payloadSize + cached.postPayload.size() + sizeof(trailer);
-}
-
-inline size_t
-appendTableToPayload(const RecordedTable& table,
-                     OffsetTableWriterState& state)
-{
-  auto blob = serializeTable(table);
-  const auto offset = state.postPayload.size();
-  state.postPayload.insert(
-    state.postPayload.end(), blob.begin(), blob.end());
-  return offset;
-}
-
-inline void
-emitTableFromCapture(const OffsetTableWriterState::CaptureTable& cap,
-                     std::vector<uint8_t>& out)
-{
-  assert(cap.entries.size() <= std::numeric_limits<uint16_t>::max());
-  const auto totalSize =
-    sizeof(TableHdr) + cap.entries.size() * sizeof(Entry);
-  out.resize(totalSize);
-  TableHdr hdr{};
-  hdr.fieldCount = static_cast<uint16_t>(cap.entries.size());
-  hdr.typeVersion = cap.typeVersion;
-  std::memcpy(out.data(), &hdr, sizeof(hdr));
-  auto* ptr = out.data() + sizeof(hdr);
-  for (const auto& src : cap.entries) {
-    Entry dst{};
-    dst.fieldId = src.fieldId;
-    dst.kind = src.kind;
-    dst.flags = src.flags;
-    assert(src.begin <= std::numeric_limits<uint32_t>::max());
-    assert((src.end - src.begin) <= std::numeric_limits<uint32_t>::max());
-    dst.payloadOff = static_cast<uint32_t>(src.begin);
-    dst.size = static_cast<uint32_t>(src.end - src.begin);
-    dst.elemSize = src.elemSize;
-    std::memcpy(ptr, &dst, sizeof(dst));
-    ptr += sizeof(dst);
-  }
+  return writePostPayloadAndTrailer(
+    adapter,
+    cached.postPayload,
+    payloadSize,
+    cached.rootPostOffset,
+    cached.hasNested);
 }
 
 template<typename Adapter>
@@ -1220,30 +1175,12 @@ writeTablesAndTrailer(Adapter& adapter,
   // Capture-based fast path for flat layouts.
   if (state.captureEnabled && !state.capture.entries.empty()) {
     closeCapturedFieldAt(state, payloadSize);
-    emitTableFromCapture(state.capture, state.postPayload);
-    const uint32_t rootPostOffset = 0;
-
-    const auto totalPayloadSize = payloadSize + state.postPayload.size();
-    auto flags = TrailerFlags::OffsetsValid | TrailerFlags::CrossEndianDisallowed;
-
-    Trailer trailer{};
-    std::copy(std::begin(TRAILER_MAGIC),
-              std::end(TRAILER_MAGIC),
-              trailer.magic.begin());
-    trailer.version = TRAILER_VERSION;
-    trailer.flags = static_cast<uint8_t>(flags);
-    trailer.reserved = 0;
-    trailer.rootTableOff =
-      static_cast<uint32_t>(payloadSize + static_cast<size_t>(rootPostOffset));
-
-    if (!state.postPayload.empty()) {
-      adapter.template writeBuffer<1>(
-        state.postPayload.data(), state.postPayload.size());
-    }
-    adapter.template writeBuffer<1>(
-      reinterpret_cast<const uint8_t*>(&trailer), sizeof(trailer));
+    state.postPayload.resize(serializedTableSize(state.capture));
+    serializeTableToBuffer(
+      state.capture, nullptr, 0u, state.postPayload.data());
     state.enabled = true;
-    return payloadSize + state.postPayload.size() + sizeof(trailer);
+    return writePostPayloadAndTrailer(
+      adapter, state.postPayload, payloadSize, 0u, false);
   }
 
   const StaticCacheEntry* cached = state.cachedRootStatic;
@@ -1350,33 +1287,13 @@ writeTablesAndTrailer(Adapter& adapter,
     }
   }
 
-  const auto totalPayloadSize = payloadSize + state.postPayload.size();
-  assert(payloadSize <= std::numeric_limits<uint32_t>::max());
-  assert(totalPayloadSize <= std::numeric_limits<uint32_t>::max());
-
-  auto flags = TrailerFlags::OffsetsValid;
-  if (recorder.hasNestedTables())
-    flags |= TrailerFlags::HasNestedTables;
-  flags |= TrailerFlags::CrossEndianDisallowed;
-
-  Trailer trailer{};
-  std::copy(
-    std::begin(TRAILER_MAGIC), std::end(TRAILER_MAGIC), trailer.magic.begin());
-  trailer.version = TRAILER_VERSION;
-  trailer.flags = static_cast<uint8_t>(flags);
-  trailer.reserved = 0;
-  trailer.rootTableOff =
-    static_cast<uint32_t>(payloadSize + static_cast<size_t>(rootPostOffset));
-
-  if (!state.postPayload.empty()) {
-    adapter.template writeBuffer<1>(
-      state.postPayload.data(), state.postPayload.size());
-  }
-  adapter.template writeBuffer<1>(
-    reinterpret_cast<const uint8_t*>(&trailer), sizeof(trailer));
-
   state.enabled = true;
-  return payloadSize + state.postPayload.size() + sizeof(trailer);
+  return writePostPayloadAndTrailer(
+    adapter,
+    state.postPayload,
+    payloadSize,
+    rootPostOffset,
+    recorder.hasNestedTables());
 }
 
 struct TrailerInfo

@@ -190,6 +190,22 @@ struct InspectContext
   const std::vector<FieldNode<TAdapter>>* nodes{ nullptr };
 };
 
+template<typename TAdapter>
+inline std::pair<const uint8_t*, size_t>
+payloadBytes(const InspectContext<TAdapter>* ctx,
+             size_t payloadOffset,
+             size_t payloadSize)
+{
+  if (!ctx || !ctx->payload || payloadSize == 0u)
+    return { nullptr, 0u };
+  if (payloadOffset > ctx->payloadSize)
+    return { nullptr, 0u };
+  const auto remaining = ctx->payloadSize - payloadOffset;
+  if (payloadSize > remaining)
+    return { nullptr, 0u };
+  return { ctx->payload + payloadOffset, payloadSize };
+}
+
 template<typename Adapter, typename = void>
 struct AdapterConfig
 {
@@ -242,20 +258,14 @@ struct ConstructInvoker
       return;
     }
 
-    const auto* ctx = node._ctx;
-    if (!ctx)
-      return;
-    if (!ctx->payload || node.payloadSize == 0u)
-      return;
-    if (node.payloadOffset > ctx->payloadSize)
-      return;
-    const auto remaining = ctx->payloadSize - node.payloadOffset;
-    if (node.payloadSize > remaining)
+    const auto bytes =
+      detail::payloadBytes(node._ctx, node.payloadOffset, node.payloadSize);
+    if (!bytes.first)
       return;
 
     detail::ByteSpan span{};
-    span.data = ctx->payload + node.payloadOffset;
-    span.length = node.payloadSize;
+    span.data = bytes.first;
+    span.length = bytes.second;
 
     using Config = typename detail::AdapterConfig<TAdapter>::type;
     InputBufferAdapter<detail::ByteSpan, Config> adapter{
@@ -339,15 +349,8 @@ private:
   static std::pair<const uint8_t*, size_t>
   payloadBytes(const FieldNode<TAdapter>& node)
   {
-    const auto* ctx = node._ctx;
-    if (!ctx || !ctx->payload)
-      return { nullptr, 0u };
-    if (node.payloadOffset > ctx->payloadSize)
-      return { nullptr, 0u };
-    const auto remaining = ctx->payloadSize - node.payloadOffset;
-    if (node.payloadSize > remaining)
-      return { nullptr, 0u };
-    return { ctx->payload + node.payloadOffset, node.payloadSize };
+    return detail::payloadBytes(
+      node._ctx, node.payloadOffset, node.payloadSize);
   }
 
   static bool readSizePrefix(const uint8_t*& data,
@@ -473,8 +476,8 @@ template<typename TAdapter>
 inline bool
 FieldNode<TAdapter>::canViewBytes() const
 {
-  return viewable && reason == FieldReason::None && payloadSize != 0u && _ctx &&
-         _ctx->payload;
+  return viewable && reason == FieldReason::None &&
+         detail::payloadBytes(_ctx, payloadOffset, payloadSize).first != nullptr;
 }
 
 template<typename TAdapter>
@@ -483,12 +486,7 @@ FieldNode<TAdapter>::bytes() const
 {
   if (!canViewBytes())
     return { nullptr, 0u };
-  if (payloadOffset > _ctx->payloadSize)
-    return { nullptr, 0u };
-  const auto remaining = _ctx->payloadSize - payloadOffset;
-  if (payloadSize > remaining)
-    return { nullptr, 0u };
-  return { _ctx->payload + payloadOffset, payloadSize };
+  return detail::payloadBytes(_ctx, payloadOffset, payloadSize);
 }
 
 template<typename TAdapter>

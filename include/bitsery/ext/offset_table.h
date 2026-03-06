@@ -24,11 +24,8 @@
 #define BITSERY_EXT_OFFSET_TABLE_H
 
 #include "../serializer.h"
-#include "../adapter/offset_table.h"
 #include "../details/offset_table.h"
 #include "../details/offset_table_serializer.h"
-#include "../offset_table_inspect.h"
-#include "../adapter/buffer.h"
 #include <cassert>
 #include <utility>
 
@@ -42,9 +39,21 @@ struct OffsetTableConfig
 };
 
 template<typename TOutputAdapter>
-using OffsetTableSerializer = Serializer<
-  adapter::OffsetTableOutput<TOutputAdapter>,
-  details::OffsetTableWriterState>;
+using OffsetTableSerializer = details::OffsetTableWriteSerializer<TOutputAdapter>;
+
+template<typename TAdapter, typename TContext>
+inline details::OffsetTableWriterState*
+offsetTableState(Serializer<TAdapter, TContext>& ser)
+{
+  return ser.template contextOrNull<details::OffsetTableWriterState>();
+}
+
+template<typename TAdapter>
+inline details::OffsetTableWriterState*
+offsetTableState(details::OffsetTableWriteSerializer<TAdapter>& ser)
+{
+  return std::addressof(ser.state());
+}
 
 template<typename TAdapter, typename T>
 inline const details::StaticCacheEntry*
@@ -61,11 +70,25 @@ cachedStaticOffsetTable(TAdapter& adapter)
   }
 }
 
-template<typename TAdapter, typename TContext>
-inline details::TableScope
-beginOffsetTable(Serializer<TAdapter, TContext>& ser, uint16_t typeVersion = 0)
+template<typename TAdapter, typename T>
+inline size_t
+serializePayloadWithCachedOffsetTable(TAdapter adapter,
+                                      const T& value,
+                                      const details::StaticCacheEntry& cached)
 {
-  auto* state = ser.template contextOrNull<details::OffsetTableWriterState>();
+  bitsery::Serializer<TAdapter> ser{ std::move(adapter) };
+  ser.object(value);
+  ser.adapter().flush();
+  const auto payloadSize = ser.adapter().writtenBytesCount();
+  return details::writeCachedTablesAndTrailer(
+    ser.adapter(), cached, payloadSize);
+}
+
+template<typename TSerializer>
+inline details::TableScope
+beginOffsetTable(TSerializer& ser, uint16_t typeVersion = 0)
+{
+  auto* state = offsetTableState(ser);
   assert(state);
   return details::TableScope(state->recorder, typeVersion);
 }
@@ -86,18 +109,35 @@ makeFieldScope(Serializer<TAdapter, TContext>& ser,
                typename details::OffsetTableRecorder::TableIndex nestedIdx =
                  details::InvalidTableIndex)
 {
-  auto* state = ser.template contextOrNull<details::OffsetTableWriterState>();
+  auto* state = offsetTableState(ser);
   assert(state);
   return details::FieldOffsetScope<TAdapter>(
     state->recorder, ser.adapter(), fieldId, kind, flags, elemSize, nestedIdx);
 }
 
-template<typename TAdapter, typename TContext>
-inline size_t
-finalizeOffsetTable(Serializer<TAdapter, TContext>& ser)
+template<typename TAdapter>
+inline details::FieldOffsetScope<TAdapter>
+makeFieldScope(details::OffsetTableWriteSerializer<TAdapter>& ser,
+               uint16_t fieldId,
+               details::FieldKind kind,
+               details::FieldFlags flags,
+               uint32_t elemSize,
+               typename details::OffsetTableRecorder::TableIndex nestedIdx =
+                 details::InvalidTableIndex)
 {
-  auto* state = ser.template contextOrNull<details::OffsetTableWriterState>();
+  auto* state = offsetTableState(ser);
   assert(state);
+  return details::FieldOffsetScope<TAdapter>(
+    state->recorder, ser.adapter(), fieldId, kind, flags, elemSize, nestedIdx);
+}
+
+template<typename TSerializer>
+inline size_t
+finalizeOffsetTable(TSerializer& ser)
+{
+  auto* state = offsetTableState(ser);
+  assert(state);
+  ser.adapter().flush();
   const auto payloadSize = ser.adapter().writtenBytesCount();
   return details::writeTablesAndTrailer(
     ser.adapter(), *state, payloadSize);
@@ -117,12 +157,8 @@ serializeWithOffsetTable(details::OffsetTableWriterState& state,
   }
   if (const auto* cached = cachedStaticOffsetTable<TAdapter, T>(adapter)) {
     state.clear();
-    bitsery::Serializer<TAdapter> ser{ std::move(adapter) };
-    ser.object(value);
-    ser.adapter().flush();
-    const auto payloadSize = ser.adapter().writtenBytesCount();
-    return details::writeCachedTablesAndTrailer(
-      ser.adapter(), *cached, payloadSize);
+    return serializePayloadWithCachedOffsetTable(
+      std::move(adapter), value, *cached);
   }
   details::OffsetTableWriteSerializer<TAdapter> ser{ state, std::move(adapter) };
   ser.object(value);
@@ -138,14 +174,9 @@ serializeWithOffsetTable(TAdapter adapter, const T& value)
     return bitsery::quickSerialization(std::move(adapter), value);
   if constexpr (details::IsStreamAdapter<TAdapter>::value)
     return bitsery::quickSerialization(std::move(adapter), value);
-  if (const auto* cached = cachedStaticOffsetTable<TAdapter, T>(adapter)) {
-    bitsery::Serializer<TAdapter> ser{ std::move(adapter) };
-    ser.object(value);
-    ser.adapter().flush();
-    const auto payloadSize = ser.adapter().writtenBytesCount();
-    return details::writeCachedTablesAndTrailer(
-      ser.adapter(), *cached, payloadSize);
-  }
+  if (const auto* cached = cachedStaticOffsetTable<TAdapter, T>(adapter))
+    return serializePayloadWithCachedOffsetTable(
+      std::move(adapter), value, *cached);
   auto state = details::acquireOffsetTableWriterState();
   return serializeWithOffsetTable(state.get(), std::move(adapter), value);
 }
