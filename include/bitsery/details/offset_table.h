@@ -1185,8 +1185,6 @@ appendTableToPayload(const RecordedTable& table,
 
 inline void
 emitTableFromCapture(const OffsetTableWriterState::CaptureTable& cap,
-                     const std::vector<uint32_t>* tableOffsets,
-                     size_t payloadSize,
                      std::vector<uint8_t>& out)
 {
   assert(cap.entries.size() <= std::numeric_limits<uint16_t>::max());
@@ -1222,7 +1220,7 @@ writeTablesAndTrailer(Adapter& adapter,
   // Capture-based fast path for flat layouts.
   if (state.captureEnabled && !state.capture.entries.empty()) {
     closeCapturedFieldAt(state, payloadSize);
-    emitTableFromCapture(state.capture, nullptr, payloadSize, state.postPayload);
+    emitTableFromCapture(state.capture, state.postPayload);
     const uint32_t rootPostOffset = 0;
 
     const auto totalPayloadSize = payloadSize + state.postPayload.size();
