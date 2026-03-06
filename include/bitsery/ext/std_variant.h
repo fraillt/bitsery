@@ -75,8 +75,7 @@ public:
 
       TElem item = ::bitsery::Access::create<TElem>();
       this->serializeType(des, item);
-      data =
-        std::variant<Ts...>(std::in_place_index_t<Index>{}, std::move(item));
+      data.template emplace<Index>(std::move(item));
     });
   }
 };

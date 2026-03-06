@@ -1,6 +1,6 @@
 // MIT License
 //
-// Copyright (c) 2024 Mindaugas Vinkelis
+// Copyright (c) 2024 Mindaugas Vinkelis and Victor Stewart
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,7 @@
 #include "../serializer.h"
 #include "../adapter/offset_table.h"
 #include "../details/offset_table.h"
+#include "../details/offset_table_serializer.h"
 #include "../offset_table_inspect.h"
 #include "../adapter/buffer.h"
 #include <cassert>
@@ -45,6 +46,21 @@ using OffsetTableSerializer = Serializer<
   adapter::OffsetTableOutput<TOutputAdapter>,
   details::OffsetTableWriterState>;
 
+template<typename TAdapter, typename T>
+inline const details::StaticCacheEntry*
+cachedStaticOffsetTable(TAdapter& adapter)
+{
+  if constexpr (!details::FieldRegistry<T>::Enabled ||
+                !details::HasWrittenBytesCount<TAdapter>::value) {
+    return nullptr;
+  } else {
+    if (adapter.writtenBytesCount() != 0u) {
+      return nullptr;
+    }
+    return details::cachedStaticRootEntry<T>();
+  }
+}
+
 template<typename TAdapter, typename TContext>
 inline details::TableScope
 beginOffsetTable(Serializer<TAdapter, TContext>& ser, uint16_t typeVersion = 0)
@@ -54,7 +70,6 @@ beginOffsetTable(Serializer<TAdapter, TContext>& ser, uint16_t typeVersion = 0)
   return details::TableScope(state->recorder, typeVersion);
 }
 
-template<typename TAdapter, typename TContext>
 inline details::TableScope::TableIndex
 endOffsetTable(details::TableScope& scope)
 {
@@ -96,10 +111,23 @@ serializeWithOffsetTable(details::OffsetTableWriterState& state,
 {
   if (!details::FieldRegistry<T>::Enabled)
     return bitsery::quickSerialization(std::move(adapter), value);
-  OffsetTableSerializer<TAdapter> ser{ state, std::move(adapter) };
+  if constexpr (details::IsStreamAdapter<TAdapter>::value) {
+    state.clear();
+    return bitsery::quickSerialization(std::move(adapter), value);
+  }
+  if (const auto* cached = cachedStaticOffsetTable<TAdapter, T>(adapter)) {
+    state.clear();
+    bitsery::Serializer<TAdapter> ser{ std::move(adapter) };
+    ser.object(value);
+    ser.adapter().flush();
+    const auto payloadSize = ser.adapter().writtenBytesCount();
+    return details::writeCachedTablesAndTrailer(
+      ser.adapter(), *cached, payloadSize);
+  }
+  details::OffsetTableWriteSerializer<TAdapter> ser{ state, std::move(adapter) };
   ser.object(value);
   ser.adapter().flush();
-  return ser.adapter().finalize(state);
+  return ser.finalize();
 }
 
 template<typename TAdapter, typename T>
@@ -108,8 +136,18 @@ serializeWithOffsetTable(TAdapter adapter, const T& value)
 {
   if (!details::FieldRegistry<T>::Enabled)
     return bitsery::quickSerialization(std::move(adapter), value);
-  details::OffsetTableWriterState state{};
-  return serializeWithOffsetTable(state, std::move(adapter), value);
+  if constexpr (details::IsStreamAdapter<TAdapter>::value)
+    return bitsery::quickSerialization(std::move(adapter), value);
+  if (const auto* cached = cachedStaticOffsetTable<TAdapter, T>(adapter)) {
+    bitsery::Serializer<TAdapter> ser{ std::move(adapter) };
+    ser.object(value);
+    ser.adapter().flush();
+    const auto payloadSize = ser.adapter().writtenBytesCount();
+    return details::writeCachedTablesAndTrailer(
+      ser.adapter(), *cached, payloadSize);
+  }
+  auto state = details::acquireOffsetTableWriterState();
+  return serializeWithOffsetTable(state.get(), std::move(adapter), value);
 }
 
 }

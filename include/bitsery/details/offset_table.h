@@ -1,6 +1,6 @@
 // MIT License
 //
-// Copyright (c) 2024 Mindaugas Vinkelis
+// Copyright (c) 2024 Mindaugas Vinkelis and Victor Stewart
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <deque>
 #include <limits>
 #include <memory>
 #include <type_traits>
@@ -154,17 +155,21 @@ struct Entry
 static_assert(sizeof(Entry) == 16, "Invalid Entry size");
 
 constexpr size_t InvalidTableIndex = std::numeric_limits<size_t>::max();
+constexpr uint32_t InvalidRecordedTableIndex =
+  std::numeric_limits<uint32_t>::max();
 
 struct RecordedEntry
 {
+  uint32_t payloadOff{};
+  uint32_t size{};
+  uint32_t elemSize{};
+  uint32_t nestedTableIdx{ InvalidRecordedTableIndex };
   uint16_t fieldId{};
   FieldKind kind{ FieldKind::Scalar };
   FieldFlags flags{ FieldFlags::None };
-  size_t payloadBegin{};
-  size_t payloadEnd{};
-  uint32_t elemSize{};
-  size_t nestedTableIdx{ InvalidTableIndex };
 };
+
+static_assert(sizeof(RecordedEntry) == 20, "Unexpected RecordedEntry size");
 
 struct RecordedTable
 {
@@ -301,16 +306,18 @@ class OffsetTableRecorder
 {
 public:
   using TableIndex = size_t;
+  static constexpr uint64_t SignatureSeed = 1469598103934665603ull;
 
   OffsetTableRecorder();
 
-  void pushTable(uint16_t typeVersion = 0);
+  void pushTable(uint16_t typeVersion = 0, size_t expectedFieldCount = 0);
   TableIndex popTable();
 
   RecordedTable& currentTable();
   const RecordedTable& table(TableIndex idx) const;
   const RecordedTable* rootTable() const;
   TableIndex rootTableIndex() const { return _rootIndex; }
+  void clear();
 
   void recordField(uint16_t fieldId,
                    FieldKind kind,
@@ -325,28 +332,43 @@ public:
     return _completed;
   }
 
+  size_t signature() const { return static_cast<size_t>(_signature); }
   bool hasNestedTables() const { return _hasNestedTables; }
   bool hasOpenTable() const { return !_stack.empty(); }
 
 private:
+  void mixSignature(uint64_t v)
+  {
+    _signature ^= v + 0x9e3779b97f4a7c15ull + (_signature << 6) +
+                  (_signature >> 2);
+  }
+
   std::vector<RecordedTable> _stack;
   std::vector<RecordedTable> _completed;
   TableIndex _rootIndex{ InvalidTableIndex };
   bool _hasNestedTables{ false };
+  uint64_t _signature{ SignatureSeed };
 };
+
+struct StaticCacheEntry;
 
 inline OffsetTableRecorder::OffsetTableRecorder()
   : _stack{}
   , _completed{}
   , _rootIndex{ InvalidTableIndex }
   , _hasNestedTables{ false }
+  , _signature{ SignatureSeed }
 {}
 
 inline void
-OffsetTableRecorder::pushTable(uint16_t typeVersion)
+OffsetTableRecorder::pushTable(uint16_t typeVersion, size_t expectedFieldCount)
 {
+  mixSignature(0x6f2c3e6d5a7b9184ull);
+  mixSignature(static_cast<uint64_t>(typeVersion));
   _stack.emplace_back();
   _stack.back().typeVersion = typeVersion;
+  if (expectedFieldCount != 0u)
+    _stack.back().entries.reserve(expectedFieldCount);
   if (_stack.size() > 1u)
     _hasNestedTables = true;
 }
@@ -355,6 +377,8 @@ inline OffsetTableRecorder::TableIndex
 OffsetTableRecorder::popTable()
 {
   assert(!_stack.empty());
+  mixSignature(0x9b9d4f4f5d7aee31ull);
+  mixSignature(static_cast<uint64_t>(_stack.back().entries.size()));
   const auto idx = _completed.size();
   _completed.emplace_back(std::move(_stack.back()));
   _stack.pop_back();
@@ -384,6 +408,16 @@ OffsetTableRecorder::rootTable() const
 }
 
 inline void
+OffsetTableRecorder::clear()
+{
+  _stack.clear();
+  _completed.clear();
+  _rootIndex = InvalidTableIndex;
+  _hasNestedTables = false;
+  _signature = SignatureSeed;
+}
+
+inline void
 OffsetTableRecorder::recordField(uint16_t fieldId,
                                  FieldKind kind,
                                  FieldFlags flags,
@@ -394,16 +428,34 @@ OffsetTableRecorder::recordField(uint16_t fieldId,
 {
   assert(!_stack.empty());
   assert(payloadEnd >= payloadBegin);
+  assert(payloadBegin <= std::numeric_limits<uint32_t>::max());
+  const auto size = payloadEnd - payloadBegin;
+  assert(size <= std::numeric_limits<uint32_t>::max());
+  assert(nestedTableIdx == InvalidTableIndex ||
+         nestedTableIdx <= std::numeric_limits<uint32_t>::max());
+  const auto payloadOff32 = static_cast<uint32_t>(payloadBegin);
+  const auto size32 = static_cast<uint32_t>(size);
+  const auto nestedTableIdx32 =
+    nestedTableIdx == InvalidTableIndex
+      ? InvalidRecordedTableIndex
+      : static_cast<uint32_t>(nestedTableIdx);
+  mixSignature(static_cast<uint64_t>(fieldId));
+  mixSignature(static_cast<uint64_t>(kind));
+  mixSignature(static_cast<uint64_t>(flags));
+  mixSignature(static_cast<uint64_t>(payloadOff32));
+  mixSignature(static_cast<uint64_t>(size32));
+  mixSignature(static_cast<uint64_t>(elemSize));
+  mixSignature(static_cast<uint64_t>(nestedTableIdx32));
   auto& entries = _stack.back().entries;
   assert(entries.size() < std::numeric_limits<uint16_t>::max());
   auto& entry = entries.emplace_back();
+  entry.payloadOff = payloadOff32;
+  entry.size = size32;
+  entry.elemSize = elemSize;
+  entry.nestedTableIdx = nestedTableIdx32;
   entry.fieldId = fieldId;
   entry.kind = kind;
   entry.flags = flags;
-  entry.payloadBegin = payloadBegin;
-  entry.payloadEnd = payloadEnd;
-  entry.elemSize = elemSize;
-  entry.nestedTableIdx = nestedTableIdx;
 }
 
 class TableScope
@@ -411,11 +463,13 @@ class TableScope
 public:
   using TableIndex = OffsetTableRecorder::TableIndex;
 
-  TableScope(OffsetTableRecorder& recorder, uint16_t typeVersion = 0)
+  TableScope(OffsetTableRecorder& recorder,
+             uint16_t typeVersion = 0,
+             size_t expectedFieldCount = 0)
     : _recorder{ std::addressof(recorder) }
     , _popped{ false }
   {
-    _recorder->pushTable(typeVersion);
+    _recorder->pushTable(typeVersion, expectedFieldCount);
   }
 
   TableScope(const TableScope&) = delete;
@@ -579,18 +633,14 @@ toEntry(const RecordedEntry& src,
         const std::vector<uint32_t>* tableOffsets,
         size_t payloadSize)
 {
-  assert(src.payloadEnd >= src.payloadBegin);
-  assert(src.payloadBegin <= std::numeric_limits<uint32_t>::max());
-  assert((src.payloadEnd - src.payloadBegin) <=
-         std::numeric_limits<uint32_t>::max());
   Entry dst{};
   dst.fieldId = src.fieldId;
   dst.kind = src.kind;
   dst.flags = src.flags;
-  dst.payloadOff = static_cast<uint32_t>(src.payloadBegin);
-  dst.size = static_cast<uint32_t>(src.payloadEnd - src.payloadBegin);
+  dst.payloadOff = src.payloadOff;
+  dst.size = src.size;
   if (src.kind == FieldKind::NestedTable &&
-      src.nestedTableIdx != InvalidTableIndex) {
+      src.nestedTableIdx != InvalidRecordedTableIndex) {
     assert(tableOffsets);
     assert(src.nestedTableIdx < tableOffsets->size());
     const auto nestedOff =
@@ -663,6 +713,7 @@ struct StaticCacheEntry
 {
   size_t payloadSize{ 0 };
   std::vector<uint8_t> postPayload;
+  std::vector<uint8_t> serializedSuffix;
   uint32_t rootPostOffset{ 0 };
   bool hasNested{ false };
   size_t signature{ 0 };
@@ -670,6 +721,7 @@ struct StaticCacheEntry
   StaticCacheEntry()
     : payloadSize{ 0 }
     , postPayload{}
+    , serializedSuffix{}
     , rootPostOffset{ 0 }
     , hasNested{ false }
     , signature{ 0 }
@@ -680,28 +732,38 @@ struct StaticCacheEntry
   StaticCacheEntry& operator=(StaticCacheEntry&&) = default;
 };
 
-inline size_t
-hashTables(const std::vector<RecordedTable>& tables)
+struct FieldRegistryMetadata
 {
-  uint64_t h = 1469598103934665603ull;
-  auto mix = [&](uint64_t v) {
-    h ^= v + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2);
-  };
-  mix(static_cast<uint64_t>(tables.size()));
-  for (const auto& t : tables) {
-    mix(static_cast<uint64_t>(t.typeVersion));
-    mix(static_cast<uint64_t>(t.entries.size()));
-    for (const auto& e : t.entries) {
-      mix(static_cast<uint64_t>(e.fieldId));
-      mix(static_cast<uint64_t>(e.kind));
-      mix(static_cast<uint64_t>(e.flags));
-      mix(static_cast<uint64_t>(e.payloadBegin));
-      mix(static_cast<uint64_t>(e.payloadEnd));
-      mix(static_cast<uint64_t>(e.elemSize));
-      mix(static_cast<uint64_t>(e.nestedTableIdx));
-    }
+  bool isStatic{ false };
+  bool hasNested{ false };
+  bool hasAligned{ false };
+};
+
+inline void
+buildSerializedSuffix(StaticCacheEntry& entry)
+{
+  auto flags = TrailerFlags::OffsetsValid | TrailerFlags::CrossEndianDisallowed;
+  if (entry.hasNested)
+    flags |= TrailerFlags::HasNestedTables;
+
+  Trailer trailer{};
+  std::copy(
+    std::begin(TRAILER_MAGIC), std::end(TRAILER_MAGIC), trailer.magic.begin());
+  trailer.version = TRAILER_VERSION;
+  trailer.flags = static_cast<uint8_t>(flags);
+  trailer.reserved = 0;
+  trailer.rootTableOff = static_cast<uint32_t>(
+    entry.payloadSize + static_cast<size_t>(entry.rootPostOffset));
+
+  entry.serializedSuffix.resize(entry.postPayload.size() + sizeof(Trailer));
+  if (!entry.postPayload.empty()) {
+    std::memcpy(entry.serializedSuffix.data(),
+                entry.postPayload.data(),
+                entry.postPayload.size());
   }
-  return static_cast<size_t>(h);
+  std::memcpy(entry.serializedSuffix.data() + entry.postPayload.size(),
+              &trailer,
+              sizeof(Trailer));
 }
 
 struct OffsetTableWriterState
@@ -713,6 +775,10 @@ struct OffsetTableWriterState
   size_t rootCount{ 0 };
   bool rootStatic{ false };
   bool captureEnabled{ false };
+  const StaticCacheEntry* cachedRootStatic{ nullptr };
+  size_t lastDynamicSignature{ 0 };
+  size_t lastDynamicPayloadSize{ 0 };
+  const StaticCacheEntry* lastDynamicCacheEntry{ nullptr };
   struct CapturedEntry
   {
     uint16_t fieldId{};
@@ -747,34 +813,48 @@ struct OffsetTableWriterState
   Frame(OffsetTableRecorder& rec,
         const FieldInfo* e,
         size_t c,
-        uint16_t typeVersion)
+        uint16_t typeVersion,
+        bool aligned)
     : entries{ e }
     , count{ c }
     , next{ 0 }
-    , scope{ rec, typeVersion }
+    , scope{ rec, typeVersion, c }
     , active{ true }
-    , hasAligned{ false }
+    , hasAligned{ aligned }
   {
-    if (entries) {
-      for (size_t i = 0; i < count; ++i) {
-        const auto& f = entries[i];
-        if (f.align > 1 || hasFlag(f.flags, FieldFlags::Aligned)) {
-          hasAligned = true;
-          break;
-        }
-      }
-    }
   }
   Frame(const Frame&) = delete;
   Frame& operator=(const Frame&) = delete;
   Frame(Frame&&) noexcept = default;
   Frame& operator=(Frame&&) noexcept = default;
-};
+  };
   std::vector<Frame> frames{};
+
+  OffsetTableWriterState()
+    : recorder{}
+    , postPayload{}
+    , enabled{ true }
+    , rootEntries{ nullptr }
+    , rootCount{ 0 }
+    , rootStatic{ false }
+    , captureEnabled{ false }
+    , cachedRootStatic{ nullptr }
+    , lastDynamicSignature{ 0 }
+    , lastDynamicPayloadSize{ 0 }
+    , lastDynamicCacheEntry{ nullptr }
+    , capture{}
+    , frames{}
+  {
+  }
+
+  OffsetTableWriterState(const OffsetTableWriterState&) = default;
+  OffsetTableWriterState& operator=(const OffsetTableWriterState&) = default;
+  OffsetTableWriterState(OffsetTableWriterState&&) = default;
+  OffsetTableWriterState& operator=(OffsetTableWriterState&&) = default;
 
   void clear()
   {
-    recorder = OffsetTableRecorder{};
+    recorder.clear();
     postPayload.clear();
     frames.clear();
     enabled = true;
@@ -782,12 +862,150 @@ struct OffsetTableWriterState
     rootCount = 0;
     rootStatic = false;
     captureEnabled = false;
+    cachedRootStatic = nullptr;
+    lastDynamicSignature = 0;
+    lastDynamicPayloadSize = 0;
+    lastDynamicCacheEntry = nullptr;
     capture.clear();
   }
 };
 
+class OffsetTableWriterStateLease
+{
+public:
+  OffsetTableWriterStateLease() = default;
+
+  OffsetTableWriterStateLease(OffsetTableWriterState* state, size_t* depth)
+    : _state{ state }
+    , _depth{ depth }
+  {
+  }
+
+  OffsetTableWriterStateLease(const OffsetTableWriterStateLease&) = delete;
+  OffsetTableWriterStateLease& operator=(const OffsetTableWriterStateLease&) =
+    delete;
+
+  OffsetTableWriterStateLease(OffsetTableWriterStateLease&& other) noexcept
+    : _state{ other._state }
+    , _depth{ other._depth }
+  {
+    other._state = nullptr;
+    other._depth = nullptr;
+  }
+
+  OffsetTableWriterStateLease& operator=(OffsetTableWriterStateLease&& other) noexcept
+  {
+    if (this != std::addressof(other)) {
+      release();
+      _state = other._state;
+      _depth = other._depth;
+      other._state = nullptr;
+      other._depth = nullptr;
+    }
+    return *this;
+  }
+
+  ~OffsetTableWriterStateLease() { release(); }
+
+  OffsetTableWriterState& get() const
+  {
+    assert(_state);
+    return *_state;
+  }
+
+private:
+  void release()
+  {
+    if (_depth) {
+      assert(*_depth > 0u);
+      --(*_depth);
+      _depth = nullptr;
+      _state = nullptr;
+    }
+  }
+
+  OffsetTableWriterState* _state{ nullptr };
+  size_t* _depth{ nullptr };
+};
+
+inline OffsetTableWriterStateLease
+acquireOffsetTableWriterState()
+{
+  struct Pool
+  {
+    std::deque<OffsetTableWriterState> states{};
+    size_t depth{ 0u };
+  };
+
+  thread_local Pool pool{};
+
+  if (pool.depth == pool.states.size())
+    pool.states.emplace_back();
+
+  auto& state = pool.states[pool.depth++];
+  state.clear();
+  return OffsetTableWriterStateLease{
+    std::addressof(state), std::addressof(pool.depth) };
+}
+
 inline bool isStaticLayout(const FieldInfo* entries, size_t count);
 inline std::unordered_map<const FieldInfo*, StaticCacheEntry>& staticTableCache();
+
+template<typename T>
+inline const FieldRegistryMetadata&
+fieldRegistryMetadata()
+{
+  static const FieldRegistryMetadata metadata = [] {
+    FieldRegistryMetadata res{};
+    if constexpr (FieldRegistry<T>::Enabled) {
+      constexpr auto kCount = FieldRegistry<T>::FieldCount;
+      const auto* entries = FieldRegistry<T>::entries();
+      res.isStatic = isStaticLayout(entries, kCount);
+      if (entries != nullptr) {
+        for (size_t i = 0; i < kCount; ++i) {
+          const auto& f = entries[i];
+          if (!res.hasNested &&
+              (f.nestedFieldCount > 0 || f.kind == FieldKind::NestedTable)) {
+            res.hasNested = true;
+          }
+          if (!res.hasAligned &&
+              (f.align > 1 || hasFlag(f.flags, FieldFlags::Aligned))) {
+            res.hasAligned = true;
+          }
+          if (res.hasNested && res.hasAligned)
+            break;
+        }
+      }
+    }
+    return res;
+  }();
+  return metadata;
+}
+
+template<typename T>
+inline const StaticCacheEntry*
+cachedStaticRootEntry()
+{
+  if constexpr (!FieldRegistry<T>::Enabled) {
+    return nullptr;
+  } else {
+    const auto& metadata = fieldRegistryMetadata<T>();
+    if (!metadata.isStatic)
+      return nullptr;
+    static const StaticCacheEntry* cached = nullptr;
+    if (cached != nullptr && !cached->postPayload.empty())
+      return cached;
+    const auto* entries = FieldRegistry<T>::entries();
+    if (entries == nullptr)
+      return nullptr;
+    auto& cache = staticTableCache();
+    const auto it = cache.find(entries);
+    if (it == cache.end() || it->second.postPayload.empty())
+      return nullptr;
+    cached = std::addressof(it->second);
+    return cached;
+  }
+}
 
 template<typename T>
 inline OffsetTableWriterState::Frame*
@@ -797,40 +1015,39 @@ pushOffsetFrame(OffsetTableWriterState& state)
     return nullptr;
   constexpr auto kCount = FieldRegistry<T>::FieldCount;
   const auto* entries = FieldRegistry<T>::entries();
+  const auto& metadata = fieldRegistryMetadata<T>();
   if (state.frames.empty()) {
     state.rootEntries = entries;
     state.rootCount = kCount;
-    state.rootStatic = isStaticLayout(entries, kCount);
+    state.rootStatic = metadata.isStatic;
+    state.cachedRootStatic = nullptr;
     if (state.rootStatic) {
-      auto& cache = staticTableCache();
-      auto it = cache.find(entries);
-      if (it != cache.end()) {
+      if (const auto* cached = cachedStaticRootEntry<T>()) {
         // Cache hit: skip recording; finalize will emit cached tables.
+        state.cachedRootStatic = cached;
         state.enabled = false;
         return nullptr;
       }
     }
     // Enable capture for flat layouts with no nested tables; fallback to recorder otherwise.
-    bool hasNested = false;
-    if (entries != nullptr) {
-      for (size_t i = 0; i < kCount; ++i) {
-        if (entries[i].nestedFieldCount > 0 ||
-            entries[i].kind == FieldKind::NestedTable) {
-          hasNested = true;
-          break;
-        }
-      }
-    }
-    state.captureEnabled = (!state.rootStatic && !hasNested);
+    state.captureEnabled = (!state.rootStatic && !metadata.hasNested);
     if (state.captureEnabled) {
       state.capture.clear();
       state.capture.typeVersion = FieldRegistry<T>::TypeVersion;
+      state.capture.entries.reserve(kCount);
+      state.postPayload.reserve(sizeof(TableHdr) +
+                                kCount * sizeof(Entry) +
+                                sizeof(Trailer));
     }
   }
+  if (state.frames.capacity() == 0u)
+    state.frames.reserve(4u);
   state.frames.emplace_back(state.recorder,
                             entries,
                             kCount,
-                            FieldRegistry<T>::TypeVersion);
+                            FieldRegistry<T>::TypeVersion,
+                            metadata.hasAligned);
+  state.recorder.currentTable().entries.reserve(kCount);
   return &state.frames.back();
 }
 
@@ -869,7 +1086,17 @@ disableCurrentFrame(OffsetTableWriterState& state)
   auto* frame = currentOffsetFrame(state);
   if (frame)
     frame->active = false;
+  state.captureEnabled = false;
+  state.capture.clear();
   state.enabled = false;
+}
+
+inline void
+closeCapturedFieldAt(OffsetTableWriterState& state, size_t end)
+{
+  if (!state.captureEnabled || state.capture.entries.empty())
+    return;
+  state.capture.entries.back().end = end;
 }
 
 inline bool
@@ -894,6 +1121,55 @@ staticTableCache()
 {
   static std::unordered_map<const FieldInfo*, StaticCacheEntry> cache;
   return cache;
+}
+
+inline const StaticCacheEntry*
+findStaticCacheEntry(const FieldInfo* entries, size_t payloadSize)
+{
+  if (entries == nullptr)
+    return nullptr;
+  auto& cache = staticTableCache();
+  const auto it = cache.find(entries);
+  if (it == cache.end() || it->second.payloadSize != payloadSize ||
+      it->second.postPayload.empty()) {
+    return nullptr;
+  }
+  return std::addressof(it->second);
+}
+
+template<typename Adapter>
+inline size_t
+writeCachedTablesAndTrailer(Adapter& adapter,
+                            const StaticCacheEntry& cached,
+                            size_t payloadSize)
+{
+  assert(cached.payloadSize == payloadSize);
+  if (!cached.serializedSuffix.empty()) {
+    adapter.template writeBuffer<1>(cached.serializedSuffix.data(),
+                                    cached.serializedSuffix.size());
+    return payloadSize + cached.serializedSuffix.size();
+  }
+
+  auto flags = TrailerFlags::OffsetsValid | TrailerFlags::CrossEndianDisallowed;
+  if (cached.hasNested)
+    flags |= TrailerFlags::HasNestedTables;
+
+  Trailer trailer{};
+  std::copy(
+    std::begin(TRAILER_MAGIC), std::end(TRAILER_MAGIC), trailer.magic.begin());
+  trailer.version = TRAILER_VERSION;
+  trailer.flags = static_cast<uint8_t>(flags);
+  trailer.reserved = 0;
+  trailer.rootTableOff =
+    static_cast<uint32_t>(payloadSize + static_cast<size_t>(cached.rootPostOffset));
+
+  if (!cached.postPayload.empty()) {
+    adapter.template writeBuffer<1>(cached.postPayload.data(),
+                                    cached.postPayload.size());
+  }
+  adapter.template writeBuffer<1>(reinterpret_cast<const uint8_t*>(&trailer),
+                                  sizeof(trailer));
+  return payloadSize + cached.postPayload.size() + sizeof(trailer);
 }
 
 inline size_t
@@ -945,12 +1221,9 @@ writeTablesAndTrailer(Adapter& adapter,
 {
   // Capture-based fast path for flat layouts.
   if (state.captureEnabled && !state.capture.entries.empty()) {
-    state.postPayload.clear();
-    std::vector<uint8_t> tableBuf;
-    emitTableFromCapture(state.capture, nullptr, payloadSize, tableBuf);
+    closeCapturedFieldAt(state, payloadSize);
+    emitTableFromCapture(state.capture, nullptr, payloadSize, state.postPayload);
     const uint32_t rootPostOffset = 0;
-    state.postPayload.insert(
-      state.postPayload.end(), tableBuf.begin(), tableBuf.end());
 
     const auto totalPayloadSize = payloadSize + state.postPayload.size();
     auto flags = TrailerFlags::OffsetsValid | TrailerFlags::CrossEndianDisallowed;
@@ -975,40 +1248,16 @@ writeTablesAndTrailer(Adapter& adapter,
     return payloadSize + state.postPayload.size() + sizeof(trailer);
   }
 
-  const StaticCacheEntry* cached = nullptr;
-  if (state.rootStatic && state.rootEntries != nullptr) {
-    auto& cache = staticTableCache();
-    auto it = cache.find(state.rootEntries);
-    if (it != cache.end() && it->second.payloadSize == payloadSize &&
-        !it->second.postPayload.empty()) {
-      cached = std::addressof(it->second);
-    }
+  const StaticCacheEntry* cached = state.cachedRootStatic;
+  if (cached != nullptr &&
+      (cached->payloadSize != payloadSize || cached->postPayload.empty())) {
+    cached = nullptr;
   }
 
   if (!state.enabled) {
     if (cached != nullptr) {
       state.enabled = true;
-      auto flags = TrailerFlags::OffsetsValid | TrailerFlags::CrossEndianDisallowed;
-      if (cached->hasNested)
-        flags |= TrailerFlags::HasNestedTables;
-
-      Trailer trailer{};
-      std::copy(std::begin(TRAILER_MAGIC),
-                std::end(TRAILER_MAGIC),
-                trailer.magic.begin());
-      trailer.version = TRAILER_VERSION;
-      trailer.flags = static_cast<uint8_t>(flags);
-      trailer.reserved = 0;
-      trailer.rootTableOff =
-        static_cast<uint32_t>(payloadSize + static_cast<size_t>(cached->rootPostOffset));
-
-      if (!cached->postPayload.empty()) {
-        adapter.template writeBuffer<1>(
-          cached->postPayload.data(), cached->postPayload.size());
-      }
-      adapter.template writeBuffer<1>(
-        reinterpret_cast<const uint8_t*>(&trailer), sizeof(trailer));
-      return payloadSize + cached->postPayload.size() + sizeof(trailer);
+      return writeCachedTablesAndTrailer(adapter, *cached, payloadSize);
     } else {
       for (auto& frame : state.frames) {
         frame.scope.cancel();
@@ -1034,15 +1283,26 @@ writeTablesAndTrailer(Adapter& adapter,
     return payloadSize;
 
   static std::unordered_map<size_t, StaticCacheEntry> staticCache;
-  const size_t signature = hashTables(tables);
+  const size_t signature = recorder.signature();
+  if (state.lastDynamicCacheEntry != nullptr &&
+      state.lastDynamicSignature == signature &&
+      state.lastDynamicPayloadSize == payloadSize &&
+      !state.lastDynamicCacheEntry->postPayload.empty()) {
+    state.enabled = true;
+    return writeCachedTablesAndTrailer(
+      adapter, *state.lastDynamicCacheEntry, payloadSize);
+  }
 
   uint32_t rootPostOffset = 0;
   auto cacheIt = staticCache.find(signature);
   if (cacheIt != staticCache.end() &&
       cacheIt->second.payloadSize == payloadSize &&
       !cacheIt->second.postPayload.empty()) {
-    state.postPayload = cacheIt->second.postPayload;
-    rootPostOffset = cacheIt->second.rootPostOffset;
+    state.lastDynamicSignature = signature;
+    state.lastDynamicPayloadSize = payloadSize;
+    state.lastDynamicCacheEntry = std::addressof(cacheIt->second);
+    state.enabled = true;
+    return writeCachedTablesAndTrailer(adapter, cacheIt->second, payloadSize);
   } else {
     state.postPayload.clear();
     std::vector<uint32_t> tableOffsets(tables.size(), 0u);
@@ -1080,7 +1340,11 @@ writeTablesAndTrailer(Adapter& adapter,
     entry.rootPostOffset = rootPostOffset;
     entry.hasNested = recorder.hasNestedTables();
     entry.signature = signature;
+    buildSerializedSuffix(entry);
     staticCache[signature] = std::move(entry);
+    state.lastDynamicSignature = signature;
+    state.lastDynamicPayloadSize = payloadSize;
+    state.lastDynamicCacheEntry = std::addressof(staticCache[signature]);
     if (state.rootStatic && state.rootEntries != nullptr &&
         !recorder.hasNestedTables()) {
       auto& tableCache = staticTableCache();

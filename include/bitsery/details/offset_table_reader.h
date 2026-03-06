@@ -1,6 +1,6 @@
 // MIT License
 //
-// Copyright (c) 2024 Mindaugas Vinkelis
+// Copyright (c) 2024 Mindaugas Vinkelis and Victor Stewart
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,7 @@
 #include "../offset_table_view.h"
 #include <cstddef>
 #include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 namespace bitsery {
@@ -44,17 +45,15 @@ struct VerifiedOffsetTables
   ot::VerifyResult status{ ot::VerifyResult::NoTrailer };
   ot::ViewCtx ctx{};
   std::vector<TableRecord> tables{};
+  std::unordered_map<size_t, size_t> tableIndexByOffset{};
   size_t rootIndex{ InvalidTableIndex };
 };
 
 inline bool
-hasTable(const std::vector<TableRecord>& tables, size_t offset)
+hasTable(const VerifiedOffsetTables& tables, size_t offset)
 {
-  for (const auto& t : tables) {
-    if (t.offset == offset)
-      return true;
-  }
-  return false;
+  return tables.tableIndexByOffset.find(offset) !=
+         tables.tableIndexByOffset.end();
 }
 
 inline ot::VerifyResult
@@ -62,7 +61,7 @@ loadTablesRecursive(const ot::ViewCtx& ctx,
                     size_t offset,
                     const ot::VerifyConfig& cfg,
                     size_t depth,
-                    std::vector<TableRecord>& out,
+                    VerifiedOffsetTables& out,
                     size_t& rootIndex)
 {
   if (depth > cfg.maxDepth)
@@ -75,8 +74,9 @@ loadTablesRecursive(const ot::ViewCtx& ctx,
   if (!ot::parseTable(ctx.tables, ctx.tablesSize, offset, cfg, tv, res))
     return res;
 
-  auto idx = out.size();
-  out.push_back(TableRecord{ offset, tv });
+  const auto idx = out.tables.size();
+  out.tables.push_back(TableRecord{ offset, tv });
+  out.tableIndexByOffset.emplace(offset, idx);
   if (depth == 0)
     rootIndex = idx;
 
@@ -88,7 +88,8 @@ loadTablesRecursive(const ot::ViewCtx& ctx,
       if (e.elemSize <= ctx.payloadSize)
         return ot::VerifyResult::OutOfBounds;
       const auto nestedOffset = static_cast<size_t>(e.elemSize - ctx.payloadSize);
-      res = loadTablesRecursive(ctx, nestedOffset, cfg, depth + 1, out, rootIndex);
+      res =
+        loadTablesRecursive(ctx, nestedOffset, cfg, depth + 1, out, rootIndex);
       if (res != ot::VerifyResult::Ok)
         return res;
     }
@@ -115,7 +116,7 @@ verifyOffsetTables(const uint8_t* data,
 
   size_t rootIndex = InvalidTableIndex;
   res = loadTablesRecursive(
-    result.ctx, result.ctx.rootTableOffset, cfg, 0u, result.tables, rootIndex);
+    result.ctx, result.ctx.rootTableOffset, cfg, 0u, result, rootIndex);
 
   result.status = res;
   result.rootIndex = rootIndex;
@@ -129,11 +130,10 @@ verifyOffsetTables(const uint8_t* data,
 inline const TableRecord*
 findTable(const VerifiedOffsetTables& v, size_t offset)
 {
-  for (const auto& t : v.tables) {
-    if (t.offset == offset)
-      return std::addressof(t);
-  }
-  return nullptr;
+  const auto it = v.tableIndexByOffset.find(offset);
+  if (it == v.tableIndexByOffset.end() || it->second >= v.tables.size())
+    return nullptr;
+  return &v.tables[it->second];
 }
 
 inline const ot::TableView*

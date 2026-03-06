@@ -28,6 +28,13 @@
 #include <tuple>
 
 namespace bitsery {
+template<typename TChar, typename Config, typename CharTraits>
+class BasicOutputStreamAdapter;
+template<typename TChar, typename Config, typename CharTraits, typename TBuffer>
+class BasicBufferedOutputStreamAdapter;
+}
+
+namespace bitsery {
 
 // this allows to call private serialize method, and construct instance (if no
 // default constructor is provided) for your type just make friend it in your
@@ -109,6 +116,20 @@ struct UseMemberFnc : std::integral_constant<int, 2>
 {};
 
 namespace details {
+
+template<typename T>
+struct IsStreamAdapter : std::false_type
+{};
+
+template<typename C, typename Conf, typename Traits>
+struct IsStreamAdapter<BasicOutputStreamAdapter<C, Conf, Traits>>
+  : std::true_type
+{};
+
+template<typename C, typename Conf, typename Traits, typename Buf>
+struct IsStreamAdapter<BasicBufferedOutputStreamAdapter<C, Conf, Traits, Buf>>
+  : std::true_type
+{};
 
 // helper types for error handling
 template<typename T>

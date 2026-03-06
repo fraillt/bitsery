@@ -1,6 +1,6 @@
 // MIT License
 //
-// Copyright (c) 2024 Mindaugas Vinkelis
+// Copyright (c) 2024 Mindaugas Vinkelis and Victor Stewart
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <type_traits>
 #include <vector>
 #include <bitsery/adapter/buffer.h>
 #include <bitsery/ext/field_registry.h>
@@ -36,6 +37,14 @@
 #include <bitsery/traits/vector.h>
 
 using Buffer = std::vector<uint8_t>;
+
+using InspectAdapter = bitsery::OutputBufferAdapter<Buffer>;
+
+static_assert(
+  !std::is_base_of<
+    bitsery::Serializer<InspectAdapter, bitsery::details::OffsetTableWriterState>,
+    bitsery::details::OffsetTableWriteSerializer<InspectAdapter>>::value,
+  "OffsetTableWriteSerializer must stay independent from Serializer.");
 
 namespace model {
 
@@ -93,6 +102,20 @@ struct KitchenSink
   std::vector<uint8_t> bytes{};
   std::vector<TrivialPod> pods{};
   Nested nested{};
+};
+
+struct FlatDynamic
+{
+  uint32_t prefix{};
+  std::string text{};
+  std::vector<uint8_t> bytes{};
+  uint16_t suffix{};
+};
+
+struct Unregistered
+{
+  uint32_t a{};
+  uint16_t b{};
 };
 
 } // namespace model
@@ -245,6 +268,27 @@ struct FieldRegistry<model::TrivialPod>
   }
 };
 
+template<>
+struct FieldRegistry<model::FlatDynamic>
+{
+  static constexpr bool Enabled = true;
+  static constexpr uint16_t TypeVersion = 0;
+  static constexpr size_t FieldCount = 4;
+  static inline const std::array<FieldInfo, FieldCount> Fields{
+    ext::makeField<model::FlatDynamic>(
+      1, &model::FlatDynamic::prefix, FieldKind::Scalar),
+    ext::makeField<model::FlatDynamic>(
+      2, &model::FlatDynamic::text, FieldKind::Array),
+    ext::makeField<model::FlatDynamic>(
+      3, &model::FlatDynamic::bytes, FieldKind::Array),
+    ext::makeField<model::FlatDynamic>(
+      4, &model::FlatDynamic::suffix, FieldKind::Scalar) };
+  static const FieldInfo* entries()
+  {
+    return Fields.data();
+  }
+};
+
 }} // namespace bitsery::details
 
 namespace model {
@@ -313,6 +357,22 @@ void serialize(S& s, KitchenSink& v)
   s.object(v.nested);
 }
 
+template<typename S>
+void serialize(S& s, FlatDynamic& v)
+{
+  s.value4b(v.prefix);
+  s.text1b(v.text, 64);
+  s.container1b(v.bytes, 64);
+  s.value2b(v.suffix);
+}
+
+template<typename S>
+void serialize(S& s, Unregistered& v)
+{
+  s.value4b(v.a);
+  s.value2b(v.b);
+}
+
 } // namespace model
 
 namespace {
@@ -326,6 +386,63 @@ Buffer serializeWithOffsetTables(const T& value)
     state, bitsery::OutputBufferAdapter<Buffer>{ buf }, value);
   buf.resize(written);
   return buf;
+}
+
+Buffer serializeSimpleWithManualOffsetTable(const model::Simple& value)
+{
+  Buffer buf;
+  bitsery::details::OffsetTableWriterState state{};
+  bitsery::ext::OffsetTableSerializer<InspectAdapter> ser{
+    state, InspectAdapter{ buf }
+  };
+
+  auto table = bitsery::ext::beginOffsetTable(ser);
+  {
+    auto field = bitsery::ext::makeFieldScope(
+      ser,
+      1u,
+      bitsery::details::FieldKind::Scalar,
+      bitsery::details::defaultFieldFlags<uint32_t>(),
+      sizeof(value.a));
+    ser.value4b(value.a);
+  }
+  {
+    auto field = bitsery::ext::makeFieldScope(
+      ser,
+      2u,
+      bitsery::details::FieldKind::Scalar,
+      bitsery::details::defaultFieldFlags<uint16_t>(),
+      sizeof(value.b));
+    ser.value2b(value.b);
+  }
+  bitsery::ext::endOffsetTable(table);
+  ser.adapter().flush();
+
+  const auto written = bitsery::ext::finalizeOffsetTable(ser);
+  buf.resize(written);
+  return buf;
+}
+
+bitsery::details::Entry readRootEntry(const Buffer& buf, size_t index)
+{
+  auto trailerInfo = bitsery::details::parseTrailer(buf.data(), buf.size());
+  EXPECT_TRUE(trailerInfo.valid);
+  bitsery::details::Entry entry{};
+  const auto entryOffset = trailerInfo.payloadSize + sizeof(bitsery::details::TableHdr) +
+                           index * sizeof(bitsery::details::Entry);
+  std::memcpy(&entry, buf.data() + entryOffset, sizeof(entry));
+  return entry;
+}
+
+void writeRootEntry(Buffer& buf,
+                    size_t index,
+                    const bitsery::details::Entry& entry)
+{
+  auto trailerInfo = bitsery::details::parseTrailer(buf.data(), buf.size());
+  ASSERT_TRUE(trailerInfo.valid);
+  const auto entryOffset = trailerInfo.payloadSize + sizeof(bitsery::details::TableHdr) +
+                           index * sizeof(bitsery::details::Entry);
+  std::memcpy(buf.data() + entryOffset, &entry, sizeof(entry));
 }
 
 } // namespace
@@ -723,4 +840,194 @@ TEST(OffsetTableInspect, MissingTrailerFallsBack)
 
   EXPECT_EQ(res.status, bitsery::ot::InspectStatus::NoTrailer);
   EXPECT_EQ(res.root, nullptr);
+}
+
+TEST(OffsetTableInspect, ManualHelperApiBuildsTreeForSimpleType)
+{
+  model::Simple v{};
+  v.a = 0x01020304u;
+  v.b = 0xBEEFu;
+
+  auto buf = serializeSimpleWithManualOffsetTable(v);
+
+  auto res = bitsery::ot::inspectOffsetTable<model::Simple>(
+    buf.data(),
+    buf.size(),
+    bitsery::InputBufferAdapter<Buffer>{ buf.begin(), buf.end() });
+
+  ASSERT_EQ(res.status, bitsery::ot::InspectStatus::Ok);
+  ASSERT_NE(res.root, nullptr);
+  ASSERT_EQ(res.root->childCount, 2u);
+
+  const auto* fieldA = res.root->child(0);
+  ASSERT_NE(fieldA, nullptr);
+  EXPECT_EQ(fieldA->fieldId, 1u);
+  EXPECT_TRUE(fieldA->viewable);
+  EXPECT_EQ(fieldA->construct<uint32_t>(), v.a);
+
+  const auto* fieldB = res.root->child(1);
+  ASSERT_NE(fieldB, nullptr);
+  EXPECT_EQ(fieldB->fieldId, 2u);
+  EXPECT_TRUE(fieldB->viewable);
+  EXPECT_EQ(fieldB->construct<uint16_t>(), v.b);
+}
+
+TEST(OffsetTableInspect, FlatDynamicTypeUsesCaptureFastPath)
+{
+  model::FlatDynamic v{};
+  v.prefix = 0x1234ABCDu;
+  v.text = "capture fast path";
+  v.bytes = { 9, 7, 5, 3, 1 };
+  v.suffix = 0xBEEFu;
+
+  auto buf = serializeWithOffsetTables(v);
+  std::vector<std::max_align_t> alignedStorage(
+    (buf.size() + sizeof(std::max_align_t) - 1u) / sizeof(std::max_align_t));
+  auto* alignedData = reinterpret_cast<uint8_t*>(alignedStorage.data());
+  std::memcpy(alignedData, buf.data(), buf.size());
+  bitsery::ot::detail::ByteSpan alignedSpan{ alignedData, buf.size() };
+  auto trailerInfo = bitsery::details::parseTrailer(buf.data(), buf.size());
+  ASSERT_TRUE(trailerInfo.valid);
+  EXPECT_EQ(trailerInfo.trailer.flags,
+            static_cast<uint8_t>(
+              bitsery::details::TrailerFlags::OffsetsValid |
+              bitsery::details::TrailerFlags::CrossEndianDisallowed));
+
+  auto verified = bitsery::details::verifyOffsetTables(buf.data(), buf.size());
+  ASSERT_EQ(verified.status, bitsery::ot::VerifyResult::Ok);
+  ASSERT_EQ(verified.tables.size(), 1u);
+  ASSERT_EQ(verified.rootIndex, 0u);
+  ASSERT_NE(bitsery::details::rootTable(verified), nullptr);
+  EXPECT_EQ(bitsery::details::rootTable(verified)->hdr.fieldCount, 4u);
+
+  auto res = bitsery::ot::inspectOffsetTable<model::FlatDynamic>(
+    alignedData,
+    buf.size(),
+    bitsery::InputBufferAdapter<bitsery::ot::detail::ByteSpan>{
+      alignedSpan.begin(), alignedSpan.end() });
+
+  ASSERT_EQ(res.status, bitsery::ot::InspectStatus::Ok);
+  ASSERT_NE(res.root, nullptr);
+  ASSERT_EQ(res.root->childCount, 4u);
+
+  const auto* prefix = res.root->child(0);
+  ASSERT_NE(prefix, nullptr);
+  EXPECT_TRUE(prefix->viewable);
+  EXPECT_EQ(prefix->construct<uint32_t>(), v.prefix);
+
+  const auto* text = res.root->child(1);
+  ASSERT_NE(text, nullptr);
+  EXPECT_FALSE(text->viewable);
+  EXPECT_EQ(text->reason, bitsery::ot::FieldReason::CopyOnly);
+  std::string textOut;
+  text->constructInto(textOut);
+  EXPECT_EQ(textOut, v.text);
+
+  const auto* bytes = res.root->child(2);
+  ASSERT_NE(bytes, nullptr);
+  EXPECT_FALSE(bytes->viewable);
+  EXPECT_EQ(bytes->reason, bitsery::ot::FieldReason::CopyOnly);
+  std::vector<uint8_t> bytesOut;
+  bytes->constructInto(bytesOut);
+  EXPECT_EQ(bytesOut, v.bytes);
+
+  const auto* suffix = res.root->child(3);
+  ASSERT_NE(suffix, nullptr);
+  EXPECT_TRUE(suffix->viewable);
+  EXPECT_EQ(suffix->construct<uint16_t>(), v.suffix);
+}
+
+TEST(OffsetTableInspect, FallsBackToPlainSerializationWithoutRegistry)
+{
+  model::Unregistered value{};
+  value.a = 0xDEADBEEFu;
+  value.b = 0x1234u;
+
+  Buffer buf;
+  const auto written = bitsery::ext::serializeWithOffsetTable(
+    bitsery::OutputBufferAdapter<Buffer>{ buf }, value);
+  buf.resize(written);
+
+  auto trailerInfo = bitsery::details::parseTrailer(buf.data(), buf.size());
+  EXPECT_FALSE(trailerInfo.valid);
+}
+
+TEST(OffsetTableInspect, ReportsSizeMismatchForCorruptedEntry)
+{
+  model::Simple v{};
+  v.a = 0xAABBCCDDu;
+  v.b = 0xEEFFu;
+
+  auto buf = serializeWithOffsetTables(v);
+  auto entry = readRootEntry(buf, 0);
+  entry.size = 3;
+  writeRootEntry(buf, 0, entry);
+
+  auto res = bitsery::ot::inspectOffsetTable<model::Simple>(
+    buf.data(),
+    buf.size(),
+    bitsery::InputBufferAdapter<Buffer>{ buf.begin(), buf.end() });
+
+  ASSERT_EQ(res.status, bitsery::ot::InspectStatus::Ok);
+  ASSERT_NE(res.root, nullptr);
+
+  const auto* fieldA = res.root->child(0);
+  ASSERT_NE(fieldA, nullptr);
+  EXPECT_FALSE(fieldA->viewable);
+  EXPECT_EQ(fieldA->reason, bitsery::ot::FieldReason::SizeMismatch);
+
+  uint32_t target = 0xFFFFFFFFu;
+  fieldA->constructInto(target);
+  EXPECT_EQ(target, 0xFFFFFFFFu);
+
+  const auto* fieldB = res.root->child(1);
+  ASSERT_NE(fieldB, nullptr);
+  EXPECT_TRUE(fieldB->viewable);
+  EXPECT_EQ(fieldB->construct<uint16_t>(), v.b);
+}
+
+TEST(OffsetTableInspect, ReportsRegistryMismatchForCorruptedFieldId)
+{
+  model::Simple v{};
+  v.a = 0x11223344u;
+  v.b = 0x5566u;
+
+  auto buf = serializeWithOffsetTables(v);
+  auto entry = readRootEntry(buf, 0);
+  entry.fieldId = 99u;
+  writeRootEntry(buf, 0, entry);
+
+  auto res = bitsery::ot::inspectOffsetTable<model::Simple>(
+    buf.data(),
+    buf.size(),
+    bitsery::InputBufferAdapter<Buffer>{ buf.begin(), buf.end() });
+
+  ASSERT_EQ(res.status, bitsery::ot::InspectStatus::Ok);
+  ASSERT_NE(res.root, nullptr);
+
+  const auto* fieldA = res.root->child(0);
+  ASSERT_NE(fieldA, nullptr);
+  EXPECT_FALSE(fieldA->viewable);
+  EXPECT_EQ(fieldA->reason, bitsery::ot::FieldReason::RegistryMismatch);
+}
+
+TEST(OffsetTableInspect, HonorsMaxFieldNodeLimit)
+{
+  model::Simple v{};
+  v.a = 11u;
+  v.b = 22u;
+
+  auto buf = serializeWithOffsetTables(v);
+  bitsery::ot::InspectConfig cfg{};
+  cfg.maxFieldNodes = 2u;
+
+  const auto status = bitsery::ot::inspectOffsetTable<model::Simple>(
+    buf.data(),
+    buf.size(),
+    bitsery::InputBufferAdapter<Buffer>{ buf.begin(), buf.end() },
+    [](const bitsery::ot::FieldNode<bitsery::InputBufferAdapter<Buffer>>&,
+       const std::vector<uint16_t>&) {},
+    cfg);
+
+  EXPECT_EQ(status, bitsery::ot::InspectStatus::TooManyFields);
 }
