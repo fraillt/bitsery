@@ -181,6 +181,98 @@ serializeWithOffsetTable(TAdapter adapter, const T& value)
   return serializeWithOffsetTable(state.get(), std::move(adapter), value);
 }
 
+#if BITSERY_HAS_CPP26_REFLECTION
+template<typename TAdapter, typename T>
+constexpr bool
+hasSerializerPayload()
+{
+  using Ser = bitsery::Serializer<TAdapter>;
+  return details::HasSerializeFunction<Ser, T>::value ||
+         details::HasSerializeMethod<Ser, T>::value;
+}
+
+template<typename TAdapter, typename T>
+inline size_t
+serializeReflectedPayloadWithCachedOffsetTable(
+  TAdapter adapter,
+  const T& value,
+  const details::StaticCacheEntry& cached)
+{
+  if constexpr (hasSerializerPayload<TAdapter, T>()) {
+    return serializePayloadWithCachedOffsetTable(
+      std::move(adapter), value, cached);
+  } else {
+    details::writeReflectedPayload(adapter, value);
+    adapter.flush();
+    const auto payloadSize = adapter.writtenBytesCount();
+    return details::writeCachedTablesAndTrailer(
+      adapter, cached, payloadSize);
+  }
+}
+
+template<typename TAdapter, typename T>
+inline size_t
+reflectSerializeWithOffsetTable(details::OffsetTableWriterState& state,
+                                TAdapter adapter,
+                                const T& value)
+{
+  static_assert(details::FieldRegistry<T>::Enabled,
+                "reflectSerializeWithOffsetTable requires GCC16 reflection "
+                "metadata or an explicit FieldRegistry.");
+  static_assert(!details::IsStreamAdapter<TAdapter>::value,
+                "reflectSerializeWithOffsetTable requires a random-access "
+                "output adapter.");
+  if constexpr (!hasSerializerPayload<TAdapter, T>()) {
+    if (const auto* cached = details::cachedReflectedStaticRootEntry<T>()) {
+      state.clear();
+      return serializeReflectedPayloadWithCachedOffsetTable(
+        std::move(adapter), value, *cached);
+    }
+  }
+  if (const auto* cached = cachedStaticOffsetTable<TAdapter, T>(adapter)) {
+    state.clear();
+    return serializeReflectedPayloadWithCachedOffsetTable(
+      std::move(adapter), value, *cached);
+  }
+  if constexpr (!hasSerializerPayload<TAdapter, T>()) {
+    return details::reflectSerializeGeneratedWithOffsetTable(
+      state, std::move(adapter), value);
+  }
+  details::OffsetTableWriteSerializer<TAdapter> ser{ state,
+                                                     std::move(adapter) };
+  ser.reflectedObject(value);
+  ser.adapter().flush();
+  return ser.finalize();
+}
+
+template<typename TAdapter, typename T>
+inline size_t
+reflectSerializeWithOffsetTable(TAdapter adapter, const T& value)
+{
+  static_assert(details::FieldRegistry<T>::Enabled,
+                "reflectSerializeWithOffsetTable requires GCC16 reflection "
+                "metadata or an explicit FieldRegistry.");
+  static_assert(!details::IsStreamAdapter<TAdapter>::value,
+                "reflectSerializeWithOffsetTable requires a random-access "
+                "output adapter.");
+  if constexpr (!hasSerializerPayload<TAdapter, T>()) {
+    if (const auto* cached = details::cachedReflectedStaticRootEntry<T>())
+      return serializeReflectedPayloadWithCachedOffsetTable(
+        std::move(adapter), value, *cached);
+  }
+  if (const auto* cached = cachedStaticOffsetTable<TAdapter, T>(adapter))
+    return serializeReflectedPayloadWithCachedOffsetTable(
+      std::move(adapter), value, *cached);
+  if constexpr (!hasSerializerPayload<TAdapter, T>()) {
+    return details::reflectSerializeGeneratedWithOffsetTable(
+      std::move(adapter), value);
+  }
+  auto state = details::acquireOffsetTableWriterState();
+  return reflectSerializeWithOffsetTable(
+    state.get(), std::move(adapter), value);
+}
+#endif
+
 }
 
 }

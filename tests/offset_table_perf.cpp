@@ -45,12 +45,84 @@ struct Sample
   std::array<uint8_t, 32> data{};
 };
 
+struct ReflectedSample
+{
+  uint32_t a{};
+  uint32_t b{};
+  std::array<uint8_t, 32> data{};
+};
+
+struct ReflectedOnlySample
+{
+  uint32_t a{};
+  uint32_t b{};
+  std::array<uint8_t, 32> data{};
+};
+
+struct ReflectedDynamicNested
+{
+  std::vector<uint8_t> bytes{};
+  std::string note{};
+  uint32_t tail{};
+};
+
+struct ReflectedDynamic
+{
+  uint32_t id{};
+  std::string title{};
+  std::vector<uint8_t> payload{};
+  ReflectedDynamicNested nested{};
+  std::array<uint16_t, 4> fixed{};
+};
+
+struct SerializerDynamicNested
+{
+  std::vector<uint8_t> bytes{};
+  std::string note{};
+  uint32_t tail{};
+};
+
+struct SerializerDynamic
+{
+  uint32_t id{};
+  std::string title{};
+  std::vector<uint8_t> payload{};
+  SerializerDynamicNested nested{};
+  std::array<uint16_t, 4> fixed{};
+};
+
 template<typename S>
 void serialize(S& s, Sample& v)
 {
   s.value4b(v.a);
   s.value4b(v.b);
   s.container1b(v.data);
+}
+
+template<typename S>
+void serialize(S& s, ReflectedSample& v)
+{
+  s.value4b(v.a);
+  s.value4b(v.b);
+  s.container1b(v.data);
+}
+
+template<typename S>
+void serialize(S& s, SerializerDynamicNested& v)
+{
+  s.container1b(v.bytes, 128);
+  s.text1b(v.note, 64);
+  s.value4b(v.tail);
+}
+
+template<typename S>
+void serialize(S& s, SerializerDynamic& v)
+{
+  s.value4b(v.id);
+  s.text1b(v.title, 64);
+  s.container1b(v.payload, 256);
+  s.object(v.nested);
+  s.container2b(v.fixed);
 }
 
 struct Pod
@@ -235,6 +307,124 @@ TEST(OffsetTablePerf, DISABLED_SerializeBaselineVsOffsetTable)
                offsetMs,
                iterations);
 }
+
+#if BITSERY_HAS_CPP26_REFLECTION
+TEST(OffsetTablePerf, DISABLED_ReflectedSerializeVsOffsetTable)
+{
+  const size_t iterations = 50'000;
+  ReflectedSample value{};
+  value.a = 0xAAu;
+  value.b = 0xBBu;
+  value.data.fill(0xCCu);
+  ReflectedOnlySample reflectedOnlyValue{};
+  reflectedOnlyValue.a = value.a;
+  reflectedOnlyValue.b = value.b;
+  reflectedOnlyValue.data = value.data;
+
+  auto benchQuick = [&]() {
+    Buffer buf;
+    auto adapter = bitsery::OutputBufferAdapter<Buffer>{ buf };
+    bitsery::Serializer<decltype(adapter)> ser{ std::move(adapter) };
+    ser.object(value);
+    ser.adapter().flush();
+  };
+
+  auto benchOffsetEnabled = [&]() {
+    Buffer buf;
+    auto adapter = bitsery::OutputBufferAdapter<Buffer>{ buf };
+    bitsery::ext::serializeWithOffsetTable(std::move(adapter), value);
+  };
+
+  auto benchReflectedOffset = [&]() {
+    Buffer buf;
+    auto adapter = bitsery::OutputBufferAdapter<Buffer>{ buf };
+    bitsery::ext::reflectSerializeWithOffsetTable(std::move(adapter), value);
+  };
+
+  auto benchReflectedDirectOffset = [&]() {
+    Buffer buf;
+    auto adapter = bitsery::OutputBufferAdapter<Buffer>{ buf };
+    bitsery::ext::reflectSerializeWithOffsetTable(
+      std::move(adapter), reflectedOnlyValue);
+  };
+
+  const auto quick = timeMany(iterations, benchQuick);
+  const auto offsetEnabled = timeMany(iterations, benchOffsetEnabled);
+  const auto reflectedOffset = timeMany(iterations, benchReflectedOffset);
+  const auto reflectedDirectOffset =
+    timeMany(iterations, benchReflectedDirectOffset);
+
+  const auto quickMs = std::chrono::duration<double, std::milli>(quick).count();
+  const auto offsetMs =
+    std::chrono::duration<double, std::milli>(offsetEnabled).count();
+  const auto reflectedMs =
+    std::chrono::duration<double, std::milli>(reflectedOffset).count();
+  const auto reflectedDirectMs =
+    std::chrono::duration<double, std::milli>(reflectedDirectOffset).count();
+
+  std::fprintf(stderr,
+               "perf-reflect: quickSerialization=%0.2fms "
+               "offsetTableRegistry=%0.2fms reflectedOffsetTable=%0.2fms "
+               "reflectedDirectOffsetTable=%0.2fms "
+               "(iters=%zu)\n",
+               quickMs,
+               offsetMs,
+               reflectedMs,
+               reflectedDirectMs,
+               iterations);
+}
+
+TEST(OffsetTablePerf, DISABLED_ReflectedDynamicGeneratedVsGeneric)
+{
+  const size_t iterations = 5'000;
+  ReflectedDynamic generatedValue{};
+  generatedValue.id = 0xDEADBEEFu;
+  generatedValue.title = "generated reflected dynamic";
+  generatedValue.payload.assign(200, 0x5Au);
+  generatedValue.nested.bytes.assign(80, 0xC3u);
+  generatedValue.nested.note = "nested reflected bytes";
+  generatedValue.nested.tail = 0xAABBCCDDu;
+  generatedValue.fixed = { { 0x1111u, 0x2222u, 0x3333u, 0x4444u } };
+
+  SerializerDynamic genericValue{};
+  genericValue.id = generatedValue.id;
+  genericValue.title = generatedValue.title;
+  genericValue.payload = generatedValue.payload;
+  genericValue.nested.bytes = generatedValue.nested.bytes;
+  genericValue.nested.note = generatedValue.nested.note;
+  genericValue.nested.tail = generatedValue.nested.tail;
+  genericValue.fixed = generatedValue.fixed;
+
+  auto benchGeneric = [&]() {
+    Buffer buf;
+    auto adapter = bitsery::OutputBufferAdapter<Buffer>{ buf };
+    bitsery::ext::reflectSerializeWithOffsetTable(
+      std::move(adapter), genericValue);
+  };
+
+  auto benchGenerated = [&]() {
+    Buffer buf;
+    auto adapter = bitsery::OutputBufferAdapter<Buffer>{ buf };
+    bitsery::ext::reflectSerializeWithOffsetTable(
+      std::move(adapter), generatedValue);
+  };
+
+  const auto generic = timeMany(iterations, benchGeneric);
+  const auto generated = timeMany(iterations, benchGenerated);
+
+  const auto genericMs =
+    std::chrono::duration<double, std::milli>(generic).count();
+  const auto generatedMs =
+    std::chrono::duration<double, std::milli>(generated).count();
+
+  std::fprintf(stderr,
+               "perf-reflect-dynamic: genericSerializerOffsetTable=%0.2fms "
+               "generatedReflectedOffsetTable=%0.2fms (iters=%zu)\n",
+               genericMs,
+               generatedMs,
+               iterations);
+}
+#endif
 
 TEST(OffsetTablePerf, DISABLED_KitchenSinkVsOffsetTable)
 {

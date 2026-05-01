@@ -118,6 +118,22 @@ struct Unregistered
   uint16_t b{};
 };
 
+struct ReflectedDynamicNested
+{
+  std::vector<uint8_t> bytes{};
+  std::string note{};
+  uint32_t tail{};
+};
+
+struct ReflectedDynamic
+{
+  uint32_t id{};
+  std::string title{};
+  std::vector<uint8_t> payload{};
+  ReflectedDynamicNested nested{};
+  std::array<uint16_t, 4> fixed{};
+};
+
 } // namespace model
 
 namespace bitsery { namespace details {
@@ -937,6 +953,123 @@ TEST(OffsetTableInspect, FlatDynamicTypeUsesCaptureFastPath)
   EXPECT_EQ(suffix->construct<uint16_t>(), v.suffix);
 }
 
+#if BITSERY_HAS_CPP26_REFLECTION
+TEST(OffsetTableInspect, AutoReflectsPlainAggregateWithoutManualRegistry)
+{
+  static_assert(bitsery::details::FieldRegistry<model::Unregistered>::Enabled,
+                "plain aggregate schemas should be reflected on GCC 16");
+
+  model::Unregistered value{};
+  value.a = 0xDEADBEEFu;
+  value.b = 0x1234u;
+
+  auto buf = serializeWithOffsetTables(value);
+  auto trailerInfo = bitsery::details::parseTrailer(buf.data(), buf.size());
+  ASSERT_TRUE(trailerInfo.valid);
+
+  auto entryA = readRootEntry(buf, 0);
+  auto entryB = readRootEntry(buf, 1);
+  EXPECT_EQ(entryA.fieldId, 1u);
+  EXPECT_EQ(entryA.size, sizeof(value.a));
+  EXPECT_EQ(entryB.fieldId, 2u);
+  EXPECT_EQ(entryB.size, sizeof(value.b));
+}
+
+TEST(OffsetTableInspect, ReflectSerializeBuildsBorrowedScalarView)
+{
+  model::Unregistered value{};
+  value.a = 0xDEADBEEFu;
+  value.b = 0x1234u;
+
+  Buffer buf;
+  bitsery::details::OffsetTableWriterState state{};
+  const auto written = bitsery::ext::reflectSerializeWithOffsetTable(
+    state, bitsery::OutputBufferAdapter<Buffer>{ buf }, value);
+  buf.resize(written);
+
+  auto view = bitsery::ot::makeOffsetTableView<model::Unregistered>(
+    buf.data(), buf.size());
+  ASSERT_TRUE(view.valid());
+
+  bitsery::ot::VerifyResult res = bitsery::ot::VerifyResult::Ok;
+  auto a = view.field<uint32_t>(1u, res);
+  ASSERT_EQ(res, bitsery::ot::VerifyResult::Ok);
+  ASSERT_NE(a.value, nullptr);
+  EXPECT_EQ(*a.value, value.a);
+
+  res = bitsery::ot::VerifyResult::Ok;
+  auto b = view.field<uint16_t>(2u, res);
+  ASSERT_EQ(res, bitsery::ot::VerifyResult::Ok);
+  ASSERT_NE(b.value, nullptr);
+  EXPECT_EQ(*b.value, value.b);
+}
+
+TEST(OffsetTableInspect, ReflectSerializeGeneratedDynamicBuildsNestedView)
+{
+  model::ReflectedDynamic value{};
+  value.id = 0xDEADBEEFu;
+  value.title = "generated reflected dynamic";
+  value.payload = { 9, 7, 5, 3, 1 };
+  value.nested.bytes = { 1, 2, 3, 4 };
+  value.nested.note = "nested reflected bytes";
+  value.nested.tail = 0xAABBCCDDu;
+  value.fixed = { { 0x1111u, 0x2222u, 0x3333u, 0x4444u } };
+
+  Buffer buf;
+  bitsery::details::OffsetTableWriterState state{};
+  const auto written = bitsery::ext::reflectSerializeWithOffsetTable(
+    state, bitsery::OutputBufferAdapter<Buffer>{ buf }, value);
+  buf.resize(written);
+
+  auto res = bitsery::ot::inspectOffsetTable<model::ReflectedDynamic>(
+    buf.data(),
+    buf.size(),
+    bitsery::InputBufferAdapter<Buffer>{ buf.begin(), buf.end() });
+
+  ASSERT_EQ(res.status, bitsery::ot::InspectStatus::Ok);
+  ASSERT_NE(res.root, nullptr);
+  ASSERT_EQ(res.root->childCount, 5u);
+
+  const auto* id = res.root->child(0);
+  ASSERT_NE(id, nullptr);
+  EXPECT_TRUE(id->viewable);
+  EXPECT_EQ(id->construct<uint32_t>(), value.id);
+
+  const auto* title = res.root->child(1);
+  ASSERT_NE(title, nullptr);
+  EXPECT_FALSE(title->viewable);
+  std::string titleOut;
+  title->constructInto(titleOut);
+  EXPECT_EQ(titleOut, value.title);
+
+  const auto* payload = res.root->child(2);
+  ASSERT_NE(payload, nullptr);
+  EXPECT_FALSE(payload->viewable);
+  std::vector<uint8_t> payloadOut;
+  payload->constructInto(payloadOut);
+  EXPECT_EQ(payloadOut, value.payload);
+
+  const auto* nested = res.root->child(3);
+  ASSERT_NE(nested, nullptr);
+  EXPECT_FALSE(nested->viewable);
+  ASSERT_EQ(nested->childCount, 3u);
+
+  const auto* nestedTail = nested->child(2);
+  ASSERT_NE(nestedTail, nullptr);
+  EXPECT_TRUE(nestedTail->viewable);
+  EXPECT_EQ(nestedTail->construct<uint32_t>(), value.nested.tail);
+
+  const auto* fixed = res.root->child(4);
+  ASSERT_NE(fixed, nullptr);
+  EXPECT_TRUE(fixed->viewable);
+  auto fixedBytes = fixed->bytes();
+  ASSERT_NE(fixedBytes.first, nullptr);
+  ASSERT_EQ(fixedBytes.second, sizeof(value.fixed));
+  std::array<uint16_t, 4> fixedOut{};
+  std::memcpy(fixedOut.data(), fixedBytes.first, fixedBytes.second);
+  EXPECT_EQ(fixedOut, value.fixed);
+}
+#else
 TEST(OffsetTableInspect, FallsBackToPlainSerializationWithoutRegistry)
 {
   model::Unregistered value{};
@@ -951,6 +1084,7 @@ TEST(OffsetTableInspect, FallsBackToPlainSerializationWithoutRegistry)
   auto trailerInfo = bitsery::details::parseTrailer(buf.data(), buf.size());
   EXPECT_FALSE(trailerInfo.valid);
 }
+#endif
 
 TEST(OffsetTableInspect, ReportsSizeMismatchForCorruptedEntry)
 {

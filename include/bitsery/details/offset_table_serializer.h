@@ -103,6 +103,28 @@ public:
       _bits_ot_field_scope.cancel();
   }
 
+#if BITSERY_HAS_CPP26_REFLECTION
+  template<typename T>
+  void reflectedObject(const T& obj)
+  {
+    static_assert(FieldRegistry<T>::Enabled,
+                  "Reflected offset-table serialization requires a reflected "
+                  "or explicit FieldRegistry.");
+    auto _bits_ot_field_scope =
+      makeOffsetFieldScope(FieldKind::NestedTable,
+                           defaultFieldFlags<T>() | FieldFlags::None,
+                           0u);
+    auto _bits_ot_type_scope = makeOffsetTypeScope<T>();
+    reflectedMembers(obj);
+    auto _bits_ot_nested_idx = _bits_ot_type_scope.pop();
+    if (_bits_ot_nested_idx != InvalidTableIndex)
+      _bits_ot_field_scope.nestedTableIdx(_bits_ot_nested_idx);
+    else
+      _bits_ot_field_scope.cancel();
+  }
+
+#endif
+
   template<typename T, typename Fnc>
   void object(const T& obj, Fnc&& fnc)
   {
@@ -400,6 +422,50 @@ public:
   }
 
 private:
+#if BITSERY_HAS_CPP26_REFLECTION
+  template<typename T>
+  void reflectedMembers(const T& obj)
+  {
+    constexpr auto ctx = std::meta::access_context::unchecked();
+    static constexpr auto members = std::define_static_array(
+      std::meta::nonstatic_data_members_of(^^T, ctx));
+    template for (constexpr auto member : members) {
+      reflectedField(obj.[:member:]);
+    }
+  }
+
+  template<typename T>
+  void reflectedField(const T& field)
+  {
+    using RawT =
+      typename std::remove_cv<typename std::remove_reference<T>::type>::type;
+    if constexpr (IsTextTraitsDefined<RawT>::value) {
+      constexpr auto valueSize =
+        sizeof(typename traits::ContainerTraits<RawT>::TValue);
+      if constexpr (traits::ContainerTraits<RawT>::isResizable) {
+        text<valueSize>(field, traits::TextTraits<RawT>::length(field));
+      } else {
+        text<valueSize>(field);
+      }
+    } else if constexpr (IsContainerTraitsDefined<RawT>::value) {
+      constexpr auto valueSize =
+        sizeof(typename traits::ContainerTraits<RawT>::TValue);
+      if constexpr (traits::ContainerTraits<RawT>::isResizable) {
+        container<valueSize>(field, traits::ContainerTraits<RawT>::size(field));
+      } else {
+        container<valueSize>(field);
+      }
+    } else if constexpr (IsFundamentalType<RawT>::value) {
+      value<sizeof(RawT)>(field);
+    } else if constexpr (FieldRegistry<RawT>::Enabled) {
+      reflectedObject(field);
+    } else {
+      object(field);
+    }
+  }
+
+#endif
+
   template<size_t VSIZE, typename It>
   void procContainer(It first, It last, std::false_type)
   {
@@ -527,13 +593,20 @@ private:
   struct OffsetTypeScope
   {
     OffsetTableWriterState* state{};
+    TOutputAdapter* adapter{};
     OffsetTableWriterState::Frame* frame{};
 
     OffsetTableWriterState::Frame::TableIndex pop()
     {
       if (!frame || !state || !state->enabled)
         return InvalidTableIndex;
-      return popOffsetFrame(*state);
+      size_t payloadEnd = 0;
+      if constexpr (HasCurrentWritePos<TOutputAdapter>::value) {
+        payloadEnd = adapter->currentWritePos();
+      } else if constexpr (HasWrittenBytesCount<TOutputAdapter>::value) {
+        payloadEnd = adapter->writtenBytesCount();
+      }
+      return popOffsetFrame(*state, payloadEnd);
     }
   };
 
@@ -558,6 +631,7 @@ private:
       return res;
     }
     res.state = std::addressof(st);
+    res.adapter = std::addressof(this->_adapter);
     res.frame = pushOffsetFrame<T>(st);
     return res;
   }
@@ -583,8 +657,8 @@ private:
     } else if constexpr (HasWrittenBytesCount<TOutputAdapter>::value) {
       begin = this->_adapter.writtenBytesCount();
     }
-    if (st.captureEnabled)
-      closeCapturedFieldAt(st, begin);
+    if (st.captureEnabled && frame->captured)
+      closeCapturedFrameFieldAt(st, *frame, begin);
     if (frame->hasAligned && hasFlag(info->flags, FieldFlags::Aligned) &&
         info->align > 1 && HasCurrentWritePos<TOutputAdapter>::value) {
       const auto padding =
@@ -599,8 +673,9 @@ private:
       return {};
     }
     auto mergedFlags = info->flags | flags;
-    if (st.captureEnabled) {
+    if (st.captureEnabled && frame->captured) {
       assert(begin <= std::numeric_limits<uint32_t>::max());
+      assert(frame->captureTableIdx < st.captureTableCount);
       RecordedEntry entry{};
       entry.fieldId = info->id;
       entry.kind = info->kind;
@@ -608,7 +683,8 @@ private:
       entry.payloadOff = static_cast<uint32_t>(begin);
       entry.size = 0u;
       entry.elemSize = elemSize;
-      st.capture.entries.push_back(entry);
+      entry.nestedTableIdx = InvalidRecordedTableIndex;
+      st.captureTables[frame->captureTableIdx].entries.push_back(entry);
       return {};
     }
     return FieldOffsetScope<TOutputAdapter>(

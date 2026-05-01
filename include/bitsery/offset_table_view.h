@@ -128,6 +128,16 @@ struct TableView
   const details::Entry* entries{};
 };
 
+inline const details::Entry*
+findEntry(const TableView& table, uint16_t fieldId)
+{
+  for (uint16_t i = 0; i < table.hdr.fieldCount; ++i) {
+    if (table.entries[i].fieldId == fieldId)
+      return table.entries + i;
+  }
+  return nullptr;
+}
+
 inline bool
 parseTable(const uint8_t* base,
            size_t tablesSize,
@@ -264,6 +274,24 @@ struct OffsetTableView
   }
 
   bool valid() const { return status == VerifyResult::Ok; }
+
+  const details::Entry* find(uint16_t fieldId) const
+  {
+    if (!valid())
+      return nullptr;
+    return findEntry(root, fieldId);
+  }
+
+  template<typename TValue>
+  FieldView<TValue> field(uint16_t fieldId, VerifyResult& res) const
+  {
+    const auto* entry = find(fieldId);
+    if (!entry) {
+      res = VerifyResult::OutOfBounds;
+      return {};
+    }
+    return makeFieldView<TValue>(ctx, *entry, res, 0u);
+  }
 };
 
 template<typename T>

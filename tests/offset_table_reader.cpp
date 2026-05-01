@@ -269,6 +269,13 @@ TEST(OffsetTableView, BuildsTypedZeroCopyViewForScalarField)
   ASSERT_NE(fv.value, nullptr);
   EXPECT_FALSE(fv.copyOnly);
   EXPECT_EQ(*fv.value, value);
+
+  res = VerifyResult::Ok;
+  auto byId = view.field<uint32_t>(1u, res);
+  ASSERT_EQ(res, VerifyResult::Ok);
+  ASSERT_NE(byId.value, nullptr);
+  EXPECT_EQ(*byId.value, value);
+  EXPECT_EQ(view.find(2u), nullptr);
 }
 
 TEST(OffsetTableView, MarksCopyOnlyFieldWithoutExposingTypedPointer)
