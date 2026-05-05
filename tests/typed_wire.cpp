@@ -373,5 +373,18 @@ TEST(TypedWire, ReflectionUnavailable)
   auto view = bitsery::tw::TypedWireView<ApplicationStateRequest>{};
   EXPECT_FALSE(view.valid());
   EXPECT_EQ(view.status(), bitsery::tw::Status::NoReflection);
+  EXPECT_FALSE(view.versioned());
+
+  auto factoryView =
+    bitsery::tw::makeTypedWireView<ApplicationStateRequest>(nullptr, 0u);
+  EXPECT_FALSE(factoryView.valid());
+  EXPECT_EQ(factoryView.status(), bitsery::tw::Status::NoReflection);
+  EXPECT_FALSE(factoryView.versioned());
+
+  auto versionedFactoryView =
+    bitsery::tw::makeTypedWireView<VersionedState>(nullptr, 0u, 7u);
+  EXPECT_FALSE(versionedFactoryView.valid());
+  EXPECT_EQ(versionedFactoryView.status(), bitsery::tw::Status::NoReflection);
+  EXPECT_FALSE(versionedFactoryView.versioned());
 }
 #endif

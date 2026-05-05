@@ -473,9 +473,41 @@ template<typename T>
 class TypedWireView
 {
 public:
+  TypedWireView() = default;
+  TypedWireView(const uint8_t* data, size_t size)
+  {
+    (void)data;
+    (void)size;
+  }
+  TypedWireView(const uint8_t* data,
+                size_t size,
+                bool hasExpected,
+                uint64_t expected)
+  {
+    (void)data;
+    (void)size;
+    (void)hasExpected;
+    (void)expected;
+  }
+
   bool valid() const { return false; }
   Status status() const { return Status::NoReflection; }
+  bool versioned() const { return false; }
 };
+
+template<typename T>
+inline TypedWireView<T>
+makeTypedWireView(const uint8_t* data, size_t size)
+{
+  return TypedWireView<T>{ data, size };
+}
+
+template<typename T>
+inline TypedWireView<T>
+makeTypedWireView(const uint8_t* data, size_t size, uint64_t expectedVersion)
+{
+  return TypedWireView<T>{ data, size, true, expectedVersion };
+}
 #endif
 
 } // namespace tw
