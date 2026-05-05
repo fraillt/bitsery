@@ -38,8 +38,9 @@ using Buffer = std::vector<uint8_t>;
 template<typename T>
 void appendObject(Buffer& buf, const T& value)
 {
-  auto* ptr = reinterpret_cast<const uint8_t*>(&value);
-  buf.insert(buf.end(), ptr, ptr + sizeof(T));
+  const auto pos = buf.size();
+  buf.resize(pos + sizeof(T));
+  std::memcpy(buf.data() + pos, &value, sizeof(T));
 }
 
 size_t appendTable(Buffer& buf, uint16_t typeVersion, const std::vector<Entry>& entries)
@@ -101,6 +102,21 @@ size_t firstMisalignedOffset(const uint8_t* base, size_t alignment, size_t limit
 }
 
 } // namespace
+
+TEST(OffsetTableWireFormat, UsesCompactTrailerWithoutChangingEntryStride)
+{
+  Entry entry{};
+  entry.kind = FieldKind::NestedTable;
+  entry.flags = FieldFlags::CopyOnly | FieldFlags::Aligned;
+
+  EXPECT_EQ(sizeof(Trailer), 14u);
+  EXPECT_EQ(sizeof(TableHdr), 4u);
+  EXPECT_EQ(sizeof(Entry), 16u);
+  EXPECT_EQ(entry.kind, FieldKind::NestedTable);
+  EXPECT_TRUE(hasFlag(entry.flags, FieldFlags::CopyOnly));
+  EXPECT_TRUE(hasFlag(entry.flags, FieldFlags::Aligned));
+  EXPECT_FALSE(hasFlag(entry.flags, FieldFlags::Optional));
+}
 
 TEST(OffsetTableReader, FailsWithoutTrailer)
 {

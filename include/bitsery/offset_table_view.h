@@ -70,33 +70,36 @@ verifyTrailer(const uint8_t* data, size_t size, ViewCtx& ctx)
   if (size < sizeof(details::Trailer))
     return VerifyResult::NoTrailer;
 
-  details::Trailer trailer{};
   auto* trailerPos = data + (size - sizeof(details::Trailer));
-  std::memcpy(&trailer, trailerPos, sizeof(details::Trailer));
 
   if (!std::equal(std::begin(details::TRAILER_MAGIC),
                   std::end(details::TRAILER_MAGIC),
-                  trailer.magic.begin()))
+                  reinterpret_cast<const char*>(trailerPos)))
     return VerifyResult::BadMagic;
-  if (trailer.version != details::TRAILER_VERSION)
+  const auto version = *(trailerPos + offsetof(details::Trailer, version));
+  if (version != details::TRAILER_VERSION)
     return VerifyResult::BadVersion;
 
-  const auto flags = static_cast<details::TrailerFlags>(trailer.flags);
+  const auto flags = static_cast<details::TrailerFlags>(
+    *(trailerPos + offsetof(details::Trailer, flags)));
   if (!details::hasFlag(flags, details::TrailerFlags::OffsetsValid))
     return VerifyResult::NoTrailer;
   if (!details::hasFlag(flags, details::TrailerFlags::CrossEndianDisallowed))
     return VerifyResult::NoTrailer;
 
-  if (trailer.rootTableOff > size - sizeof(details::Trailer))
+  uint32_t rootTableOff{};
+  std::memcpy(&rootTableOff,
+              trailerPos + offsetof(details::Trailer, rootTableOff),
+              sizeof(rootTableOff));
+  if (rootTableOff > size - sizeof(details::Trailer))
     return VerifyResult::OutOfBounds;
-  const auto payloadSize = static_cast<size_t>(trailer.rootTableOff);
+  const auto payloadSize = static_cast<size_t>(rootTableOff);
   const auto tablesSize = size - sizeof(details::Trailer) - payloadSize;
   ctx.payload = data;
   ctx.payloadSize = payloadSize;
   ctx.tables = data + payloadSize;
   ctx.tablesSize = tablesSize;
-  ctx.rootTableOffset =
-    static_cast<size_t>(trailer.rootTableOff - payloadSize);
+  ctx.rootTableOffset = static_cast<size_t>(rootTableOff - payloadSize);
 
   if (bitsery::DefaultConfig::Endianness != details::getSystemEndianness())
     return VerifyResult::WrongEndianness;

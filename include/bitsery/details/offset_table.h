@@ -86,14 +86,30 @@ hasFlag(TrailerFlags value, TrailerFlags flag)
 struct Trailer
 {
   std::array<char, 8> magic;
+  uint32_t rootTableOff;
   uint8_t version;
   uint8_t flags;
-  uint16_t reserved;
-  uint32_t rootTableOff;
 };
 #pragma pack(pop)
 
-static_assert(sizeof(Trailer) == 16, "Invalid Trailer size");
+static_assert(sizeof(Trailer) == 14, "Invalid Trailer size");
+static_assert(offsetof(Trailer, magic) == 0, "Invalid Trailer magic offset");
+static_assert(offsetof(Trailer, rootTableOff) == 8,
+              "Invalid Trailer root offset");
+static_assert(offsetof(Trailer, version) == 12,
+              "Invalid Trailer version offset");
+static_assert(offsetof(Trailer, flags) == 13, "Invalid Trailer flags offset");
+
+inline void
+loadTrailer(const uint8_t* trailerPos, Trailer& trailer)
+{
+  std::copy(trailerPos, trailerPos + trailer.magic.size(), trailer.magic.begin());
+  std::memcpy(&trailer.rootTableOff,
+              trailerPos + offsetof(Trailer, rootTableOff),
+              sizeof(trailer.rootTableOff));
+  trailer.version = *(trailerPos + offsetof(Trailer, version));
+  trailer.flags = *(trailerPos + offsetof(Trailer, flags));
+}
 
 enum class FieldKind : uint8_t
 {
@@ -1106,7 +1122,6 @@ buildSerializedSuffix(StaticCacheEntry& entry)
     std::begin(TRAILER_MAGIC), std::end(TRAILER_MAGIC), trailer.magic.begin());
   trailer.version = TRAILER_VERSION;
   trailer.flags = static_cast<uint8_t>(flags);
-  trailer.reserved = 0;
   trailer.rootTableOff = static_cast<uint32_t>(
     entry.payloadSize + static_cast<size_t>(entry.rootPostOffset));
 
@@ -1828,7 +1843,6 @@ writePostPayloadAndTrailer(Adapter& adapter,
     std::begin(TRAILER_MAGIC), std::end(TRAILER_MAGIC), trailer.magic.begin());
   trailer.version = TRAILER_VERSION;
   trailer.flags = static_cast<uint8_t>(flags);
-  trailer.reserved = 0;
   trailer.rootTableOff = static_cast<uint32_t>(rootTableOff);
 
   if (!postPayload.empty()) {
@@ -2418,7 +2432,7 @@ parseTrailer(const uint8_t* data, size_t size)
   if (size < sizeof(Trailer))
     return info;
   auto* trailerPos = data + (size - sizeof(Trailer));
-  std::memcpy(&info.trailer, trailerPos, sizeof(Trailer));
+  loadTrailer(trailerPos, info.trailer);
   info.valid = std::equal(std::begin(TRAILER_MAGIC),
                           std::end(TRAILER_MAGIC),
                           info.trailer.magic.begin()) &&
