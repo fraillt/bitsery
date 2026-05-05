@@ -26,6 +26,7 @@
 #include "../details/serialization_common.h"
 #include "../traits/core/traits.h"
 #include <optional>
+#include <type_traits>
 
 namespace bitsery {
 namespace ext {
@@ -61,13 +62,20 @@ public:
     if (_alignBeforeData)
       des.adapter().align();
     if (exists) {
-      deserialize_impl(des, obj, fnc, std::is_trivial<T>{});
+      deserialize_impl(des, obj, fnc, IsTriviallyReinitializable<T>{});
     } else {
       obj = std::nullopt;
     }
   }
 
 private:
+  template<typename T>
+  using IsTriviallyReinitializable = std::integral_constant<
+    bool,
+    std::is_trivially_default_constructible<T>::value &&
+      std::is_trivially_copyable<T>::value &&
+      std::is_trivially_destructible<T>::value>;
+
   template<typename Des, typename T, typename Fnc>
   void deserialize_impl(Des& des,
                         std::optional<T>& obj,

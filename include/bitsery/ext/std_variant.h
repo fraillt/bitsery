@@ -25,6 +25,7 @@
 
 #include "../traits/core/traits.h"
 #include "utils/composite_type_overloads.h"
+#include <type_traits>
 #include <variant>
 
 namespace bitsery {
@@ -66,7 +67,7 @@ public:
       // Reinitializing nontrivial types may be expensive especially when they
       // reference heap data, so if `data` is already holding the requested
       // variant then we'll deserialize into the existing object
-      if constexpr (!std::is_trivial_v<TElem>) {
+      if constexpr (!IsTriviallyReinitializable<TElem>::value) {
         if (auto item = std::get_if<Index>(&data)) {
           this->serializeType(des, *item);
           return;
@@ -75,10 +76,17 @@ public:
 
       TElem item = ::bitsery::Access::create<TElem>();
       this->serializeType(des, item);
-      data =
-        std::variant<Ts...>(std::in_place_index_t<Index>{}, std::move(item));
+      data.template emplace<Index>(std::move(item));
     });
   }
+
+private:
+  template<typename T>
+  using IsTriviallyReinitializable = std::integral_constant<
+    bool,
+    std::is_trivially_default_constructible<T>::value &&
+      std::is_trivially_copyable<T>::value &&
+      std::is_trivially_destructible<T>::value>;
 };
 
 // deduction guide
