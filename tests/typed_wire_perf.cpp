@@ -21,6 +21,7 @@
 // SOFTWARE.
 
 #include <bitsery/adapter/buffer.h>
+#include <bitsery/deserializer.h>
 #include <bitsery/serializer.h>
 #include <bitsery/typed_wire.h>
 #include <bitsery/traits/array.h>
@@ -36,6 +37,12 @@
 #include <vector>
 
 using Buffer = std::vector<uint8_t>;
+
+#if defined(__GNUC__) || defined(__clang__)
+#define BITSERY_NOINLINE __attribute__((noinline))
+#else
+#define BITSERY_NOINLINE
+#endif
 
 namespace {
 
@@ -158,21 +165,70 @@ void serialize(S& s, KitchenSink& v)
   s.object(v.nested);
 }
 
+volatile uint64_t gSink{};
+
+void consume(uint64_t value)
+{
+  gSink = gSink + value;
+}
+
+uint64_t signature(const ApplicationStateRequest& v)
+{
+  return v.applicationState;
+}
+
+uint64_t signature(const ActivityRequest& v)
+{
+  return static_cast<uint64_t>(v.userId) ^ static_cast<uint64_t>(v.activityId) ^
+         v.timestamp;
+}
+
+uint64_t signature(const VersionedState& v)
+{
+  return static_cast<uint64_t>(v.version) << 32u | v.state;
+}
+
+uint64_t signature(const StaticSample& v)
+{
+  return static_cast<uint64_t>(v.a) + v.b + v.data.size();
+}
+
+uint64_t signature(const DynamicSample& v)
+{
+  return static_cast<uint64_t>(v.id) + v.title.size() + v.payload.size() +
+         v.fixed.size();
+}
+
+uint64_t signature(const KitchenSink& v)
+{
+  return static_cast<uint64_t>(v.id) + v.title.size() + v.payload.size() +
+         v.pods.size() + v.nested.bytes.size() + v.nested.note.size();
+}
+
 template<typename T>
-size_t normalBytes(const T& value)
+Buffer normalSerialize(const T& value)
 {
   Buffer buf;
   const auto written = bitsery::quickSerialization(
     bitsery::OutputBufferAdapter<Buffer>{ buf }, value);
-  return written;
+  buf.resize(written);
+  return buf;
 }
 
 template<typename T>
-size_t typedBytes(const T& value)
+BITSERY_NOINLINE uint64_t normalReadOnce(const Buffer& buf)
 {
-  Buffer buf;
-  return bitsery::ext::serializeTypedWire(
-    bitsery::OutputBufferAdapter<Buffer>{ buf }, value);
+  T out{};
+  const auto res = bitsery::quickDeserialization(
+    bitsery::InputBufferAdapter<Buffer>{ buf.begin(), buf.size() }, out);
+  return signature(out) + static_cast<uint64_t>(res.second);
+}
+
+template<typename T, typename Fnc>
+BITSERY_NOINLINE uint64_t typedReadOnce(const Buffer& buf, Fnc fnc)
+{
+  auto view = bitsery::tw::makeTypedWireView<T>(buf.data(), buf.size());
+  return fnc(view) + static_cast<uint64_t>(view.valid());
 }
 
 template<typename Fn>
@@ -185,67 +241,79 @@ timeMany(size_t iterations, Fn&& fn)
   return std::chrono::steady_clock::now() - start;
 }
 
-template<typename T>
-void benchCase(const char* name, size_t iterations, const T& value)
+template<typename T, typename Fnc>
+void benchCase(const char* name, size_t iterations, const T& value, Fnc fnc)
 {
-  const auto quickBytes = normalBytes(value);
-  const auto reflectedBytes = typedBytes(value);
-  EXPECT_EQ(reflectedBytes, quickBytes);
+  const auto buf = normalSerialize(value);
 
-  auto benchQuick = [&]() {
-    Buffer buf;
-    bitsery::quickSerialization(bitsery::OutputBufferAdapter<Buffer>{ buf },
-                                value);
+  auto benchNormal = [&]() {
+    consume(normalReadOnce<T>(buf));
   };
   auto benchTyped = [&]() {
-    Buffer buf;
-    bitsery::ext::serializeTypedWire(
-      bitsery::OutputBufferAdapter<Buffer>{ buf }, value);
+    consume(typedReadOnce<T>(buf, fnc));
   };
 
-  const auto quick = timeMany(iterations, benchQuick);
+  const auto quick = timeMany(iterations, benchNormal);
   const auto typed = timeMany(iterations, benchTyped);
   std::fprintf(stderr,
-               "perf-typed-%s: quickSerialization=%0.2fms "
-               "typedWire=%0.2fms bytes=%zu (iters=%zu)\n",
+               "perf-typed-read-%s: quickDeserialization=%0.2fms "
+               "typedWireRead=%0.2fms bytes=%zu (iters=%zu)\n",
                name,
                std::chrono::duration<double, std::milli>(quick).count(),
                std::chrono::duration<double, std::milli>(typed).count(),
-               quickBytes,
+               buf.size(),
                iterations);
 }
 
 } // namespace
 
 #if BITSERY_HAS_CPP26_REFLECTION
-TEST(TypedWirePerf, DISABLED_NormalBitseryVsTypedWire)
+TEST(TypedWirePerf, DISABLED_NormalBitseryVsTypedWireRead)
 {
   ApplicationStateRequest app{};
   app.applicationState = 0x2Au;
-  benchCase("application-state", 100'000u, app);
+  benchCase("application-state", 100'000u, app, [](auto& view) {
+    return static_cast<uint64_t>(view.template field<0>().copy());
+  });
 
   ActivityRequest activity{};
   activity.userId = -123456789;
   activity.activityId = 987654321;
   activity.timestamp = 0xAABBCCDDEEFF0011ULL;
-  benchCase("activity", 50'000u, activity);
+  benchCase("activity", 50'000u, activity, [](auto& view) {
+    return static_cast<uint64_t>(view.template field<0>().copy()) ^
+           static_cast<uint64_t>(view.template field<1>().copy()) ^
+           view.template field<2>().copy();
+  });
 
   VersionedState versioned{};
   versioned.state = 0xCAFEBABEu;
-  benchCase("versioned-state", 50'000u, versioned);
+  benchCase("versioned-state", 50'000u, versioned, [](auto& view) {
+    return static_cast<uint64_t>(view.template field<0>().copy()) << 32u |
+           view.template field<1>().copy();
+  });
 
   StaticSample stat{};
   stat.a = 0xAAu;
   stat.b = 0xBBu;
   stat.data.fill(0xCCu);
-  benchCase("static-sample", 50'000u, stat);
+  benchCase("static-sample", 50'000u, stat, [](auto& view) {
+    return static_cast<uint64_t>(view.template field<0>().copy()) +
+           view.template field<1>().copy() +
+           view.template field<2>().bytes.size;
+  });
 
   DynamicSample dynamic{};
   dynamic.id = 0xDEADBEEFu;
   dynamic.title = "typed dynamic payload";
   dynamic.payload.assign(200u, 0x5Au);
   dynamic.fixed = { { 0x1111u, 0x2222u, 0x3333u, 0x4444u } };
-  benchCase("dynamic-sample", 5'000u, dynamic);
+  benchCase("dynamic-sample", 5'000u, dynamic, [](auto& view) {
+    return static_cast<uint64_t>(view.template field<0>().copy()) +
+           view.template field<1>().bytes.size +
+           view.template field<2>().bytes.size +
+           view.template field<3>().bytes.size;
+  });
 
   KitchenSink kitchen{};
   kitchen.id = 0xDEADBEEFu;
@@ -259,6 +327,14 @@ TEST(TypedWirePerf, DISABLED_NormalBitseryVsTypedWire)
   }
   kitchen.nested.bytes.assign(80u, 0xC3u);
   kitchen.nested.note = "nested bytes";
-  benchCase("kitchen-sink", 5'000u, kitchen);
+  benchCase("kitchen-sink", 5'000u, kitchen, [](auto& view) {
+    return static_cast<uint64_t>(view.template field<0>().copy()) +
+           view.template field<1>().bytes.size +
+           view.template field<2>().bytes.size +
+           view.template field<3>().bytes.size +
+           view.template field<4>().bytes.size;
+  });
 }
 #endif
+
+#undef BITSERY_NOINLINE

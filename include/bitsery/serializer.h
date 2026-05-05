@@ -24,7 +24,6 @@
 #define BITSERY_SERIALIZER_H
 
 #include "details/serialization_common.h"
-#include "details/serializer_shared.h"
 #include <cassert>
 
 namespace bitsery {
@@ -32,7 +31,6 @@ namespace bitsery {
 template<typename TOutputAdapter, typename TContext = void>
 class Serializer
   : public details::AdapterAndContextRef<TOutputAdapter, TContext>
-  , public details::SerializerShorthand<Serializer<TOutputAdapter, TContext>>
 {
 public:
   // helper type, that always returns bit-packing enabled type, useful inside
@@ -58,6 +56,18 @@ public:
   void object(const T& obj, Fnc&& fnc)
   {
     fnc(*this, const_cast<T&>(obj));
+  }
+
+  /*
+   * functionality, that enables simpler serialization syntax, by including
+   * additional header
+   */
+
+  template<typename... TArgs>
+  Serializer& operator()(TArgs&&... args)
+  {
+    archive(std::forward<TArgs>(args)...);
+    return *this;
   }
 
   /*
@@ -274,6 +284,164 @@ public:
     procContainer(std::begin(obj), std::end(obj));
   }
 
+  // overloads for functions with explicit type size
+
+  template<typename T>
+  void value1b(T&& v)
+  {
+    value<1>(std::forward<T>(v));
+  }
+
+  template<typename T>
+  void value2b(T&& v)
+  {
+    value<2>(std::forward<T>(v));
+  }
+
+  template<typename T>
+  void value4b(T&& v)
+  {
+    value<4>(std::forward<T>(v));
+  }
+
+  template<typename T>
+  void value8b(T&& v)
+  {
+    value<8>(std::forward<T>(v));
+  }
+
+  template<typename T>
+  void value16b(T&& v)
+  {
+    value<16>(std::forward<T>(v));
+  }
+
+  template<typename T, typename Ext>
+  void ext1b(const T& v, Ext&& extension)
+  {
+    ext<1, T, Ext>(v, std::forward<Ext>(extension));
+  }
+
+  template<typename T, typename Ext>
+  void ext2b(const T& v, Ext&& extension)
+  {
+    ext<2, T, Ext>(v, std::forward<Ext>(extension));
+  }
+
+  template<typename T, typename Ext>
+  void ext4b(const T& v, Ext&& extension)
+  {
+    ext<4, T, Ext>(v, std::forward<Ext>(extension));
+  }
+
+  template<typename T, typename Ext>
+  void ext8b(const T& v, Ext&& extension)
+  {
+    ext<8, T, Ext>(v, std::forward<Ext>(extension));
+  }
+
+  template<typename T, typename Ext>
+  void ext16b(const T& v, Ext&& extension)
+  {
+    ext<16, T, Ext>(v, std::forward<Ext>(extension));
+  }
+
+  template<typename T>
+  void text1b(const T& str, size_t maxSize)
+  {
+    text<1>(str, maxSize);
+  }
+
+  template<typename T>
+  void text2b(const T& str, size_t maxSize)
+  {
+    text<2>(str, maxSize);
+  }
+
+  template<typename T>
+  void text4b(const T& str, size_t maxSize)
+  {
+    text<4>(str, maxSize);
+  }
+
+  template<typename T>
+  void text1b(const T& str)
+  {
+    text<1>(str);
+  }
+
+  template<typename T>
+  void text2b(const T& str)
+  {
+    text<2>(str);
+  }
+
+  template<typename T>
+  void text4b(const T& str)
+  {
+    text<4>(str);
+  }
+
+  template<typename T>
+  void container1b(T&& obj, size_t maxSize)
+  {
+    container<1>(std::forward<T>(obj), maxSize);
+  }
+
+  template<typename T>
+  void container2b(T&& obj, size_t maxSize)
+  {
+    container<2>(std::forward<T>(obj), maxSize);
+  }
+
+  template<typename T>
+  void container4b(T&& obj, size_t maxSize)
+  {
+    container<4>(std::forward<T>(obj), maxSize);
+  }
+
+  template<typename T>
+  void container8b(T&& obj, size_t maxSize)
+  {
+    container<8>(std::forward<T>(obj), maxSize);
+  }
+
+  template<typename T>
+  void container16b(T&& obj, size_t maxSize)
+  {
+    container<16>(std::forward<T>(obj), maxSize);
+  }
+
+  template<typename T>
+  void container1b(T&& obj)
+  {
+    container<1>(std::forward<T>(obj));
+  }
+
+  template<typename T>
+  void container2b(T&& obj)
+  {
+    container<2>(std::forward<T>(obj));
+  }
+
+  template<typename T>
+  void container4b(T&& obj)
+  {
+    container<4>(std::forward<T>(obj));
+  }
+
+  template<typename T>
+  void container8b(T&& obj)
+  {
+    container<8>(std::forward<T>(obj));
+  }
+
+  template<typename T>
+  void container16b(T&& obj)
+  {
+    container<16>(std::forward<T>(obj));
+  }
+
 private:
   // process value types
   // false_type means that we must process all elements individually
@@ -372,6 +540,18 @@ private:
   void value(const details::DummyType&)
   {
   }
+
+  template<typename T, typename... TArgs>
+  void archive(T&& head, TArgs&&... tail)
+  {
+    // serialize object
+    details::BriefSyntaxFunction<Serializer, T>::invoke(*this,
+                                                        std::forward<T>(head));
+    // expand other elements
+    archive(std::forward<TArgs>(tail)...);
+  }
+  // dummy function, that stops archive variadic arguments expansion
+  void archive() {}
 };
 
 // helper function that set ups all the basic steps and after serialziation

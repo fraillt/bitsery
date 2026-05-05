@@ -158,60 +158,56 @@ Buffer normalSerialize(const T& value)
   return buf;
 }
 
-template<typename T>
-Buffer typedSerialize(const T& value)
-{
-  Buffer buf;
-  const auto written = bitsery::ext::serializeTypedWire(
-    bitsery::OutputBufferAdapter<Buffer>{ buf }, value);
-  buf.resize(written);
-  return buf;
-}
+} // namespace
+
+#if BITSERY_HAS_CPP26_REFLECTION
+namespace {
 
 template<typename T>
-void expectSameBytes(const T& value)
+void expectReadable(const T& value)
 {
-  EXPECT_EQ(typedSerialize(value), normalSerialize(value));
+  const auto buf = normalSerialize(value);
+  auto view = bitsery::tw::makeTypedWireView<T>(buf.data(), buf.size());
+  EXPECT_TRUE(view.valid());
 }
 
 } // namespace
 
-#if BITSERY_HAS_CPP26_REFLECTION
-TEST(TypedWire, MatchesNormalBitserySerializedBytes)
+TEST(TypedWire, ReadsNormalBitserySerializedBytes)
 {
   ApplicationStateRequest app{};
   app.applicationState = 0x2Au;
-  expectSameBytes(app);
+  expectReadable(app);
 
   ActivityRequest activity{};
   activity.userId = -123456789;
   activity.activityId = 987654321;
   activity.timestamp = 0xAABBCCDDEEFF0011ULL;
-  expectSameBytes(activity);
+  expectReadable(activity);
 
   VersionedState versioned{};
   versioned.state = 0xCAFEBABEu;
-  expectSameBytes(versioned);
+  expectReadable(versioned);
 
   PrefixV2 prefix{};
   prefix.a = 0x11u;
   prefix.b = 0x2233u;
   prefix.c = 0x44556677u;
-  expectSameBytes(prefix);
+  expectReadable(prefix);
 
   DynamicRequest dynamic{};
   dynamic.id = 0xDEADBEEFu;
   dynamic.title = "typed";
   dynamic.payload = { 9u, 7u, 5u, 3u, 1u };
   dynamic.tail = 0xCAFEu;
-  expectSameBytes(dynamic);
+  expectReadable(dynamic);
 
   Parent parent{};
   parent.tag = 0x7Fu;
   parent.nested.a = 0xAABBCCDDu;
   parent.nested.b = 0xEEFFu;
   parent.tail = 0x11223344u;
-  expectSameBytes(parent);
+  expectReadable(parent);
 }
 
 TEST(TypedWire, UnversionedTinyMessageHasNoHeader)
@@ -219,7 +215,7 @@ TEST(TypedWire, UnversionedTinyMessageHasNoHeader)
   ApplicationStateRequest value{};
   value.applicationState = 0x2Au;
 
-  const auto buf = typedSerialize(value);
+  const auto buf = normalSerialize(value);
   ASSERT_EQ(buf.size(), 1u);
   EXPECT_EQ(buf[0], value.applicationState);
 
@@ -242,7 +238,7 @@ TEST(TypedWire, FixedActivityRequestIsPayloadOnly)
   value.activityId = 987654321;
   value.timestamp = 0xAABBCCDDEEFF0011ULL;
 
-  const auto buf = typedSerialize(value);
+  const auto buf = normalSerialize(value);
   ASSERT_EQ(buf.size(), 24u);
 
   auto view =
@@ -268,7 +264,7 @@ TEST(TypedWire, VersionFieldIsPayloadAndMismatchRejects)
   VersionedState value{};
   value.state = 0xCAFEBABEu;
 
-  const auto buf = typedSerialize(value);
+  const auto buf = normalSerialize(value);
   ASSERT_EQ(buf.size(), 8u);
 
   auto defaultExpected =
@@ -295,7 +291,7 @@ TEST(TypedWire, UnversionedReadIsAppendOnlyCompatible)
   newer.b = 0x2233u;
   newer.c = 0x44556677u;
 
-  const auto newerBuf = typedSerialize(newer);
+  const auto newerBuf = normalSerialize(newer);
   ASSERT_EQ(newerBuf.size(), 7u);
 
   auto oldView =
@@ -307,7 +303,7 @@ TEST(TypedWire, UnversionedReadIsAppendOnlyCompatible)
   PrefixV1 older{};
   older.a = 0x44u;
   older.b = 0x5566u;
-  const auto olderBuf = typedSerialize(older);
+  const auto olderBuf = normalSerialize(older);
 
   auto newView =
     bitsery::tw::makeTypedWireView<PrefixV2>(olderBuf.data(), olderBuf.size());
@@ -327,7 +323,7 @@ TEST(TypedWire, DynamicFieldsUseInlineLengthsOnly)
   value.payload = { 9u, 7u, 5u, 3u, 1u };
   value.tail = 0xCAFEu;
 
-  const auto buf = typedSerialize(value);
+  const auto buf = normalSerialize(value);
   ASSERT_EQ(buf.size(),
             sizeof(value.id) + 1u + value.title.size() + 1u +
               value.payload.size() + sizeof(value.tail));
@@ -359,7 +355,7 @@ TEST(TypedWire, NestedFieldsAreParsedWithoutTables)
   value.nested.b = 0xEEFFu;
   value.tail = 0x11223344u;
 
-  const auto buf = typedSerialize(value);
+  const auto buf = normalSerialize(value);
   ASSERT_EQ(buf.size(), 11u);
 
   auto view = bitsery::tw::makeTypedWireView<Parent>(buf.data(), buf.size());

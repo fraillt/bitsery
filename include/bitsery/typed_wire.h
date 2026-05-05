@@ -69,10 +69,6 @@ namespace detail {
 template<typename T>
 using Raw = typename std::remove_cv<typename std::remove_reference<T>::type>::type;
 
-template<typename T>
-struct AlwaysFalse : std::false_type
-{};
-
 struct Cursor
 {
   const uint8_t* data{};
@@ -161,30 +157,6 @@ reflectedAggregate()
 #endif
 }
 
-template<typename TAdapter, typename T>
-inline void writeOne(TAdapter& adapter, const T& value);
-
-template<typename TAdapter, typename T>
-inline void
-writeRange(TAdapter& adapter, const T& value, size_t count)
-{
-  auto first = std::begin(value);
-  using ValueT = Raw<decltype(*first)>;
-  if constexpr (traits::ContainerTraits<T>::isContiguous &&
-                details::IsFundamentalType<ValueT>::value) {
-    if (count != 0u) {
-      using IntT = typename details::IntegralFromFundamental<ValueT>::TValue;
-      adapter.template writeBuffer<sizeof(ValueT)>(
-        reinterpret_cast<const IntT*>(&(*first)), count);
-    }
-  } else {
-    using DiffT = typename std::iterator_traits<decltype(first)>::difference_type;
-    auto last = std::next(first, static_cast<DiffT>(count));
-    for (; first != last; ++first)
-      writeOne(adapter, *first);
-  }
-}
-
 #if BITSERY_HAS_CPP26_REFLECTION
 template<typename T>
 consteval auto
@@ -255,47 +227,7 @@ validateVersion()
                   "typed wire version must be a non-bool integral member");
   }
 }
-
-template<typename TAdapter, typename T>
-inline void
-writeObject(TAdapter& adapter, const T& value)
-{
-  validateVersion<T>();
-  template for (constexpr auto field : members<T>())
-    writeOne(adapter, value.[:field:]);
-}
 #endif
-
-template<typename TAdapter, typename T>
-inline void
-writeOne(TAdapter& adapter, const T& value)
-{
-  using TClean = Raw<T>;
-  if constexpr (details::IsTextTraitsDefined<TClean>::value) {
-    const auto count = traits::TextTraits<TClean>::length(value);
-    details::writeSize(adapter, count);
-    writeRange(adapter, value, count);
-  } else if constexpr (details::IsContainerTraitsDefined<TClean>::value) {
-    const auto count = traits::ContainerTraits<TClean>::size(value);
-    if constexpr (traits::ContainerTraits<TClean>::isResizable)
-      details::writeSize(adapter, count);
-    writeRange(adapter, value, count);
-  } else if constexpr (details::IsFundamentalType<TClean>::value) {
-    using IntT = typename details::IntegralFromFundamental<TClean>::TValue;
-    adapter.template writeBytes<sizeof(TClean)>(
-      reinterpret_cast<const IntT&>(value));
-  } else if constexpr (reflectedAggregate<TClean>()) {
-#if BITSERY_HAS_CPP26_REFLECTION
-    writeObject(adapter, value);
-#else
-    static_assert(AlwaysFalse<TClean>::value,
-                  "typed wire serialization requires C++26 reflection");
-#endif
-  } else {
-    static_assert(AlwaysFalse<TClean>::value,
-                  "unsupported typed wire field type");
-  }
-}
 
 template<typename T>
 inline bool skipOne(Cursor& in, size_t& pos);
@@ -547,30 +479,6 @@ public:
 #endif
 
 } // namespace tw
-
-namespace ext {
-
-template<typename TAdapter, typename T>
-inline size_t
-serializeTypedWire(TAdapter adapter, const T& value)
-{
-#if BITSERY_HAS_CPP26_REFLECTION
-  using TClean = typename std::remove_cv<typename std::remove_reference<T>::type>::type;
-  static_assert(tw::detail::reflectedAggregate<TClean>(),
-                "serializeTypedWire requires a reflected aggregate root type");
-  tw::detail::writeObject(adapter, value);
-  adapter.flush();
-  return adapter.writtenBytesCount();
-#else
-  (void)adapter;
-  (void)value;
-  static_assert(tw::detail::AlwaysFalse<T>::value,
-                "serializeTypedWire requires C++26 reflection");
-  return 0u;
-#endif
-}
-
-} // namespace ext
 } // namespace bitsery
 
 #endif // BITSERY_TYPED_WIRE_H
