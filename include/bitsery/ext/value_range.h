@@ -24,6 +24,7 @@
 #define BITSERY_EXT_VALUE_RANGE_H
 
 #include "../details/serialization_common.h"
+#include <algorithm>
 
 namespace bitsery {
 
@@ -176,8 +177,11 @@ setRangeValue(T& v, const RangeSpec<T>& r)
   using UIT = details::SameSizeUnsigned<T>;
   const auto intRep = reinterpret_cast<UIT&>(v);
   const UIT maxUint = (static_cast<UIT>(1) << r.bitsRequired) - 1;
-  v = r.min +
-      (static_cast<T>(intRep) / static_cast<T>(maxUint)) * (r.max - r.min);
+  // Rounding in the interpolation can put valid upper codes above max.
+  v = (std::min)(
+    r.min +
+      (static_cast<T>(intRep) / static_cast<T>(maxUint)) * (r.max - r.min),
+    r.max);
 }
 
 template<typename T,

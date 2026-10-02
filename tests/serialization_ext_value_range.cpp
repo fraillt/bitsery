@@ -23,6 +23,7 @@
 #include "serialization_test_utils.h"
 #include <bitsery/ext/value_range.h>
 #include <gmock/gmock.h>
+#include <limits>
 
 using namespace testing;
 using bitsery::details::RangeSpec;
@@ -205,4 +206,64 @@ TEST(SerializeExtensionValueRange, WhenDataIsInvalidThenReturnMinimumRangeValue)
   EXPECT_THAT(res1, Eq(4));
   EXPECT_THAT(ctx.des->adapter().error(),
               Eq(bitsery::ReaderError::InvalidData));
+}
+
+template<typename T>
+class FloatingPointValueRange : public testing::Test
+{};
+
+using FloatingPointTypes = ::testing::Types<float, double>;
+TYPED_TEST_SUITE(FloatingPointValueRange, FloatingPointTypes, );
+
+TYPED_TEST(FloatingPointValueRange, MaximumDoesNotStopFollowingReads)
+{
+  SerializationContext ctx;
+  const TypeParam min = static_cast<TypeParam>(-0.2);
+  const TypeParam max = static_cast<TypeParam>(0.1);
+  const ValueRange<TypeParam> range{ min, max,
+                                    static_cast<TypeParam>(0.0005) };
+  const uint32_t following{ 0x12345678 };
+  TypeParam result{};
+  uint32_t followingResult{};
+
+  ctx.createSerializer().enableBitPacking([&](BPSer& ser) {
+    ser.ext(max, range);
+    ser.value4b(following);
+  });
+  ctx.createDeserializer().enableBitPacking([&](BPDes& des) {
+    des.ext(result, range);
+    des.value4b(followingResult);
+  });
+
+  EXPECT_THAT(result, Eq(max));
+  EXPECT_THAT(followingResult, Eq(following));
+  EXPECT_THAT(ctx.des->adapter().error(),
+              Eq(bitsery::ReaderError::NoError));
+  EXPECT_TRUE(ctx.des->adapter().isCompletedSuccessfully());
+}
+
+TYPED_TEST(FloatingPointValueRange, UpperCodesStayWithinRange)
+{
+  using UInt = bitsery::details::SameSizeUnsigned<TypeParam>;
+  const size_t bits = std::numeric_limits<TypeParam>::digits + 2;
+  const UInt maxCode = (UInt{ 1 } << bits) - 1;
+  const TypeParam min = static_cast<TypeParam>(-0.2);
+  const TypeParam max = static_cast<TypeParam>(0.1);
+  const ValueRange<TypeParam> range{ min, max, BitsConstraint{ bits } };
+
+  // At this precision, more than one integer code rounds to a ratio of one.
+  for (const UInt code : { maxCode - UInt{ 1 }, maxCode }) {
+    SerializationContext ctx;
+    TypeParam result{};
+    ctx.createSerializer().enableBitPacking(
+      [&](BPSer& ser) { ser.adapter().writeBits(code, bits); });
+    ctx.createDeserializer().enableBitPacking(
+      [&](BPDes& des) { des.ext(result, range); });
+
+    EXPECT_THAT(result, Ge(min));
+    EXPECT_THAT(result, Le(max));
+    EXPECT_THAT(ctx.des->adapter().error(),
+                Eq(bitsery::ReaderError::NoError));
+    EXPECT_TRUE(ctx.des->adapter().isCompletedSuccessfully());
+  }
 }
